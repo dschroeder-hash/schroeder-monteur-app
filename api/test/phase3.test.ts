@@ -323,7 +323,7 @@ describe('transfer queue robustness', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ remaining: 1, status: 429, code: 'TooMany', pathContains: 'serviceLines' }),
     });
-    (await approveDay(addDays(TODAY, -11), o!.id)).body;
+    await approveDay(addDays(TODAY, -11), o!.id);
     await runWorker();
     const [tr] = await q(
       "select * from bc_transfer where state <> 'DONE' and target = 'SERVICE_LINE_RESOURCE'",

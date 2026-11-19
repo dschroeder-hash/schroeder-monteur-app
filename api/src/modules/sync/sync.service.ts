@@ -234,16 +234,14 @@ export class SyncService {
         proposal: Array<{ kind: string; time: string }>;
         comment?: string;
       };
-      await tx
-        .insert(timeCorrectionRequest)
-        .values({
-          id: cmd.id,
-          userId: scope.userId,
-          locationId,
-          workDate: p.workDate,
-          proposal: p.proposal,
-          comment: p.comment ?? null,
-        });
+      await tx.insert(timeCorrectionRequest).values({
+        id: cmd.id,
+        userId: scope.userId,
+        locationId,
+        workDate: p.workDate,
+        proposal: p.proposal,
+        comment: p.comment ?? null,
+      });
       const meister = await tx
         .select({ userId: userLocation.userId })
         .from(userLocation)

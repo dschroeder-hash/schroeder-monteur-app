@@ -302,15 +302,13 @@ export class PlanningService {
         .where(and(eq(assignment.orderId, order.id), eq(assignment.needsReplan, true)));
       if (order.appStatus === 'NEU') {
         await tx.update(serviceOrder).set({ appStatus: 'EINGEPLANT' }).where(eq(serviceOrder.id, order.id));
-        await tx
-          .insert(orderStatusEvent)
-          .values({
-            orderId: order.id,
-            fromStatus: 'NEU',
-            toStatus: 'EINGEPLANT',
-            actorId: scope.userId,
-            source: 'PLANTAFEL',
-          });
+        await tx.insert(orderStatusEvent).values({
+          orderId: order.id,
+          fromStatus: 'NEU',
+          toStatus: 'EINGEPLANT',
+          actorId: scope.userId,
+          source: 'PLANTAFEL',
+        });
       }
       await this.transfers.enqueue(tx, {
         locationId: order.locationId,
@@ -442,15 +440,13 @@ export class PlanningService {
         .where(and(eq(assignment.orderId, old.orderId), isNull(assignment.cancelledAt)));
       if (!remaining.length && order!.appStatus === 'EINGEPLANT') {
         await tx.update(serviceOrder).set({ appStatus: 'NEU' }).where(eq(serviceOrder.id, order!.id));
-        await tx
-          .insert(orderStatusEvent)
-          .values({
-            orderId: order!.id,
-            fromStatus: 'EINGEPLANT',
-            toStatus: 'NEU',
-            actorId: scope.userId,
-            source: 'PLANTAFEL',
-          });
+        await tx.insert(orderStatusEvent).values({
+          orderId: order!.id,
+          fromStatus: 'EINGEPLANT',
+          toStatus: 'NEU',
+          actorId: scope.userId,
+          source: 'PLANTAFEL',
+        });
       }
       await this.transfers.enqueue(tx, {
         locationId: old.locationId,

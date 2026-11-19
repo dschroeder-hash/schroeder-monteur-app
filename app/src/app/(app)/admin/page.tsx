@@ -44,6 +44,14 @@ export default function AdminPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <nav aria-label="Administration" className="flex gap-2">
+        <a
+          href="/admin/uebertragungen"
+          className="inline-flex min-h-touch items-center rounded-card border-2 border-border bg-surface px-4 font-semibold"
+        >
+          Übertragungen nach BC
+        </a>
+      </nav>
       <h1 className="font-headline text-2xl">Module je Standort</h1>
       <p className="text-text-muted">
         Mit ⚖ markierte Module benötigen die Zustimmung des Betriebsrats (§ 87 Abs. 1 Nr. 6 BetrVG).

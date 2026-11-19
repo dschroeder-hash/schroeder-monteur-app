@@ -22,6 +22,14 @@ import {
   type Notice,
 } from './db';
 
+export interface CorrectionRequest {
+  id: string;
+  workDate: string;
+  proposal: Array<{ kind: string; time: string }>;
+  state: 'OFFEN' | 'ANGENOMMEN' | 'ABGELEHNT';
+  decisionReason: string | null;
+}
+
 export type Fetcher = <T>(path: string, init?: RequestInit) => Promise<T>;
 
 const AUTO_WORK_FROM: AppStatus[] = [
@@ -208,6 +216,9 @@ interface PullResponse {
   }>;
   overheadTypes: Array<{ code: string; label: string; active: boolean }>;
   settings: Array<{ key: string; value: unknown; locationId: string | null }>;
+  /** Stamp events voided by a Meister correction (E-37). */
+  voidedEventIds?: string[];
+  correctionRequests?: CorrectionRequest[];
 }
 
 /** Applies the server delta to the local cache. Locally pending stamp events are never overwritten. */
@@ -239,6 +250,12 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     await db.orders.bulkPut(res.orders);
     await db.assignments.bulkPut(res.assignments);
     await db.stampEvents.bulkPut(res.stampEvents.map((e) => ({ ...e, pending: false })));
+    if (res.voidedEventIds?.length) await db.stampEvents.bulkDelete(res.voidedEventIds);
+    if (res.correctionRequests?.length) {
+      const known = (await kvGet<CorrectionRequest[]>(db, 'correctionRequests')) ?? [];
+      const merged = new Map([...known, ...res.correctionRequests].map((c) => [c.id, c]));
+      await kvSet(db, 'correctionRequests', [...merged.values()]);
+    }
     await db.timeEntries.bulkPut(res.timeEntries);
     for (const [day, ids] of Object.entries(res.timeEntryKeysByDay)) {
       const keep = new Set(ids);

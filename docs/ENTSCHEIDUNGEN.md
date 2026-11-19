@@ -2,44 +2,48 @@
 
 Format: kurze Architecture Decision Records. Status: **entschieden** (von mir getroffen, änderbar mit Begründung), **vorgegeben** (aus dem Auftrag, nicht neu verhandeln), **vorläufig** (Annahme bis zur Klärung in OFFENE-PUNKTE.md).
 
-| Nr.  | Thema                                                                     | Status      |
-| ---- | ------------------------------------------------------------------------- | ----------- |
-| E-01 | Monorepo mit pnpm + Turborepo, zusätzlicher Ordner `/packages`            | entschieden |
-| E-02 | Backend: NestJS (API + Worker aus einer Codebasis)                        | entschieden |
-| E-03 | ORM: Drizzle statt Prisma                                                 | entschieden |
-| E-04 | Hosting: Azure Container Apps                                             | vorläufig   |
-| E-05 | PWA-Tooling: Serwist (Workbox-basiert)                                    | entschieden |
-| E-06 | Sync über idempotente Kommandos + Cursor-Pull                             | entschieden |
-| E-07 | Stempelereignisse append-only, Zeiten abgeleitet                          | entschieden |
-| E-08 | Rechte doppelt: Service-Scope + PostgreSQL RLS                            | entschieden |
-| E-09 | BC-Transfer-Queue in PostgreSQL statt Service Bus                         | entschieden |
-| E-10 | Echtzeit: Azure Web PubSub                                                | entschieden |
-| E-11 | Infrastruktur als Code: Bicep                                             | entschieden |
-| E-12 | Zusätzliche Rolle „Lager“                                                 | vorläufig   |
-| E-13 | Zuweisungen werden sofort nach BC geschrieben                             | entschieden |
-| E-14 | BC-Status wird nur bei Meister-Freigabe geschrieben                       | entschieden |
-| E-15 | Rundung auf Tagessumme je Auftrag und Tätigkeit                           | vorläufig   |
-| E-16 | Bestand = BC-Bestand − noch nicht in BC gebuchte App-Entnahmen            | entschieden |
-| E-17 | Diesel intern als ungebuchte Artikel-Buch.-Blatt-Zeile                    | vorläufig   |
-| E-18 | Barcode-Scan mit zxing-wasm                                               | entschieden |
-| E-19 | Feature-Flags je Modul **und** Standort                                   | entschieden |
-| E-20 | Fremde Datensätze → 404 statt 403                                         | entschieden |
-| E-21 | Plantafel mit dnd-kit                                                     | entschieden |
-| E-22 | Feiertage nach Bundesland des Standorts                                   | entschieden |
-| E-23 | Auftragsart-Mapping versioniert (`valid_from`)                            | entschieden |
-| E-24 | Abwesenheit nach BC: eine Zeile je Kalendertag                            | vorläufig   |
-| E-25 | Mock-Server mit Fastify, gemeinsame Contract-Schemas                      | entschieden |
-| E-26 | NestJS 11 statt 12                                                        | entschieden |
-| E-27 | PWA-Build mit Webpack statt Turbopack                                     | entschieden |
-| E-28 | Eigene Datenbankrollen für API und Worker                                 | entschieden |
-| E-29 | Unbekannte Entra-Benutzer werden ohne Rechte angelegt                     | entschieden |
-| E-30 | Service Worker cacht keine API-Daten                                      | entschieden |
-| E-31 | Logo auf weißer Fläche im Dunkelmodus                                     | entschieden |
-| E-32 | Sync-Auslöser: Fokus, Online-Event, Intervall – keine Background Sync API | entschieden |
-| E-33 | Lückenloser Delta-Pull über Transaktions-IDs (xid8)                       | entschieden |
-| E-34 | Auftragsdetail über Query-Parameter, App-Seiten vorab gecacht             | entschieden |
-| E-35 | Stempelregeln: implizites Kommen, Pause unterbricht und setzt fort        | entschieden |
-| E-36 | Zeitbuchungen werden bei jedem Stempel neu abgeleitet                     | entschieden |
+| Nr.  | Thema                                                                      | Status      |
+| ---- | -------------------------------------------------------------------------- | ----------- |
+| E-01 | Monorepo mit pnpm + Turborepo, zusätzlicher Ordner `/packages`             | entschieden |
+| E-02 | Backend: NestJS (API + Worker aus einer Codebasis)                         | entschieden |
+| E-03 | ORM: Drizzle statt Prisma                                                  | entschieden |
+| E-04 | Hosting: Azure Container Apps                                              | vorläufig   |
+| E-05 | PWA-Tooling: Serwist (Workbox-basiert)                                     | entschieden |
+| E-06 | Sync über idempotente Kommandos + Cursor-Pull                              | entschieden |
+| E-07 | Stempelereignisse append-only, Zeiten abgeleitet                           | entschieden |
+| E-08 | Rechte doppelt: Service-Scope + PostgreSQL RLS                             | entschieden |
+| E-09 | BC-Transfer-Queue in PostgreSQL statt Service Bus                          | entschieden |
+| E-10 | Echtzeit: Azure Web PubSub                                                 | entschieden |
+| E-11 | Infrastruktur als Code: Bicep                                              | entschieden |
+| E-12 | Zusätzliche Rolle „Lager“                                                  | vorläufig   |
+| E-13 | Zuweisungen werden sofort nach BC geschrieben                              | entschieden |
+| E-14 | BC-Status wird nur bei Meister-Freigabe geschrieben                        | entschieden |
+| E-15 | Rundung auf Tagessumme je Auftrag und Tätigkeit                            | vorläufig   |
+| E-16 | Bestand = BC-Bestand − noch nicht in BC gebuchte App-Entnahmen             | entschieden |
+| E-17 | Diesel intern als ungebuchte Artikel-Buch.-Blatt-Zeile                     | vorläufig   |
+| E-18 | Barcode-Scan mit zxing-wasm                                                | entschieden |
+| E-19 | Feature-Flags je Modul **und** Standort                                    | entschieden |
+| E-20 | Fremde Datensätze → 404 statt 403                                          | entschieden |
+| E-21 | Plantafel mit dnd-kit                                                      | entschieden |
+| E-22 | Feiertage nach Bundesland des Standorts                                    | entschieden |
+| E-23 | Auftragsart-Mapping versioniert (`valid_from`)                             | entschieden |
+| E-24 | Abwesenheit nach BC: eine Zeile je Kalendertag                             | vorläufig   |
+| E-25 | Mock-Server mit Fastify, gemeinsame Contract-Schemas                       | entschieden |
+| E-26 | NestJS 11 statt 12                                                         | entschieden |
+| E-27 | PWA-Build mit Webpack statt Turbopack                                      | entschieden |
+| E-28 | Eigene Datenbankrollen für API und Worker                                  | entschieden |
+| E-29 | Unbekannte Entra-Benutzer werden ohne Rechte angelegt                      | entschieden |
+| E-30 | Service Worker cacht keine API-Daten                                       | entschieden |
+| E-31 | Logo auf weißer Fläche im Dunkelmodus                                      | entschieden |
+| E-32 | Sync-Auslöser: Fokus, Online-Event, Intervall – keine Background Sync API  | entschieden |
+| E-33 | Lückenloser Delta-Pull über Transaktions-IDs (xid8)                        | entschieden |
+| E-34 | Auftragsdetail über Query-Parameter, App-Seiten vorab gecacht              | entschieden |
+| E-35 | Stempelregeln: implizites Kommen, Pause unterbricht und setzt fort         | entschieden |
+| E-36 | Zeitbuchungen werden bei jedem Stempel neu abgeleitet                      | entschieden |
+| E-37 | Korrekturen als stornierte + neue Stempelereignisse                        | entschieden |
+| E-38 | Zeitfreigabe je Monteur und Tag, eine BC-Zeile je Auftrag × Tätigkeit      | entschieden |
+| E-39 | Fehlgeschlagene Übertragung blockiert ihre Gruppe                          | entschieden |
+| E-40 | Plantafel: Ablegen an der Zeigerposition, Tastatur- und Dialog-Alternative | entschieden |
 
 ---
 
@@ -218,3 +222,23 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 ### E-36 Zeitbuchungen werden bei jedem Stempel neu abgeleitet
 
 **Entscheidung:** Der Server berechnet nach jedem Stempelereignis die Zeitbuchungen des Tages und des Vortags neu (deterministische Schlüssel, Upsert). Offene, abgeleitete Buchungen darf nur ihr Eigentümer löschen (restriktive RLS-Richtlinie). Sind Buchungen eines Tages bereits eingereicht oder freigegeben, wird nichts automatisch geändert; der Monteur erhält einen Hinweis (Freigabe-Workflow: Phase 3).
+
+### E-37 Korrekturen als stornierte und neue Stempelereignisse
+
+**Entscheidung:** Der Meister ändert keine Zeiten direkt. Er storniert falsche Stempelereignisse (`stamp_event_void`) und fügt richtige hinzu (`created_by`, `correction_reason`). Die Zeitbuchungen werden daraus neu berechnet. Ein Korrekturantrag des Monteurs (vergessenes Ausstempeln) wird nach Annahme genauso umgesetzt.
+**Begründung:** Rohdaten bleiben unverändert und nachvollziehbar (E-07). Das Audit-Log enthält Tageszusammenfassung vorher/nachher und die Pflichtbegründung. Die Datenbank erlaubt Korrekturereignisse nur dem Meister des Standorts, nie dem Monteur selbst (RLS, Test belegt).
+
+### E-38 Zeitfreigabe je Monteur und Tag
+
+**Entscheidung:** Freigegeben wird ein abgeschlossener Arbeitstag eines Monteurs. Je Auftrag × Tätigkeit entsteht eine BC-Servicezeile (Typ Ressource) mit den gerundeten Stunden und dem Arbeitstyp (`ARBEIT`/`FAHRT`/`DIAGNOSE`). Gemeinkosten gehen ins Ressourcen-Buch.-Blatt. Das Ziel für Auftragszeiten ist per Einstellung `timeTarget` auf das Buch.-Blatt umstellbar (OP-16). Tage mit laufender Buchung oder fehlendem Ausstempeln sind nicht freigebbar.
+**Begründung:** Der Tag ist die Einheit, in der Arbeitszeitgesetz-Warnungen, Pausen und vergessenes Ausstempeln geprüft werden. Eine Zeile je Auftrag und Tätigkeit hält den BC-Auftrag übersichtlich.
+
+### E-39 Fehlgeschlagene Übertragung blockiert ihre Gruppe
+
+**Entscheidung:** Übertragungen derselben Gruppe (ein Serviceauftrag, eine Einplanung) laufen strikt nacheinander. Schlägt eine fachlich fehl (z. B. Auftrag in BC bereits erledigt), warten die folgenden, bis der Admin erneut sendet oder „als erledigt“ markiert (beides im Audit-Log).
+**Begründung:** Sonst könnte z. B. „Status erledigt“ vor den Zeitzeilen in BC ankommen oder ein Verschieben vor dem Anlegen.
+
+### E-40 Plantafel-Bedienung
+
+**Entscheidung:** Abgelegt wird in der Zelle unter dem Finger/Mauszeiger (`pointerWithin`). Zusätzlich gibt es Tastatur-Drag & Drop mit deutschen Screenreader-Ansagen und für jeden Auftrag den Dialog „Einplanen ohne Ziehen …“.
+**Begründung:** Die Standard-Erkennung nach größter Überlappung legte die breite Auftragskarte im Test eine Stunde zu früh ab. Barrierefreiheit verlangt eine Alternative zum Ziehen.

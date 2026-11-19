@@ -59,3 +59,32 @@ Architektur, Entscheidungen, offene Punkte. Bestätigt durch den Auftraggeber: S
 **Aufgefallen**
 
 - Im E2E-Test ging ein Tap auf „Gehen“ verloren, als er unmittelbar nach „Stopp“ kam, während sich die Leiste umbaute. Der Test wartet jetzt auf den neuen Zustand; im echten Betrieb sollte das in der Pilotphase beobachtet werden (Phase 8: Härtung der Stempelleiste gegen Schnellklicks).
+
+## Phase 3 – Meister ✅ (19.11.2026)
+
+**Fertig**
+
+| Bereich         | Inhalt                                                                                                                                                                                                                                                                           | Tests                          |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Plantafel-API   | Board je Standort (Monteure, Einplanungen, Abwesenheiten ohne Grund, nicht eingeplante und neu einzuplanende Aufträge), Zuweisen, Verschieben, Entfernen, Konflikte (Doppelbelegung, Abwesenheit – nur Warnung), Benachrichtigung an den Monteur, Statuswechsel Neu ↔ Eingeplant | 5                              |
+| Freigabe-Inbox  | Tage je Monteur mit Zusammenfassung, ArbZG-Hinweisen, Geräteuhr-Markierung; Freigabe → BC-Servicezeilen (Ressource) und Ressourcen-Buch.-Blatt; Auftragsfreigabe → BC-Status „Erledigt“                                                                                          | 6                              |
+| Korrekturen     | Meister storniert/ergänzt Stempelungen (Pflichtbegründung, Audit vorher/nachher); Korrekturantrag des Monteurs bei vergessenem Ausstempeln; RLS: Monteur kann sich keine Korrekturen selbst anlegen                                                                              | 3                              |
+| Transfer-Worker | Warteschlange mit `SKIP LOCKED`, Reihenfolge je Gruppe, Backoff, Dead-Letter nach 10 Versuchen, Wiederaufnahme nach Absturz, Idempotenz belegt (Wiederholung erzeugt keine doppelte BC-Zeile)                                                                                    | 4                              |
+| Admin           | „Übertragungen nach BC“: Filter, erneut senden, als erledigt markieren (Begründung, Audit)                                                                                                                                                                                       | in Matrix + Phase-3-Tests      |
+| App             | Meister-Navigation, Plantafel Tag/Woche mit Drag & Drop (Maus, Touch, Tastatur, Dialog), Freigabe-Seite mit Korrektur-Dialog, Inbox-Kacheln; Monteur: Korrekturantrag „Ausstempeln vergessen“                                                                                    | –                              |
+| AL-Extension    | Zuordnungen dürfen jetzt geändert werden (Verschieben/Stornieren)                                                                                                                                                                                                                | nicht kompilierbar ohne Tenant |
+| E2E             | Meister plant per Drag & Drop, gibt Zeiten frei; Worker schreibt Zuordnung und Servicezeile (3 h, Arbeitstyp ARBEIT, Ressource R0002) in den BC-Mock                                                                                                                             | 1                              |
+
+Rechtematrix: alle 26 Routen × 5 Rollen automatisch geprüft.
+
+**Bewusst verschoben**
+
+- Webhooks aus BC und Aktualisieren eines einzelnen Auftrags auf Knopfdruck: noch offen. Der Delta-Sync alle 3 Minuten deckt den Bedarf zunächst ab; ich schlage vor, das in Phase 8 (Härtung) mit echter Sandbox zu bauen, weil das Webhook-Verhalten von BC nur dort sinnvoll testbar ist.
+- Material- und Urlaubsfreigaben in der Inbox: Phase 4 bzw. 6 (Platzhalter vorhanden).
+- Push-Benachrichtigung an Monteure: Phase 5 (die Benachrichtigungen werden bereits gespeichert).
+
+**Aufgefallen und behoben**
+
+- dnd-kit legte die Auftragskarte nach größter Überlappung ab statt unter dem Zeiger → eine Stunde zu früh (E-40).
+- Screenreader las interne IDs auf Englisch vor → deutsche Ansagen mit Auftragsnummer, Monteur und Uhrzeit.
+- Ein vom Server getrennter Leerlauf-Datenbankclient hätte den Worker-Prozess beenden können → Fehlerbehandlung am Pool.

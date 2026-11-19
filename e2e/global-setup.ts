@@ -21,10 +21,11 @@ export default async function setup() {
   const o = new pg.Client({ connectionString: ownerUrl });
   await o.connect();
   await o.query(
-    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'monteur_api_e2e') THEN CREATE ROLE monteur_api_e2e LOGIN PASSWORD 'e2e'; END IF; END $$;`,
+    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'monteur_api_e2e') THEN CREATE ROLE monteur_api_e2e LOGIN PASSWORD 'e2e'; END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'monteur_worker_e2e') THEN CREATE ROLE monteur_worker_e2e LOGIN PASSWORD 'e2e'; END IF; END $$;`,
   );
   await o.query(
-    `GRANT monteur_app TO monteur_api_e2e; GRANT CONNECT ON DATABASE ${E2E_DB} TO monteur_api_e2e`,
+    `GRANT monteur_app TO monteur_api_e2e; GRANT monteur_worker TO monteur_worker_e2e; GRANT CONNECT ON DATABASE ${E2E_DB} TO monteur_api_e2e, monteur_worker_e2e`,
   );
   await o.end();
   const { db, pool } = createDb(ownerUrl, 1);

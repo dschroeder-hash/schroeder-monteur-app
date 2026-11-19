@@ -593,16 +593,14 @@ export class ApprovalsService {
         .set({ appStatus: status })
         .where(eq(serviceOrder.id, orderId))
         .returning();
-      await tx
-        .insert(orderStatusEvent)
-        .values({
-          orderId,
-          fromStatus: order.appStatus,
-          toStatus: status,
-          actorId: scope.userId,
-          source: 'MEISTER',
-          note: note ?? null,
-        });
+      await tx.insert(orderStatusEvent).values({
+        orderId,
+        fromStatus: order.appStatus,
+        toStatus: status,
+        actorId: scope.userId,
+        source: 'MEISTER',
+        note: note ?? null,
+      });
       const def = DEFAULT_STATUS_DEFINITIONS[status];
       if (def.writeToBc && def.bcStatus)
         await this.transfers.enqueue(tx, {

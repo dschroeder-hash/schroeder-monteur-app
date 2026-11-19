@@ -4,6 +4,7 @@ const admin = process.env.E2E_DATABASE_ADMIN_URL ?? 'postgres://postgres:postgre
 const host = new URL(admin).host;
 export const E2E_DB = 'monteur_e2e';
 export const API_URL = 'http://localhost:4010';
+export const BC_MOCK_URL = 'http://localhost:4110';
 
 /**
  * End-to-end tests against the production build of the app (service worker active) and the real API.
@@ -36,6 +37,27 @@ export default defineConfig({
         DEV_AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret-1234',
         DATABASE_URL: `postgres://monteur_api_e2e:e2e@${host}/${E2E_DB}`,
         CORS_ORIGINS: 'http://localhost:3010',
+      },
+    },
+    {
+      command: 'node ../bc-mock/dist/main.js',
+      url: `${BC_MOCK_URL}/health`,
+      reuseExistingServer: false,
+      env: { PORT: '4110' },
+    },
+    {
+      // Worker: BC delta sync + transfer queue against the mock (fast intervals for the test).
+      command: 'node ../api/dist/worker.js',
+      url: 'http://localhost:4012/health/live',
+      reuseExistingServer: false,
+      env: {
+        APP_ENV: 'test',
+        BC_MODE: 'mock',
+        BC_API_BASE_URL: `${BC_MOCK_URL}/api`,
+        BC_TOKEN_URL: `${BC_MOCK_URL}/oauth2/token`,
+        BC_SYNC_INTERVAL_SEC: '600',
+        WORKER_HEALTH_PORT: '4012',
+        DATABASE_URL: `postgres://monteur_worker_e2e:e2e@${host}/${E2E_DB}`,
       },
     },
     {

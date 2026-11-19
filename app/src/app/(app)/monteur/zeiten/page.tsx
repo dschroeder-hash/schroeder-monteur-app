@@ -5,7 +5,10 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { fmtDate, fmtMinutes, fmtTime } from '@/lib/format';
-import { localDb } from '@/lib/offline/db';
+import { kvGet, localDb } from '@/lib/offline/db';
+import type { CorrectionRequest } from '@/lib/offline/sync';
+import { useSync } from '@/lib/offline/SyncProvider';
+import { Button } from '@/components/ui/Button';
 import { useNow, useSegments, useTimezone } from '@/lib/offline/hooks';
 
 const KIND_LABEL = {
@@ -26,6 +29,9 @@ export default function TimesPage() {
   const orders = useLiveQuery(() => localDb.orders.toArray(), []) ?? [];
   const overheads = useLiveQuery(() => localDb.overheadTypes.toArray(), []) ?? [];
   const rejected = useLiveQuery(() => localDb.outbox.where('status').equals('rejected').toArray(), []) ?? [];
+  const requests =
+    useLiveQuery(async () => (await kvGet<CorrectionRequest[]>(localDb, 'correctionRequests')) ?? [], []) ??
+    [];
   const corrections =
     useLiveQuery(
       () => localDb.timeEntries.filter((e) => e.needsCorrection && e.userId === me?.id).toArray(),
@@ -49,12 +55,24 @@ export default function TimesPage() {
     <div className="flex flex-col gap-5">
       <h1 className="font-headline text-2xl">Meine Zeiten</h1>
 
-      {corrections.length > 0 && (
-        <p role="alert" className="rounded-card bg-danger-bg p-3 font-semibold text-danger">
-          Ausstempeln vergessen am {[...new Set(corrections.map((c) => fmtDate(c.workDate)))].join(', ')} –
-          bitte Endzeit an Ihren Meister melden. Die Korrektur gibt der Meister frei.
-        </p>
-      )}
+      {[...new Set(corrections.map((c) => c.workDate))].map((d) => (
+        <ForgottenClockOut key={d} workDate={d} requests={requests.filter((r) => r.workDate === d)} />
+      ))}
+      {requests
+        .filter((r) => r.state !== 'OFFEN' && !corrections.some((c) => c.workDate === r.workDate))
+        .slice(-3)
+        .map((r) => (
+          <p
+            key={r.id}
+            role="status"
+            className={`rounded-card p-3 ${r.state === 'ANGENOMMEN' ? 'bg-success-bg text-success' : 'bg-warning-bg text-warning'}`}
+          >
+            Korrekturantrag {fmtDate(r.workDate)}:{' '}
+            {r.state === 'ANGENOMMEN'
+              ? 'übernommen'
+              : `abgelehnt${r.decisionReason ? ` – ${r.decisionReason}` : ''}`}
+          </p>
+        ))}
       {rejected.map((r) => (
         <p key={r.id} role="alert" className="rounded-card bg-danger-bg p-3 text-danger">
           Nicht übernommen ({new Date(r.deviceTime).toLocaleString('de-DE')}): {r.error}
@@ -165,5 +183,59 @@ export default function TimesPage() {
         </table>
       </section>
     </div>
+  );
+}
+
+/** Mandatory correction after a forgotten clock-out (PROMPT 5.1): the Monteur proposes, the Meister approves. */
+function ForgottenClockOut({ workDate, requests }: { workDate: string; requests: CorrectionRequest[] }) {
+  const { run } = useSync();
+  const [time, setTime] = useState('16:00');
+  const [comment, setComment] = useState('');
+  const [sent, setSent] = useState(false);
+  const open = requests.find((r) => r.state === 'OFFEN');
+  const rejected = requests.filter((r) => r.state === 'ABGELEHNT').at(-1);
+  if (open || sent)
+    return (
+      <p role="status" className="rounded-card bg-info-bg p-3 text-info">
+        Ausstempeln am {fmtDate(workDate)}: Ihre Korrektur ({open?.proposal[0]?.time ?? time} Uhr) liegt beim
+        Meister zur Freigabe.
+      </p>
+    );
+  return (
+    <form
+      className="flex flex-col gap-2 rounded-card border-2 border-danger bg-danger-bg p-3 text-danger"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void run('RequestTimeCorrection', {
+          workDate,
+          proposal: [{ kind: 'CLOCK_OUT', time }],
+          comment: comment || undefined,
+        }).then(() => setSent(true));
+      }}
+    >
+      <p className="font-semibold">Ausstempeln vergessen am {fmtDate(workDate)} – wann sind Sie gegangen?</p>
+      {rejected && <p>Letzter Antrag abgelehnt: {rejected.decisionReason ?? 'ohne Begründung'}</p>}
+      <div className="flex flex-wrap items-end gap-2 text-text">
+        <label className="flex flex-col gap-1">
+          Gehen um
+          <input
+            type="time"
+            required
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            className="min-h-touch rounded-card border border-border bg-surface px-3"
+          />
+        </label>
+        <label className="flex flex-1 flex-col gap-1">
+          Hinweis (optional)
+          <input
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            className="min-h-touch rounded-card border border-border bg-surface px-3"
+          />
+        </label>
+        <Button type="submit">An Meister senden</Button>
+      </div>
+    </form>
   );
 }

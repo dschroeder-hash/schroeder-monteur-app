@@ -14,6 +14,8 @@ export interface DbSession {
 
 export function createDb(url: string, max = 10): { db: Db; pool: pg.Pool } {
   const pool = new pg.Pool({ connectionString: url, max });
+  // An idle client dropped by the server (failover, restart) must not crash the process; the pool reconnects.
+  pool.on('error', (err) => console.warn(`[db] idle client error: ${err.message}`));
   return { db: drizzle(pool, { schema }), pool };
 }
 
