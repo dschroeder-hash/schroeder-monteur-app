@@ -54,6 +54,9 @@ export class BcSyncService {
     // Session-level advisory locks belong to one connection: lock and unlock must use the same client,
     // otherwise the unlock silently fails and the lock is held forever by a pooled connection.
     const client = await (this.db as unknown as { $client: pg.Pool }).$client.connect();
+    // A checked-out client without listener would crash the process when the server drops the connection.
+    const onError = (e: Error) => this.log(`[bc-sync] lock connection lost: ${e.message}`);
+    client.on('error', onError);
     let locked = false;
     try {
       const res = await client.query<{ ok: boolean }>(
@@ -73,6 +76,7 @@ export class BcSyncService {
       return stats;
     } finally {
       if (locked) await client.query("select pg_advisory_unlock(hashtext('bc-sync'))").catch(() => undefined);
+      client.off('error', onError);
       client.release();
     }
   }

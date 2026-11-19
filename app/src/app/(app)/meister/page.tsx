@@ -74,7 +74,7 @@ export default function MeisterDashboard() {
             .filter((o) => o.appStatus === 'NEU')
             .slice(0, 20)
             .map((o) => (
-              <OrderCard key={o.id} order={o} href={null} />
+              <OrderCard key={o.id} order={o} href={`/meister/auftrag?id=${o.id}`} />
             ))}
         </div>
       </section>

@@ -266,3 +266,23 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Entscheidung:** Die WebAssembly-Datei von zxing-wasm wird beim Build nach `public/zxing/` kopiert und vom Service Worker vorab gespeichert; der Standard (Laden vom CDN jsDelivr) ist abgeschaltet.
 **Begründung:** Scannen muss im Funkloch funktionieren, und es soll keine Anfrage an fremde Server gehen.
+
+### E-45 Statusnachrichten im Chat per Datenbank-Trigger
+
+**Entscheidung:** Jede Statusänderung eines Auftrags erzeugt per Trigger auf `order_status_event` eine Systemnachricht im Auftragschat („Status: Fertig – Doku offen“).
+**Begründung:** Statusänderungen kommen aus mehreren Wegen (Offline-Befehl, Meister, BC-Sync). Der Trigger garantiert, dass keiner davon vergessen wird, und die Nachricht entsteht in derselben Transaktion.
+
+### E-46 Lokaler Speicher emuliert das Azure-Blob-Blockprotokoll
+
+**Entscheidung:** Fotos werden direkt vom Gerät in den Speicher hochgeladen (zeitlich begrenzte SAS-URL), in 1-MB-Blöcken mit Abschluss über eine Blockliste. Für Entwicklung und Tests bildet `LocalBlobStorage` genau dieses Protokoll in der API nach.
+**Begründung:** Abgebrochene Uploads im Funkloch werden fortgesetzt statt neu begonnen; derselbe Client-Code läuft lokal, in E2E und in Azure. Produktion verweigert den lokalen Speicher.
+
+### E-47 Offline-Navigation über volle Seitenaufrufe
+
+**Entscheidung:** Ohne Verbindung wandelt `OfflineNavigation` Link-Klicks und `navigate()` in normale Seitenaufrufe um, die der Service Worker aus dem Vorab-Cache bedient (Abfrageparameter `id`/`orderId` werden beim Cache-Abgleich ignoriert).
+**Begründung:** Die Client-Navigation von Next lädt Seitendaten vom Server und bleibt offline hängen. Volle Aufrufe sind offline zuverlässig; die Daten kommen ohnehin aus IndexedDB.
+
+### E-48 AGCO-Absprung ohne Suchparameter
+
+**Entscheidung:** Solange das Suchformat von `parts.agcocorp.com` nicht bekannt ist, öffnet die App die Katalog-Startseite und legt Teile- bzw. Seriennummer in die Zwischenablage.
+**Begründung:** Kein Raten von URL-Formaten, kein Auslesen fremder Seiten; sobald das Format geklärt ist, genügt eine Einstellung mit `{query}` (OP-24).

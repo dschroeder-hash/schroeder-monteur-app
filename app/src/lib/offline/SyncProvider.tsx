@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, typ
 import { apiFetch } from '../api';
 import { useAuth } from '../auth/AuthProvider';
 import { localDb } from './db';
+import { uploadPendingPhotos } from './photos';
 import { recordCommand, syncNow } from './sync';
 
 interface SyncContextValue {
@@ -32,6 +33,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const doSync = useCallback(async () => {
     if (!enabled || !ownerId || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
     await syncNow(localDb, ownerId, apiFetch).catch(() => undefined);
+    // Photos after the metadata went through; resumes interrupted uploads.
+    await uploadPendingPhotos(apiFetch).catch(() => undefined);
   }, [enabled, ownerId]);
 
   const schedule = useCallback(() => {

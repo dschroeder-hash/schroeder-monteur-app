@@ -12,6 +12,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { OrderPhotos } from '@/components/OrderPhotos';
 import { Suspense } from 'react';
 
 const CONSUMPTION_STATE = {
@@ -48,6 +49,16 @@ function OrderDetail() {
   const history =
     useLiveQuery(() => localDb.statusEvents.where('orderId').equals(id).reverse().sortBy('at'), [id]) ?? [];
   const st = useStampState(me?.id);
+  const report = useLiveQuery(() => localDb.workReports.get(id), [id]);
+  const unread =
+    useLiveQuery(async () => {
+      const last = (await localDb.kv.get(`chatRead:${id}`))?.value as number | undefined;
+      return localDb.chatMessages
+        .where('orderId')
+        .equals(id)
+        .filter((m) => !m.isSystem && m.authorId !== me?.id && (m.serverSeq ?? 0) > (last ?? 0))
+        .count();
+    }, [id, me?.id]) ?? 0;
   const consumed = useLiveQuery(() => localDb.consumptions.where('orderId').equals(id).toArray(), [id]) ?? [];
   const requests = useLiveQuery(() => localDb.partRequests.where('orderId').equals(id).toArray(), [id]) ?? [];
   const itemNames =
@@ -180,6 +191,35 @@ function OrderDetail() {
           ))}
         </div>
       </section>
+
+      <section aria-label="Dokumentation und Kommunikation" className="grid grid-cols-2 gap-2">
+        <Link
+          href={`/monteur/bericht?orderId=${id}`}
+          className={`inline-flex min-h-touch flex-col items-center justify-center rounded-card border-2 px-3 py-2 text-center font-semibold ${report?.complete ? 'border-border bg-surface' : 'border-warning bg-warning-bg text-warning'}`}
+        >
+          Arbeitsbericht
+          <span className="text-xs font-normal">
+            {report
+              ? report.complete
+                ? 'vollständig'
+                : report.pending
+                  ? 'gespeichert'
+                  : 'unvollständig'
+              : 'noch leer'}
+          </span>
+        </Link>
+        {me?.features.chat && (
+          <Link
+            href={`/monteur/chat?orderId=${id}`}
+            className="inline-flex min-h-touch flex-col items-center justify-center rounded-card border-2 border-border bg-surface px-3 py-2 font-semibold"
+          >
+            Chat
+            <span className="text-xs font-normal">{unread ? `${unread} neu` : 'mit dem Meister'}</span>
+          </Link>
+        )}
+      </section>
+
+      {me?.features.photos && <OrderPhotos orderId={id} />}
 
       {(me?.features.materials || me?.features.consumables) && (
         <section aria-labelledby="material" className="flex flex-col gap-2">

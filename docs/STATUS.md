@@ -115,3 +115,32 @@ Rechtematrix: alle 26 Routen × 5 Rollen automatisch geprüft.
 
 - Gebinde pflegt der Admin vorerst über die API (`/v1/admin/containers`); eine Oberfläche dafür folgt mit der Admin-Stammdatenpflege in Phase 8.
 - Gebuchte interne Entnahmen (Artikel-Buch.-Blatt) werden noch nicht aus BC zurückgemeldet; bis dahin reduziert der Worker-Abgleich den reservierten Bestand nicht automatisch (OP-25).
+
+## Phase 5 – Dokumentation und Kommunikation ✅ (19.11.2026)
+
+**Fertig**
+
+| Bereich          | Inhalt                                                                                                                                                                                                                  | Tests            |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Arbeitsbericht   | Pflichtfelder (ausgeführte Arbeiten, Befund), Textbausteine je Standort, offline speicherbar; „Fertig“ ohne vollständigen Bericht → „Fertig – Doku offen“, nach Nachtrag automatisch „Fertig“                           | in Phase-5-Tests |
+| BC-Übertragung   | Bericht als Kommentarzeilen (≤ 80 Zeichen, Wortumbruch) am Serviceauftrag, immer vor der Statusänderung – erst nach Meister-Freigabe                                                                                    | in Phase-5-Tests |
+| Fotos            | Komprimierung auf dem Gerät (max. 2.000 px, EXIF/GPS entfernt), Warteschlange offline, fortsetzbarer Upload in 1-MB-Blöcken (Azure-Blob-Protokoll; lokal emuliert), Kategorien (Schaden, Typenschild, Vorher/Nachher …) | in Phase-5-Tests |
+| Chat             | Chat je Auftrag zwischen Monteur und Meister, offline schreiben, Lesebestätigungen, Fotos im Chat, Systemnachrichten bei Statuswechsel (Datenbank-Trigger)                                                              | in Phase-5-Tests |
+| Benachrichtigung | Glocke mit Ungelesen-Zähler, Web Push (VAPID) wenn eingerichtet, Echtzeit über Azure Web PubSub (ohne Konfiguration: Abruf beim Sync), Erinnerung „vergessen auszustempeln“                                             | in Phase-5-Tests |
+| Diktat           | Web Speech im Browser, alternativ Azure Speech (Region Germany West Central) über die API; KI-Umformulierung nur hinter Feature-Flag `dictation.ai` und ohne Anbieter deaktiviert                                       | in Phase-5-Tests |
+| Löschfristen     | Nachtjob löscht Chat und Fotos nach Frist (OP-18)                                                                                                                                                                       | in Phase-5-Tests |
+| E2E              | Bericht, Foto und Chat im Flugmodus → Sync → Foto-Upload → Meister sieht Foto und Statusnachricht, antwortet, gibt frei → Kommentarzeilen im BC-Mock                                                                    | 1                |
+
+Tests gesamt: 449 API, 38 Fachlogik, 33 UI-Bausteine, 33 BC-Mock, 2 BC-Vertrag, 10 App, 4 E2E – alle grün. Rechtematrix um alle neuen Routen erweitert.
+
+**Aufgefallen und behoben**
+
+- Im Offline-Betrieb führte `router.push` ins Leere (Next lädt die Seitendaten vom Server) → Links werden offline als normale Seitenaufrufe aus dem Vorab-Cache geöffnet (E-47).
+- Die lokale Datenbank-Transaktion beim Erfassen kannte die neuen Tabellen nicht → Bericht/Chat/Foto offline nicht speicherbar. Behoben, mit Unit-Test „jeder Befehlstyp ist offline erfassbar“.
+- Neuere Chromium-Versionen geben bei `scrollIntoView` ein Promise zurück → React-Aufräumfunktion brach ab. Effekte haben jetzt Blockkörper.
+- Kopfzeile war mit Glocke auf schmalen Smartphones zu breit → kompakte Darstellung.
+
+**Offen / Hinweise**
+
+- VAPID-Schlüssel, Speech-Schlüssel und CORS-Regel des Storage-Kontos für direkte Uploads müssen bei der Einrichtung gesetzt werden (OP-28 bis OP-30).
+- KI-Umformulierung bleibt aus, bis ein Anbieter mit Datenverarbeitung in der EU freigegeben ist (OP-31).

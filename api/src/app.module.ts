@@ -32,6 +32,7 @@ import {
   NotificationsController,
   PhotosController,
   SpeechController,
+  ReportController,
   TemplatesController,
 } from './modules/files/comm.controller.js';
 import { CommService } from './modules/files/comm.service.js';
@@ -67,6 +68,7 @@ export class AppModule {
         SpeechController,
         TemplatesController,
         LocalBlobController,
+        ReportController,
       ],
       providers: [
         { provide: APP_CONFIG, useValue: config },

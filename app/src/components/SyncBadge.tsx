@@ -23,7 +23,7 @@ export function SyncBadge({ status }: { status: SyncStatus }) {
     <div
       role="status"
       aria-live="polite"
-      className={`flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${tone}`}
+      className={`flex min-w-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-1 text-xs font-semibold sm:gap-2 sm:px-3 sm:text-sm ${tone}`}
     >
       <span
         aria-hidden

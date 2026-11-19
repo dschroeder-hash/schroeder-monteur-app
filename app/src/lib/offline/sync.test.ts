@@ -242,3 +242,36 @@ describe('status history', () => {
     expect((await db.statusEvents.toArray()).map((e) => e.id)).toEqual(['srv-1']);
   });
 });
+
+describe('every command type can be recorded offline', () => {
+  it('records all command types without transaction errors', async () => {
+    const { COMMAND_TYPES } = await import('@schroeder/shared');
+    const db = await newDb();
+    const uuid = '00000000-0000-4000-8000-0000000000b1';
+    const payloads: Record<string, Record<string, unknown>> = {
+      StampJobStart: { orderId: ORDER, activity: 'WORK' },
+      StampOverheadStart: { overheadCode: 'WERKSTATTPFLEGE' },
+      SetOrderStatus: { orderId: ORDER, status: 'WARTET_KUNDE' },
+      RequestTimeCorrection: { workDate: '2026-11-16', proposal: [{ kind: 'CLOCK_OUT', time: '16:00' }] },
+      ConsumeItem: { orderId: ORDER, itemId: uuid, storageLocationId: uuid, quantity: 1 },
+      RemoveConsumption: { consumptionId: uuid },
+      RequestPart: { orderId: ORDER, itemId: uuid, quantity: 1, setWaitingForParts: false },
+      SaveWorkReport: { orderId: ORDER, body: 'Text', requiredFields: {}, usedTemplateIds: [] },
+      AttachPhoto: {
+        orderId: ORDER,
+        category: 'VORHER',
+        capturedAt: new Date().toISOString(),
+        width: 10,
+        height: 10,
+        sizeBytes: 100,
+      },
+      SendChatMessage: { orderId: ORDER, body: 'Hallo' },
+      MarkChatRead: { orderId: ORDER, upToServerSeq: 1 },
+    };
+    for (const type of COMMAND_TYPES) await recordCommand(db, ME, type, (payloads[type] ?? {}) as never);
+    expect(await db.outbox.count()).toBe(COMMAND_TYPES.length);
+    expect((await db.workReports.get(ORDER))?.body).toBe('Text');
+    expect(await db.chatMessages.count()).toBe(1);
+    expect(await db.photos.count()).toBe(1);
+  });
+});

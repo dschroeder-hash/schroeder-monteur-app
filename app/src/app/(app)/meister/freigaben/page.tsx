@@ -331,6 +331,9 @@ export default function ApprovalsPage() {
                   {o.bcNo} · {o.customerName}
                 </p>
                 <p className="text-sm text-text-muted">{o.description}</p>
+                <a href={`/meister/auftrag?id=${o.id}`} className="text-sm font-semibold underline">
+                  Bericht und Fotos ansehen
+                </a>
               </div>
               <Button
                 onClick={() =>

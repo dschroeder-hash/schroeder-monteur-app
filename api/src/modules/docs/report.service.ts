@@ -80,15 +80,13 @@ export class ReportService {
       .for('update');
     // Last writer wins by device time; an older offline version must not overwrite a newer one.
     if (existing?.deviceTime && existing.deviceTime > deviceTime) {
-      await tx
-        .insert(auditLog)
-        .values({
-          actorId: scope.userId,
-          action: 'REPORT_OUTDATED_VERSION',
-          entity: 'work_report',
-          entityId: existing.id,
-          newValue: p,
-        });
+      await tx.insert(auditLog).values({
+        actorId: scope.userId,
+        action: 'REPORT_OUTDATED_VERSION',
+        entity: 'work_report',
+        entityId: existing.id,
+        newValue: p,
+      });
       return [
         'Auf einem anderen Gerät wurde der Bericht später geändert – diese ältere Fassung wurde nur archiviert.',
       ];
@@ -107,30 +105,26 @@ export class ReportService {
     };
     if (existing) {
       if (existing.body !== p.body && existing.authorId !== scope.userId)
-        await tx
-          .insert(auditLog)
-          .values({
-            actorId: scope.userId,
-            action: 'REPORT_OVERWRITE',
-            entity: 'work_report',
-            entityId: existing.id,
-            oldValue: { body: existing.body, authorId: existing.authorId },
-          });
+        await tx.insert(auditLog).values({
+          actorId: scope.userId,
+          action: 'REPORT_OVERWRITE',
+          entity: 'work_report',
+          entityId: existing.id,
+          oldValue: { body: existing.body, authorId: existing.authorId },
+        });
       await tx.update(workReport).set(values).where(eq(workReport.id, existing.id));
     } else await tx.insert(workReport).values({ id: crypto.randomUUID(), ...values });
 
     if (c.complete && order.appStatus === 'FERTIG_DOKU_OFFEN') {
       await tx.update(serviceOrder).set({ appStatus: 'FERTIG' }).where(eq(serviceOrder.id, order.id));
-      await tx
-        .insert(orderStatusEvent)
-        .values({
-          orderId: order.id,
-          fromStatus: order.appStatus,
-          toStatus: 'FERTIG',
-          actorId: scope.userId,
-          source: 'DOKU',
-          deviceTime,
-        });
+      await tx.insert(orderStatusEvent).values({
+        orderId: order.id,
+        fromStatus: order.appStatus,
+        toStatus: 'FERTIG',
+        actorId: scope.userId,
+        source: 'DOKU',
+        deviceTime,
+      });
     }
     return [];
   }

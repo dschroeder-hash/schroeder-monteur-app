@@ -68,13 +68,13 @@
       return (e.waitUntil(a), a);
     },
     _ = (e, t) => t.some((t) => e instanceof t),
-    x = new WeakMap(),
     b = new WeakMap(),
+    x = new WeakMap(),
     v = new WeakMap(),
     E = {
       get(e, t, a) {
         if (e instanceof IDBTransaction) {
-          if ('done' === t) return x.get(e);
+          if ('done' === t) return b.get(e);
           if ('store' === t) return a.objectStoreNames[1] ? void 0 : a.objectStore(a.objectStoreNames[0]);
         }
         return R(e[t]);
@@ -102,7 +102,7 @@
         t
       );
     }
-    if (b.has(e)) return b.get(e);
+    if (x.has(e)) return x.get(e);
     let t = (function (e) {
       if ('function' == typeof e)
         return (
@@ -121,7 +121,7 @@
             };
       return (e instanceof IDBTransaction &&
         (function (e) {
-          if (x.has(e)) return;
+          if (b.has(e)) return;
           let t = new Promise((t, a) => {
             let s = () => {
                 (e.removeEventListener('complete', r),
@@ -138,13 +138,13 @@
               e.addEventListener('error', n),
               e.addEventListener('abort', n));
           });
-          x.set(e, t);
+          b.set(e, t);
         })(e),
       _(e, s || (s = [IDBDatabase, IDBObjectStore, IDBIndex, IDBCursor, IDBTransaction])))
         ? new Proxy(e, E)
         : e;
     })(e);
-    return (t !== e && (b.set(e, t), v.set(t, e)), t);
+    return (t !== e && (x.set(e, t), v.set(t, e)), t);
   }
   let q = (e) => v.get(e);
   function S(e, t, { blocked: a, upgrade: s, blocking: r, terminated: n } = {}) {
@@ -166,34 +166,34 @@
     );
   }
   let D = ['get', 'getKey', 'getAll', 'getAllKeys', 'count'],
-    C = ['put', 'add', 'delete', 'clear'],
-    N = new Map();
+    N = ['put', 'add', 'delete', 'clear'],
+    C = new Map();
   function T(e, t) {
     if (!(e instanceof IDBDatabase && !(t in e) && 'string' == typeof t)) return;
-    if (N.get(t)) return N.get(t);
+    if (C.get(t)) return C.get(t);
     let a = t.replace(/FromIndex$/, ''),
       s = t !== a,
-      r = C.includes(a);
+      r = N.includes(a);
     if (!(a in (s ? IDBIndex : IDBObjectStore).prototype) || !(r || D.includes(a))) return;
     let n = async function (e, ...t) {
       let n = this.transaction(e, r ? 'readwrite' : 'readonly'),
         i = n.store;
       return (s && (i = i.index(t.shift())), (await Promise.all([i[a](...t), r && n.done]))[0]);
     };
-    return (N.set(t, n), n);
+    return (C.set(t, n), n);
   }
   E = { ...(e = E), get: (t, a, s) => T(t, a) || e.get(t, a, s), has: (t, a) => !!T(t, a) || e.has(t, a) };
-  let P = ['continue', 'continuePrimaryKey', 'advance'],
-    k = {},
+  let k = ['continue', 'continuePrimaryKey', 'advance'],
+    P = {},
     A = new WeakMap(),
     I = new WeakMap(),
     U = {
       get(e, t) {
-        if (!P.includes(t)) return e[t];
-        let a = k[t];
+        if (!k.includes(t)) return e[t];
+        let a = P[t];
         return (
           a ||
-            (a = k[t] =
+            (a = P[t] =
               function (...e) {
                 A.set(this, I.get(this)[t](...e));
               }),
@@ -1188,7 +1188,7 @@
       cachedResponseWillBeUsed = async ({ request: e, cachedResponse: t }) =>
         t && e.headers.has('range') ? await ey(e, t) : t;
     },
-    ex = class extends Z {
+    eb = class extends Z {
       async _handle(e, t) {
         let a,
           s = await t.cacheMatch(e);
@@ -1203,7 +1203,7 @@
         return s;
       }
     },
-    eb = class extends Z {
+    ex = class extends Z {
       constructor(e = {}) {
         (super(e), this.plugins.some((e) => 'cacheWillUpdate' in e) || this.plugins.unshift(J));
       }
@@ -1606,70 +1606,70 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
   let eq = [
     {
       matcher: /^https:\/\/fonts\.(?:gstatic)\.com\/.*/i,
-      handler: new ex({
+      handler: new eb({
         cacheName: 'google-fonts-webfonts',
         plugins: [new ef({ maxEntries: 4, maxAgeSeconds: 31536e3, maxAgeFrom: 'last-used' })],
       }),
     },
     {
       matcher: /^https:\/\/fonts\.(?:googleapis)\.com\/.*/i,
-      handler: new eb({
+      handler: new ex({
         cacheName: 'google-fonts-stylesheets',
         plugins: [new ef({ maxEntries: 4, maxAgeSeconds: 604800, maxAgeFrom: 'last-used' })],
       }),
     },
     {
       matcher: /\.(?:eot|otf|ttc|ttf|woff|woff2|font.css)$/i,
-      handler: new eb({
+      handler: new ex({
         cacheName: 'static-font-assets',
         plugins: [new ef({ maxEntries: 4, maxAgeSeconds: 604800, maxAgeFrom: 'last-used' })],
       }),
     },
     {
       matcher: /\.(?:jpg|jpeg|gif|png|svg|ico|webp)$/i,
-      handler: new eb({
+      handler: new ex({
         cacheName: 'static-image-assets',
         plugins: [new ef({ maxEntries: 64, maxAgeSeconds: 2592e3, maxAgeFrom: 'last-used' })],
       }),
     },
     {
       matcher: /\/_next\/static.+\.js$/i,
-      handler: new ex({
+      handler: new eb({
         cacheName: 'next-static-js-assets',
         plugins: [new ef({ maxEntries: 64, maxAgeSeconds: 86400, maxAgeFrom: 'last-used' })],
       }),
     },
     {
       matcher: /\/_next\/image\?url=.+$/i,
-      handler: new eb({
+      handler: new ex({
         cacheName: 'next-image',
         plugins: [new ef({ maxEntries: 64, maxAgeSeconds: 86400, maxAgeFrom: 'last-used' })],
       }),
     },
     {
       matcher: /\.(?:mp3|wav|ogg)$/i,
-      handler: new ex({
+      handler: new eb({
         cacheName: 'static-audio-assets',
         plugins: [new ef({ maxEntries: 32, maxAgeSeconds: 86400, maxAgeFrom: 'last-used' }), new e_()],
       }),
     },
     {
       matcher: /\.(?:mp4|webm)$/i,
-      handler: new ex({
+      handler: new eb({
         cacheName: 'static-video-assets',
         plugins: [new ef({ maxEntries: 32, maxAgeSeconds: 86400, maxAgeFrom: 'last-used' }), new e_()],
       }),
     },
     {
       matcher: /\.(?:js)$/i,
-      handler: new eb({
+      handler: new ex({
         cacheName: 'static-js-assets',
         plugins: [new ef({ maxEntries: 48, maxAgeSeconds: 86400, maxAgeFrom: 'last-used' })],
       }),
     },
     {
       matcher: /\.(?:css|less)$/i,
-      handler: new eb({
+      handler: new ex({
         cacheName: 'static-style-assets',
         plugins: [new ef({ maxEntries: 32, maxAgeSeconds: 86400, maxAgeFrom: 'last-used' })],
       }),
@@ -1736,49 +1736,47 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
     },
     { matcher: /.*/i, method: 'GET', handler: new et() },
   ];
-  new eR({
+  (new eR({
     precacheEntries: [
-      { revision: 'c284bf3a-3f60-4187-9107-5cddc4ffd9e6', url: '/' },
-      {
-        revision: '8174a7a49c9dc848c3beb9701cb07d71',
-        url: '/_next/static/ZheOEyHlG-trUx9lP-U60/_buildManifest.js',
-      },
-      {
-        revision: 'b6652df95db52feb4daf4eca35380933',
-        url: '/_next/static/ZheOEyHlG-trUx9lP-U60/_ssgManifest.js',
-      },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/' },
       { revision: null, url: '/_next/static/chunks/258.03183adebbbb8a58.js' },
+      { revision: null, url: '/_next/static/chunks/261-dab5d9f88fa2cf56.js' },
       { revision: null, url: '/_next/static/chunks/363-f60b8a3c072b6080.js' },
+      { revision: null, url: '/_next/static/chunks/369-6790213524a53aae.js' },
       { revision: null, url: '/_next/static/chunks/422-b7609f42990e7cdc.js' },
       { revision: null, url: '/_next/static/chunks/438-a59637a598a8b1cb.js' },
       { revision: null, url: '/_next/static/chunks/5dd9ad9f-cbb954d65fc74967.js' },
-      { revision: null, url: '/_next/static/chunks/710-c7790356ab572d53.js' },
       { revision: null, url: '/_next/static/chunks/736-fbbfdba7242674ed.js' },
-      { revision: null, url: '/_next/static/chunks/767-74eb26dce60943d0.js' },
-      { revision: null, url: '/_next/static/chunks/966-75b62f5474655cef.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/admin/page-3ae479e399babdbe.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/admin/uebertragungen/page-d7d40d088a7cd437.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/lager/page-269d77e3eead630d.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/layout-dfd492e64e0c8480.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/meister/freigaben/page-b7681e3655181dba.js' },
+      { revision: null, url: '/_next/static/chunks/767-e4df530b30fcc3df.js' },
+      { revision: null, url: '/_next/static/chunks/966-70f6f8f5b86da2ac.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/admin/page-1831cb558222545a.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/admin/uebertragungen/page-6ebba37ce7b4dee2.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/chat/page-ef669d7edf43d539.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/lager/page-a2272fbc29a4eef0.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/layout-b6bd62b20c85e34b.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/meister/auftrag/page-797598a70a496bf9.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/meister/chat/page-c0e0f449f43f6c44.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/meister/freigaben/page-807a14079f0bb0f0.js' },
       { revision: null, url: '/_next/static/chunks/app/(app)/meister/layout-d442e67bc17735d7.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/meister/page-8978b11996d08212.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/meister/plantafel/page-a324c419ec11961c.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/auftrag/page-b31bad564981e3ce.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/kalender/page-7e516c886c58affe.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/layout-d2091239a1e3dae8.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/material/page-dec39746846737b6.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/page-68f4e32bafd28377.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/verbrauch/page-4e29e354adc894ee.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/zeiten/page-1b89704e11573a7b.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/meister/page-57d30fc6ee848e0e.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/meister/plantafel/page-cc93ec2457305c69.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/auftrag/page-1a48dbb720a25764.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/bericht/page-6b767cc4a7cd758a.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/chat/page-88eec70d5055b7fe.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/kalender/page-393d727f5bef905f.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/layout-257718ef02a7ce1f.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/material/page-ebd39c5a51c0ee12.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/page-3c01f500134561b0.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/verbrauch/page-ec8429eaad53ca7b.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/zeiten/page-e75c183b938f590b.js' },
       { revision: null, url: '/_next/static/chunks/app/(app)/personal/page-1252a74f7f531cc0.js' },
       { revision: null, url: '/_next/static/chunks/app/_global-error/page-1252a74f7f531cc0.js' },
       { revision: null, url: '/_next/static/chunks/app/_not-found/page-81f63e7a3ac7c515.js' },
-      { revision: null, url: '/_next/static/chunks/app/layout-ec0076250c820a25.js' },
-      { revision: null, url: '/_next/static/chunks/app/login/page-f4894eae15deebea.js' },
+      { revision: null, url: '/_next/static/chunks/app/layout-d92817d167eaba15.js' },
+      { revision: null, url: '/_next/static/chunks/app/login/page-f6a88b5493a7faf0.js' },
       { revision: null, url: '/_next/static/chunks/app/manifest.webmanifest/route-1252a74f7f531cc0.js' },
       { revision: null, url: '/_next/static/chunks/app/offline/page-1252a74f7f531cc0.js' },
-      { revision: null, url: '/_next/static/chunks/app/page-b6d027e6ef67bd90.js' },
+      { revision: null, url: '/_next/static/chunks/app/page-d2a5ce750efeb8b4.js' },
       { revision: null, url: '/_next/static/chunks/f092e497-f94a7ed60665601c.js' },
       { revision: null, url: '/_next/static/chunks/framework-74f142ca4c2bcb31.js' },
       { revision: null, url: '/_next/static/chunks/main-3877ecb57f30b29a.js' },
@@ -1808,7 +1806,15 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
         url: '/_next/static/chunks/polyfills-42372ed130431b0a.js',
       },
       { revision: null, url: '/_next/static/chunks/webpack-06975a3190025fb5.js' },
-      { revision: null, url: '/_next/static/css/9b6db579cbc37b80.css' },
+      { revision: null, url: '/_next/static/css/3d8a98ffcd135af5.css' },
+      {
+        revision: '1860599c6c9432f7563e5c31f0169ea8',
+        url: '/_next/static/i15uaoHOTqaT6DEhFcIXN/_buildManifest.js',
+      },
+      {
+        revision: 'b6652df95db52feb4daf4eca35380933',
+        url: '/_next/static/i15uaoHOTqaT6DEhFcIXN/_ssgManifest.js',
+      },
       { revision: null, url: '/_next/static/media/inter-cyrillic-ext-wght-normal.460bdf14.woff2' },
       { revision: null, url: '/_next/static/media/inter-cyrillic-wght-normal.491cbc05.woff2' },
       { revision: null, url: '/_next/static/media/inter-greek-ext-wght-normal.23aae568.woff2' },
@@ -1816,16 +1822,21 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       { revision: null, url: '/_next/static/media/inter-latin-ext-wght-normal.3835a68e.woff2' },
       { revision: null, url: '/_next/static/media/inter-latin-wght-normal.6c596dfc.woff2' },
       { revision: null, url: '/_next/static/media/inter-vietnamese-wght-normal.113a630f.woff2' },
-      { revision: 'c284bf3a-3f60-4187-9107-5cddc4ffd9e6', url: '/login' },
-      { revision: 'c284bf3a-3f60-4187-9107-5cddc4ffd9e6', url: '/monteur' },
-      { revision: 'c284bf3a-3f60-4187-9107-5cddc4ffd9e6', url: '/monteur/auftrag' },
-      { revision: 'c284bf3a-3f60-4187-9107-5cddc4ffd9e6', url: '/monteur/kalender' },
-      { revision: 'c284bf3a-3f60-4187-9107-5cddc4ffd9e6', url: '/monteur/material' },
-      { revision: 'c284bf3a-3f60-4187-9107-5cddc4ffd9e6', url: '/monteur/verbrauch' },
-      { revision: 'c284bf3a-3f60-4187-9107-5cddc4ffd9e6', url: '/monteur/zeiten' },
-      { revision: 'c284bf3a-3f60-4187-9107-5cddc4ffd9e6', url: '/offline' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/brand/logo.svg' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/chat' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/icons/icon-192.png' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/login' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/monteur' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/monteur/auftrag' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/monteur/bericht' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/monteur/chat' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/monteur/kalender' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/monteur/material' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/monteur/verbrauch' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/monteur/zeiten' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/offline' },
       { revision: '1666c6f1e8ae3b302483082700dd1822', url: '/swe-worker-329bb92787b7a9d9.js' },
-      { revision: 'c284bf3a-3f60-4187-9107-5cddc4ffd9e6', url: '/zxing/zxing_reader.wasm' },
+      { revision: 'bb0d55c4-f14c-4eca-8cf7-dcef3ed8156e', url: '/zxing/zxing_reader.wasm' },
     ],
     precacheOptions: {
       cleanupOutdatedCaches: !0,
@@ -1836,5 +1847,35 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
     navigationPreload: !0,
     runtimeCaching: eq,
     fallbacks: { entries: [{ url: '/offline', matcher: ({ request: e }) => 'document' === e.destination }] },
-  }).addEventListeners();
+  }).addEventListeners(),
+    self.addEventListener('push', (e) => {
+      let t = (() => {
+        try {
+          return e.data?.json();
+        } catch {
+          return { title: 'Schr\xf6der Werkstatt', body: e.data?.text() };
+        }
+      })();
+      e.waitUntil(
+        self.registration.showNotification(t?.title ?? 'Schr\xf6der Werkstatt', {
+          body: t?.body ?? '',
+          tag: t?.tag,
+          icon: '/icons/icon-192.png',
+          badge: '/icons/icon-192.png',
+          data: { link: t?.link ?? '/' },
+        }),
+      );
+    }),
+    self.addEventListener('notificationclick', (e) => {
+      e.notification.close();
+      let t = e.notification.data?.link ?? '/';
+      e.waitUntil(
+        (async () => {
+          let e = (await self.clients.matchAll({ type: 'window', includeUncontrolled: !0 })).find(
+            (e) => 'focus' in e,
+          );
+          return e ? (await e.navigate(t), e.focus()) : self.clients.openWindow(t);
+        })(),
+      );
+    }));
 })();

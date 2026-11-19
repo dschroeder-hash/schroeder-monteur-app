@@ -17,6 +17,11 @@ import {
   kvGet,
   kvSet,
   type LocalAssignment,
+  type LocalChatMessage,
+  type LocalChatRead,
+  type LocalPhoto,
+  type LocalTemplate,
+  type LocalWorkReport,
   type LocalConsumption,
   type LocalContainer,
   type LocalItem,
@@ -92,6 +97,9 @@ export async function recordCommand<T extends CommandType>(
       db.partRequests,
       db.kv,
       db.items,
+      db.workReports,
+      db.chatMessages,
+      db.photos,
     ],
     async () => {
       // The auto-increment key of the outbox is the device sequence (monotonic per device).
@@ -163,6 +171,46 @@ export async function recordCommand<T extends CommandType>(
           await db.consumptions.update(c.id, { state: 'REJECTED' });
           await adjustLocalStock(db, c.itemId, c.storageLocationId, -c.quantity);
         }
+      }
+      if (type === 'SaveWorkReport') {
+        const p = payload as CommandPayload<'SaveWorkReport'>;
+        await db.workReports.put({
+          orderId: p.orderId,
+          body: p.body,
+          requiredFields: p.requiredFields,
+          usedTemplateIds: p.usedTemplateIds,
+          complete: false,
+          deviceTime: at.toISOString(),
+          pending: true,
+        });
+      }
+      if (type === 'SendChatMessage') {
+        const p = payload as CommandPayload<'SendChatMessage'>;
+        await db.chatMessages.put({
+          id,
+          orderId: p.orderId,
+          authorId: ownerId,
+          authorName: null,
+          serverSeq: null,
+          body: p.body,
+          photoId: p.photoId ?? null,
+          isSystem: false,
+          clientCreatedAt: at.toISOString(),
+          createdAt: at.toISOString(),
+          pending: true,
+        });
+      }
+      if (type === 'AttachPhoto') {
+        const p = payload as CommandPayload<'AttachPhoto'>;
+        await db.photos.put({
+          id,
+          orderId: p.orderId,
+          category: p.category,
+          capturedAt: p.capturedAt,
+          uploadState: 'PENDING',
+          width: p.width,
+          height: p.height,
+        });
       }
       if (type === 'RequestPart') {
         const p = payload as CommandPayload<'RequestPart'>;
@@ -323,6 +371,11 @@ interface PullResponse {
   containers?: LocalContainer[];
   consumptions?: LocalConsumption[];
   partRequests?: LocalPartRequest[];
+  workReports?: Array<LocalWorkReport & { deviceTime: string | null }>;
+  templates?: LocalTemplate[];
+  chatMessages?: LocalChatMessage[];
+  chatReads?: LocalChatRead[];
+  photos?: LocalPhoto[];
 }
 
 /** Applies the server delta to the local cache. Locally pending stamp events are never overwritten. */
@@ -345,6 +398,11 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     db.containers,
     db.consumptions,
     db.partRequests,
+    db.workReports,
+    db.templates,
+    db.chatMessages,
+    db.chatReads,
+    db.photos,
   ];
   await db.transaction('rw', tables, async () => {
     const before = new Map((await db.assignments.toArray()).map((a) => [a.id, a]));
@@ -381,6 +439,7 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     await db.statusEvents.bulkPut(res.statusEvents);
     await db.overheadTypes.bulkPut(res.overheadTypes);
     await applyMaterial(db, ownerId, res);
+    await applyCommunication(db, res);
     await kvSet(db, 'location', res.location);
     await kvSet(db, 'settings', res.settings);
     await kvSet(db, 'cursor', res.cursor);
@@ -467,6 +526,29 @@ async function applyMaterial(db: MonteurDb, ownerId: string, res: PullResponse) 
       }
     }
   }
+}
+
+/** Reports, templates, chat and photo metadata. Local unsent edits are kept until the server confirms them. */
+async function applyCommunication(db: MonteurDb, res: PullResponse) {
+  if (res.full) await db.templates.clear();
+  if (res.templates) await db.templates.bulkPut(res.templates);
+  for (const r of res.workReports ?? []) {
+    const local = await db.workReports.get(r.orderId);
+    if (local?.pending && local.deviceTime && r.deviceTime && local.deviceTime > r.deviceTime) continue;
+    await db.workReports.put({
+      orderId: r.orderId,
+      body: r.body,
+      requiredFields: r.requiredFields,
+      usedTemplateIds: r.usedTemplateIds,
+      complete: r.complete,
+      deviceTime: r.deviceTime,
+      pending: false,
+    });
+  }
+  if (res.chatMessages?.length)
+    await db.chatMessages.bulkPut(res.chatMessages.map((m) => ({ ...m, pending: false })));
+  if (res.chatReads?.length) await db.chatReads.bulkPut(res.chatReads);
+  if (res.photos?.length) await db.photos.bulkPut(res.photos);
 }
 
 /** One sync cycle; single-flight per page. */

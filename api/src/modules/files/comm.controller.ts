@@ -33,6 +33,7 @@ import {
   pushSubscription,
   serviceOrder,
   textTemplate,
+  workReport,
 } from '../../db/schema.js';
 import { FeatureService } from '../../features/feature.service.js';
 import { BLOB_STORAGE } from './files.tokens.js';
@@ -431,5 +432,31 @@ export class TemplatesController {
       throw new NotFoundException('Baustein nicht gefunden');
     const [row] = await this.db.update(textTemplate).set(b).where(eq(textTemplate.id, id)).returning();
     return row;
+  }
+}
+
+/** Work report of an order (read) – Meister review before approval; visibility via RLS. */
+@ApiTags('Aufträge')
+@ApiBearerAuth()
+@Roles(...ORDER_ROLES)
+@Controller('v1/orders/:id/report')
+export class ReportController {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
+  @Get()
+  async get(@Scope() s: AccessScope, @Param('id', new ZodPipe(uuidParam)) orderId: string) {
+    return withSession(this.db, sess(s), async (tx) => {
+      const [o] = await tx
+        .select({ id: serviceOrder.id })
+        .from(serviceOrder)
+        .where(eq(serviceOrder.id, orderId));
+      if (!o) throw new NotFoundException('Auftrag nicht gefunden');
+      const [r] = await tx
+        .select({ r: workReport, authorName: appUser.displayName })
+        .from(workReport)
+        .leftJoin(appUser, eq(appUser.id, workReport.authorId))
+        .where(eq(workReport.orderId, orderId));
+      return r ? { ...r.r, authorName: r.authorName } : null;
+    });
   }
 }

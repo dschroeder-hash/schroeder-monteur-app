@@ -182,3 +182,27 @@ it('worker role cannot be impersonated by the API role', async () => {
   expect(r.rows[0].n).toBe(0);
   expect(SEED_COMPANY.id).toBeTruthy();
 });
+
+it('survives the database dropping the lock connection during a sync run', async () => {
+  const { db, pool } = createDb(process.env.TEST_WORKER_DATABASE_URL!, 2);
+  const admin = new pg.Client({ connectionString: process.env.TEST_OWNER_DATABASE_URL });
+  await admin.connect();
+  try {
+    const s = new BcSyncService(db, () => {
+      throw new Error('no BC');
+    });
+    const run = s.runAll().catch(() => undefined);
+    // kill the worker's connections while the run holds the advisory lock
+    await admin.query(
+      "select pg_terminate_backend(pid) from pg_stat_activity where usename = 'monteur_worker_test' and pid <> pg_backend_pid()",
+    );
+    await run;
+    await new Promise((r) => setTimeout(r, 200));
+    // Process still alive and the lock is free again: the next run gets past the lock and reaches BC
+    // (a stuck lock would return {} immediately without calling BC).
+    await expect(s.runAll()).rejects.toThrow('no BC');
+  } finally {
+    await admin.end();
+    await pool.end();
+  }
+});

@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useSyncStatus } from '@/lib/offline/useSyncStatus';
 import { config } from '@/lib/config';
+import { NotificationBell } from './NotificationBell';
 import { SyncBadge } from './SyncBadge';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -15,16 +16,23 @@ export function Header() {
   const [open, setOpen] = useState(false);
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-surface">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2">
-        <Link href="/" className="flex min-h-touch items-center text-text" aria-label="Startseite">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-2">
+        <Link href="/" className="flex min-h-touch shrink-0 items-center text-text" aria-label="Startseite">
+          {/* Narrow phones: signet only, so the header never gets wider than the screen. */}
+          <img
+            src={`${config.basePath}/icons/icon-192.png`}
+            alt="Schröder Landmaschinen"
+            className="h-9 w-9 rounded-md sm:hidden"
+          />
           <img
             src={`${config.basePath}/brand/logo.svg`}
             alt="Schröder Landmaschinen"
-            className="h-10 w-auto rounded-md bg-white px-1"
+            className="hidden h-10 w-auto rounded-md bg-white px-1 sm:block"
           />
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <SyncBadge status={sync} />
+          <NotificationBell />
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}

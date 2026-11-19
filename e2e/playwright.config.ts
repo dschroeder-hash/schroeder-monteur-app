@@ -23,6 +23,7 @@ export default defineConfig({
     locale: 'de-DE',
     timezoneId: 'Europe/Berlin',
     serviceWorkers: 'allow',
+    screenshot: 'only-on-failure',
   },
   projects: [{ name: 'smartphone', use: { ...devices['Pixel 7'] } }],
   webServer: [
@@ -37,6 +38,8 @@ export default defineConfig({
         DEV_AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret-1234',
         DATABASE_URL: `postgres://monteur_api_e2e:e2e@${host}/${E2E_DB}`,
         CORS_ORIGINS: 'http://localhost:3010',
+        PUBLIC_API_URL: API_URL,
+        LOCAL_STORAGE_DIR: '/tmp/monteur-e2e-uploads',
       },
     },
     {

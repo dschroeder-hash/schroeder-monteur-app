@@ -30,3 +30,39 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// Web Push (PROMPT 5.2/5.8): show the notification; a tap opens or focuses the app at the link.
+self.addEventListener('push', (event) => {
+  const data = (() => {
+    try {
+      return event.data?.json() as { title?: string; body?: string; link?: string; tag?: string };
+    } catch {
+      return { title: 'Schröder Werkstatt', body: event.data?.text() };
+    }
+  })();
+  event.waitUntil(
+    self.registration.showNotification(data?.title ?? 'Schröder Werkstatt', {
+      body: data?.body ?? '',
+      tag: data?.tag,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data: { link: data?.link ?? '/' },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const link = (event.notification.data as { link?: string } | undefined)?.link ?? '/';
+  event.waitUntil(
+    (async () => {
+      const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const existing = all.find((c) => 'focus' in c);
+      if (existing) {
+        await (existing as WindowClient).navigate(link);
+        return (existing as WindowClient).focus();
+      }
+      return self.clients.openWindow(link);
+    })(),
+  );
+});

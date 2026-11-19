@@ -14,6 +14,12 @@ const OFFLINE_PAGES = [
   '/monteur/zeiten',
   '/monteur/material',
   '/monteur/verbrauch',
+  '/monteur/bericht',
+  '/monteur/chat',
+  '/chat',
+  // Header images must not break offline.
+  '/icons/icon-192.png',
+  '/brand/logo.svg',
   // Barcode reader – scanning must work offline (E-18).
   '/zxing/zxing_reader.wasm',
 ];
@@ -39,6 +45,7 @@ const securityHeaders = [
 const config: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
+  productionBrowserSourceMaps: process.env.DEBUG_SOURCEMAPS === '1',
   poweredByHeader: false,
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
   transpilePackages: ['@schroeder/shared', '@schroeder/ui'],

@@ -182,6 +182,66 @@ export interface CartLine {
   quantity: number;
 }
 
+export interface LocalWorkReport {
+  orderId: string;
+  body: string;
+  requiredFields: Record<string, string | number | null>;
+  usedTemplateIds: string[];
+  complete: boolean;
+  deviceTime: string | null;
+  pending?: boolean;
+}
+
+export interface LocalTemplate {
+  id: string;
+  locationId: string | null;
+  orderTypeCode: string | null;
+  machineGroup: string | null;
+  title: string;
+  body: string;
+  sortOrder: number;
+  active: boolean;
+}
+
+export interface LocalChatMessage {
+  id: string;
+  orderId: string;
+  authorId: string | null;
+  authorName: string | null;
+  serverSeq: number | null;
+  body: string;
+  photoId: string | null;
+  isSystem: boolean;
+  clientCreatedAt: string | null;
+  createdAt: string;
+  pending?: boolean;
+}
+
+export interface LocalChatRead {
+  messageId: string;
+  userId: string;
+  readAt: string;
+}
+
+export interface LocalPhoto {
+  id: string;
+  orderId: string;
+  category: 'VORHER' | 'NACHHER' | 'TYPENSCHILD' | 'BSZ' | 'TEIL' | 'SONSTIGES';
+  capturedAt: string | null;
+  uploadState: 'PENDING' | 'UPLOADED' | 'FAILED';
+  width: number | null;
+  height: number | null;
+}
+
+/** Photo binary waiting for (or during) the resumable upload. Removed after upload. */
+export interface PhotoBlob {
+  id: string;
+  orderId: string;
+  blob: Blob;
+  state: 'queued' | 'uploading' | 'done' | 'error';
+  error?: string;
+}
+
 export interface Notice {
   id: string;
   kind: 'warning' | 'info' | 'error';
@@ -207,6 +267,12 @@ export class MonteurDb extends Dexie {
   consumptions!: EntityTable<LocalConsumption, 'id'>;
   partRequests!: EntityTable<LocalPartRequest, 'id'>;
   cart!: EntityTable<CartLine, 'id'>;
+  workReports!: EntityTable<LocalWorkReport, 'orderId'>;
+  templates!: EntityTable<LocalTemplate, 'id'>;
+  chatMessages!: EntityTable<LocalChatMessage, 'id'>;
+  chatReads!: Table<LocalChatRead, [string, string]>;
+  photos!: EntityTable<LocalPhoto, 'id'>;
+  photoBlobs!: EntityTable<PhotoBlob, 'id'>;
 
   constructor(name = 'schroeder-monteur') {
     super(name);
@@ -229,6 +295,14 @@ export class MonteurDb extends Dexie {
       partRequests: 'id, orderId',
       cart: 'id, orderId',
     });
+    this.version(4).stores({
+      workReports: 'orderId',
+      templates: 'id',
+      chatMessages: 'id, orderId, serverSeq',
+      chatReads: '[messageId+userId], messageId',
+      photos: 'id, orderId',
+      photoBlobs: 'id, state, orderId',
+    });
   }
 
   /** Removes all cached personal data (logout). The outbox is kept only if the caller decides so. */
@@ -249,6 +323,12 @@ export class MonteurDb extends Dexie {
       this.consumptions,
       this.partRequests,
       this.cart,
+      this.workReports,
+      this.templates,
+      this.chatMessages,
+      this.chatReads,
+      this.photos,
+      this.photoBlobs,
     ];
     await this.transaction('rw', [...tables, this.outbox], async () => {
       await Promise.all(tables.map((t) => t.clear()));

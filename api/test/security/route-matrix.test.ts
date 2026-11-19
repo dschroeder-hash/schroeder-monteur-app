@@ -115,6 +115,10 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
     sample: '00000000-0000-4000-8000-00000000dead',
     body: {},
   },
+  'GET /v1/orders/{id}/report': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+  },
   'GET /v1/notifications': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'] },
   'POST /v1/notifications/read': {
     allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'],
