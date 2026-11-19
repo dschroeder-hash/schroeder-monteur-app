@@ -25,7 +25,7 @@ let seq = 5000;
 
 const as = (who: string) => ({ Authorization: `Bearer ${t[who]}` });
 const q = async (sql: string, params: unknown[] = []) => (await owner.query(sql, params)).rows;
-const push = (who: string, type: CommandType, payload: Record<string, unknown>, id = randomUUID()) =>
+const push = (who: string, type: CommandType, payload: Record<string, unknown>, id: string = randomUUID()) =>
   api(app)
     .post('/v1/sync/push')
     .set(as(who))

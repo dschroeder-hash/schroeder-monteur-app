@@ -32,7 +32,25 @@ interface CorrectionReq {
   proposal: Array<{ kind: string; time: string }>;
   comment: string | null;
 }
+interface Consumption {
+  id: string;
+  orderId: string | null;
+  bcNo: string | null;
+  customerName: string | null;
+  userName: string;
+  itemNumber: string;
+  itemName: string;
+  quantity: number;
+  unit: string;
+  storage: string;
+  internalPurpose: string | null;
+  costCenter: string | null;
+  stockConflict: boolean;
+  meterPlausible: boolean;
+  deviceTime: string;
+}
 interface Inbox {
+  consumptions: Consumption[];
   days: InboxDay[];
   corrections: CorrectionReq[];
   orders: Array<{ id: string; bcNo: string; customerName: string; description: string }>;
@@ -220,6 +238,83 @@ export default function ApprovalsPage() {
           </div>
         ))}
       </section>
+
+      {!!inbox?.consumptions.length && (
+        <section aria-labelledby="material" className="flex flex-col gap-2">
+          <h2 id="material" className="text-xl font-semibold">
+            Material & Verbrauchsstoffe ({inbox.consumptions.length})
+          </h2>
+          {[...new Set(inbox.consumptions.map((c) => c.orderId ?? 'intern'))].map((key) => {
+            const list = inbox.consumptions.filter((c) => (c.orderId ?? 'intern') === key);
+            const head = list[0]!;
+            return (
+              <article
+                key={key}
+                data-consumptions={key}
+                className="flex flex-col gap-2 rounded-card border border-border bg-surface p-3"
+              >
+                <p className="font-semibold">
+                  {head.orderId ? `${head.bcNo} · ${head.customerName}` : 'Interne Entnahmen (Kostenstelle)'}
+                </p>
+                <ul className="flex flex-col gap-1">
+                  {list.map((c) => (
+                    <li
+                      key={c.id}
+                      className="flex flex-wrap items-center justify-between gap-2 border-b border-border py-1"
+                    >
+                      <span>
+                        {c.quantity} {c.unit} {c.itemName}{' '}
+                        <span className="text-sm text-text-muted">
+                          ({c.storage}, {c.userName}
+                          {c.costCenter ? `, KST ${c.costCenter}` : ''})
+                        </span>
+                        {c.stockConflict && (
+                          <span className="ml-2 text-sm font-semibold text-danger">Bestandskonflikt</span>
+                        )}
+                        {!c.meterPlausible && (
+                          <span className="ml-2 text-sm font-semibold text-warning">Zähler unplausibel</span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        className="min-h-touch px-2 font-semibold underline"
+                        onClick={() => {
+                          const reason = window.prompt('Begründung für die Ablehnung:');
+                          if (reason)
+                            void act(
+                              () =>
+                                apiFetch(`/v1/approvals/consumptions/${c.id}/reject`, {
+                                  method: 'POST',
+                                  body: JSON.stringify({ reason }),
+                                }),
+                              'Entnahme abgelehnt – Bestand zurückgebucht.',
+                            );
+                        }}
+                      >
+                        Ablehnen
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  onClick={() =>
+                    void act(
+                      () =>
+                        apiFetch('/v1/approvals/consumptions', {
+                          method: 'POST',
+                          body: JSON.stringify({ ids: list.map((c) => c.id) }),
+                        }),
+                      'Material freigegeben – Übertragung nach BC läuft.',
+                    )
+                  }
+                >
+                  Alle {list.length} freigeben
+                </Button>
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       {!!inbox?.orders.length && (
         <section aria-labelledby="auftraege" className="flex flex-col gap-2">

@@ -11,7 +11,16 @@ import {
 } from '@schroeder/shared';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Suspense } from 'react';
+
+const CONSUMPTION_STATE = {
+  OPEN: 'offen',
+  SUBMITTED: 'wartet auf Freigabe',
+  APPROVED: 'freigegeben',
+  TRANSFERRED: 'in BC',
+  REJECTED: 'storniert',
+} as const;
 import { toast } from '@/components/Toast';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -39,6 +48,17 @@ function OrderDetail() {
   const history =
     useLiveQuery(() => localDb.statusEvents.where('orderId').equals(id).reverse().sortBy('at'), [id]) ?? [];
   const st = useStampState(me?.id);
+  const consumed = useLiveQuery(() => localDb.consumptions.where('orderId').equals(id).toArray(), [id]) ?? [];
+  const requests = useLiveQuery(() => localDb.partRequests.where('orderId').equals(id).toArray(), [id]) ?? [];
+  const itemNames =
+    useLiveQuery(async () => {
+      const ids = [
+        ...consumed.map((c) => c.itemId),
+        ...requests.map((r) => r.itemId).filter((x): x is string => !!x),
+      ];
+      const items = await localDb.items.bulkGet(ids);
+      return new Map(items.filter((x) => !!x).map((x) => [x!.id, x!.name]));
+    }, [consumed, requests]) ?? new Map<string, string>();
   const segments = useSegments(me?.id).filter((s) => s.kind === 'ORDER' && s.orderId === id);
 
   if (order === undefined)
@@ -160,6 +180,66 @@ function OrderDetail() {
           ))}
         </div>
       </section>
+
+      {(me?.features.materials || me?.features.consumables) && (
+        <section aria-labelledby="material" className="flex flex-col gap-2">
+          <h2 id="material" className="font-semibold">
+            Material
+          </h2>
+          <div className="grid grid-cols-2 gap-2">
+            {me?.features.materials && (
+              <Link
+                href={`/monteur/material?orderId=${id}`}
+                className="inline-flex min-h-touch items-center justify-center rounded-card border-2 border-border bg-surface px-4 font-semibold"
+              >
+                Teile
+              </Link>
+            )}
+            {me?.features.consumables && (
+              <Link
+                href={`/monteur/verbrauch?orderId=${id}`}
+                className="inline-flex min-h-touch items-center justify-center rounded-card border-2 border-border bg-surface px-4 font-semibold"
+              >
+                Öl & Diesel
+              </Link>
+            )}
+          </div>
+          <ul className="flex flex-col gap-1">
+            {consumed.map((c) => (
+              <li
+                key={c.id}
+                className="flex min-h-touch items-center justify-between gap-2 border-b border-border"
+              >
+                <span className={c.state === 'REJECTED' ? 'line-through opacity-60' : ''}>
+                  {c.quantity} {c.unit} {itemNames.get(c.itemId) ?? ''}{' '}
+                  <span className="text-sm text-text-muted">({CONSUMPTION_STATE[c.state]})</span>
+                </span>
+                {c.state === 'SUBMITTED' && (
+                  <button
+                    type="button"
+                    className="min-h-touch px-2 font-semibold underline"
+                    onClick={() => void run('RemoveConsumption', { consumptionId: c.id })}
+                  >
+                    Rückgängig
+                  </button>
+                )}
+              </li>
+            ))}
+            {requests.map((r) => (
+              <li key={r.id} className="min-h-touch border-b border-border py-2">
+                Bestellt: {r.quantity} × {r.itemId ? itemNames.get(r.itemId) : r.newItemText}{' '}
+                <span className="text-sm text-text-muted">
+                  (
+                  {r.state === 'GELIEFERT'
+                    ? 'geliefert'
+                    : `Lieferung ${r.expectedDelivery ? new Date(`${r.expectedDelivery}T12:00:00Z`).toLocaleDateString('de-DE') : 'offen'}`}
+                  )
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {history.length > 0 && (
         <section>

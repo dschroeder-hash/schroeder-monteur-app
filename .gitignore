@@ -13,3 +13,4 @@ test-results
 .alpackages
 .output
 export/
+public/zxing/

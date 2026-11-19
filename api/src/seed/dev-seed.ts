@@ -243,13 +243,11 @@ export async function seedDev(db: Db, now = new Date()): Promise<void> {
   for (const a of bc.itemAvailabilities) {
     const st = storageByCode.get(String(a.locationCode));
     if (st)
-      await db
-        .insert(s.itemStock)
-        .values({
-          itemId: itemIds.get(String(a.itemNumber))!,
-          storageLocationId: st.id,
-          bcInventory: Number(a.inventory),
-        });
+      await db.insert(s.itemStock).values({
+        itemId: itemIds.get(String(a.itemNumber))!,
+        storageLocationId: st.id,
+        bcInventory: Number(a.inventory),
+      });
   }
   for (const l of SEED_LOCATIONS) {
     const locationId = locIds.get(l.code)!;

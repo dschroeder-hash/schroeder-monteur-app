@@ -88,3 +88,30 @@ Rechtematrix: alle 26 Routen × 5 Rollen automatisch geprüft.
 - dnd-kit legte die Auftragskarte nach größter Überlappung ab statt unter dem Zeiger → eine Stunde zu früh (E-40).
 - Screenreader las interne IDs auf Englisch vor → deutsche Ansagen mit Auftragsnummer, Monteur und Uhrzeit.
 - Ein vom Server getrennter Leerlauf-Datenbankclient hätte den Worker-Prozess beenden können → Fehlerbehandlung am Pool.
+
+## Phase 4 – Material ✅ (19.11.2026)
+
+**Fertig**
+
+| Bereich     | Inhalt                                                                                                                                                                                                                                                                                                                                                                                                                                     | Tests            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- |
+| Fachlogik   | Bestellschluss 17:00 → Liefertag mit Wochenenden und Feiertagen je Bundesland, verfügbarer Bestand, Zählerstand-Plausibilität, AGCO-Absprung (nur Link, https-Pflicht), Teilenummer aus Einfügetext erkennen                                                                                                                                                                                                                               | 11               |
+| BC-Sync     | Artikel, Barcodes (Artikelreferenzen), Bestand je Lagerort (Lager, Servicewagen, Tank), gebuchte Mengen der App-Zeilen                                                                                                                                                                                                                                                                                                                     | in Phase-4-Tests |
+| Entnahme    | Offline-Befehle Entnehmen, Rückgängig, Bestellanforderung; Bestand sofort reduziert; Bestandskonflikt und Mindestbestand → Meldung an Meister und Lager                                                                                                                                                                                                                                                                                    | 16               |
+| Freigabe    | Meister gibt Entnahmen je Auftrag frei oder lehnt ab; Auftrag → BC-Servicezeile Typ Artikel mit Lagerort; intern (Diesel) → Artikel-Buch.-Blatt, Abgang, Kostenstelle                                                                                                                                                                                                                                                                      | in Phase-4-Tests |
+| Teiledienst | Rolle Lager: Bestellanforderungen (bestellt/geliefert/storniert, Monteur wird benachrichtigt), Liste „unter Mindestbestand“                                                                                                                                                                                                                                                                                                                | in Phase-4-Tests |
+| App         | Teile-Shop (Suche offline im Standortkatalog, online zusätzlich andere Läger), Kamera-Scan (EAN/Code128/QR/DataMatrix, offline), Warenkorb je Auftrag, Bestellen mit Lieferhinweis, „Teil nicht im Stamm“, AGCO-Absprung + Teilenummer übernehmen; Verbrauchsstoffe-Shop mit Schnellwahl, Diesel an Kundenmaschine oder intern mit Kostenstelle und Zählerständen; Material am Auftrag mit Rückgängig; Meister-Freigabe; Teiledienst-Seite | –                |
+| E2E         | 12 l Motoröl und ein Filter im Flugmodus entnommen (lokaler Bestand sinkt sofort) → Sync → Meister gibt frei → Artikelzeilen 12 L bzw. 1 STK im BC-Mock                                                                                                                                                                                                                                                                                    | 1                |
+
+**Akzeptanz 5.4 belegt:** 12 l Motoröl auf Auftrag X ergeben nach Freigabe eine Artikelzeile mit 12 Liter am BC-Serviceauftrag; der angezeigte Bestand stimmt vor und nach dem Buchen in BC.
+
+**Aufgefallen und behoben**
+
+- Neue Seiten fehlten im Vorab-Cache → offline nicht erreichbar (E2E-Test hat es gefunden); `orderId` wird beim Cache-Abgleich jetzt ignoriert.
+- Sperre des BC-Syncs konnte auf einer anderen Pool-Verbindung freigegeben werden als gesetzt → Sync hätte dauerhaft blockiert. Jetzt auf einer festen Verbindung, mit Test.
+- Teile-Seite war auf dem Smartphone breiter als der Bildschirm; zwei Servicewagen hießen gleich; AGCO-Seriennummer wurde auch bei Fremdmarken angeboten.
+
+**Offen / Hinweise**
+
+- Gebinde pflegt der Admin vorerst über die API (`/v1/admin/containers`); eine Oberfläche dafür folgt mit der Admin-Stammdatenpflege in Phase 8.
+- Gebuchte interne Entnahmen (Artikel-Buch.-Blatt) werden noch nicht aus BC zurückgemeldet; bis dahin reduziert der Worker-Abgleich den reservierten Bestand nicht automatisch (OP-25).

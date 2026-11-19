@@ -12,6 +12,10 @@ const OFFLINE_PAGES = [
   '/monteur/auftrag',
   '/monteur/kalender',
   '/monteur/zeiten',
+  '/monteur/material',
+  '/monteur/verbrauch',
+  // Barcode reader – scanning must work offline (E-18).
+  '/zxing/zxing_reader.wasm',
 ];
 
 const withSerwist = withSerwistInit({

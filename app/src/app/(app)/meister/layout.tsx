@@ -8,6 +8,7 @@ const ITEMS = [
   { href: '/meister', label: 'Übersicht' },
   { href: '/meister/plantafel', label: 'Plantafel' },
   { href: '/meister/freigaben', label: 'Freigaben' },
+  { href: '/lager', label: 'Teiledienst' },
 ];
 
 export default function MeisterLayout({ children }: { children: ReactNode }) {

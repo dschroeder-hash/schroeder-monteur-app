@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { and, asc, eq, ilike, inArray, isNull, or, sql } from 'drizzle-orm';
 import {
   availableQuantity,
@@ -209,16 +209,14 @@ export class MaterialService {
       canTransition(order.appStatus, 'WARTET_TEILE', 'MONTEUR')
     ) {
       await tx.update(serviceOrder).set({ appStatus: 'WARTET_TEILE' }).where(eq(serviceOrder.id, order.id));
-      await tx
-        .insert(orderStatusEvent)
-        .values({
-          orderId: order.id,
-          fromStatus: order.appStatus,
-          toStatus: 'WARTET_TEILE',
-          actorId: scope.userId,
-          source: 'BESTELLUNG',
-          deviceTime,
-        });
+      await tx.insert(orderStatusEvent).values({
+        orderId: order.id,
+        fromStatus: order.appStatus,
+        toStatus: 'WARTET_TEILE',
+        actorId: scope.userId,
+        source: 'BESTELLUNG',
+        deviceTime,
+      });
     }
     const what = it ? `${it.number} ${it.name}` : `Neuer Artikel: ${p.newItemText}`;
     await this.notifyRoles(

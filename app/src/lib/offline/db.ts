@@ -1,4 +1,4 @@
-import Dexie, { type EntityTable } from 'dexie';
+import Dexie, { type EntityTable, type Table } from 'dexie';
 import type { AppStatus, StampKind, Activity } from '@schroeder/shared';
 
 /** A command written while (possibly) offline; sent to POST /v1/sync/push in device order (ENTSCHEIDUNGEN E-06). */
@@ -102,6 +102,86 @@ export interface LocalOverheadType {
   active: boolean;
 }
 
+export interface LocalItem {
+  id: string;
+  number: string;
+  name: string;
+  unit: string;
+  category: string;
+  gtin: string;
+  isConsumable: boolean;
+  blocked: boolean;
+  imageUrl: string | null;
+  barcodes: string[];
+}
+
+export interface LocalStorage {
+  id: string;
+  locationId: string;
+  bcLocationCode: string;
+  name: string;
+  kind: 'LAGER' | 'SERVICEWAGEN' | 'TANK';
+}
+
+export interface LocalStock {
+  itemId: string;
+  storageLocationId: string;
+  bcInventory: number;
+  pendingWithdrawal: number;
+  minStock: number | null;
+}
+
+export interface LocalContainer {
+  id: string;
+  locationId: string;
+  storageLocationId: string;
+  itemId: string;
+  kind: 'FASS' | 'IBC' | 'TANK' | 'KANISTER' | 'KARTUSCHE';
+  name: string;
+  capacity: number | null;
+  minStock: number | null;
+  hasMeter: boolean;
+  quickQuantities: number[];
+  active: boolean;
+}
+
+export interface LocalConsumption {
+  id: string;
+  userId: string;
+  orderId: string | null;
+  itemId: string;
+  storageLocationId: string;
+  containerId: string | null;
+  quantity: number;
+  unit: string;
+  costCenter: string | null;
+  internalPurpose: string | null;
+  deviceTime: string;
+  state: 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'TRANSFERRED' | 'OPEN';
+  pending?: boolean;
+}
+
+export interface LocalPartRequest {
+  id: string;
+  orderId: string;
+  itemId: string | null;
+  newItemText: string | null;
+  manufacturerPartNo: string | null;
+  quantity: number;
+  expectedDelivery: string | null;
+  state: 'OFFEN' | 'BESTELLT' | 'GELIEFERT' | 'STORNIERT';
+  pending?: boolean;
+}
+
+/** Shopping cart per order (local only until "Entnehmen"). */
+export interface CartLine {
+  id: string;
+  orderId: string;
+  itemId: string;
+  storageLocationId: string;
+  quantity: number;
+}
+
 export interface Notice {
   id: string;
   kind: 'warning' | 'info' | 'error';
@@ -120,6 +200,13 @@ export class MonteurDb extends Dexie {
   statusEvents!: EntityTable<LocalStatusEvent, 'id'>;
   overheadTypes!: EntityTable<LocalOverheadType, 'code'>;
   notices!: EntityTable<Notice, 'id'>;
+  items!: EntityTable<LocalItem, 'id'>;
+  storages!: EntityTable<LocalStorage, 'id'>;
+  stocks!: Table<LocalStock, [string, string]>;
+  containers!: EntityTable<LocalContainer, 'id'>;
+  consumptions!: EntityTable<LocalConsumption, 'id'>;
+  partRequests!: EntityTable<LocalPartRequest, 'id'>;
+  cart!: EntityTable<CartLine, 'id'>;
 
   constructor(name = 'schroeder-monteur') {
     super(name);
@@ -133,37 +220,40 @@ export class MonteurDb extends Dexie {
       overheadTypes: 'code',
       notices: 'id, at',
     });
+    this.version(3).stores({
+      items: 'id, number, gtin, *barcodes, name, isConsumable',
+      storages: 'id, kind',
+      stocks: '[itemId+storageLocationId], itemId, storageLocationId',
+      containers: 'id, storageLocationId',
+      consumptions: 'id, orderId, state',
+      partRequests: 'id, orderId',
+      cart: 'id, orderId',
+    });
   }
 
   /** Removes all cached personal data (logout). The outbox is kept only if the caller decides so. */
   async clearCache(keepOutbox: boolean) {
-    await this.transaction(
-      'rw',
-      [
-        this.orders,
-        this.assignments,
-        this.stampEvents,
-        this.timeEntries,
-        this.statusEvents,
-        this.overheadTypes,
-        this.notices,
-        this.kv,
-        this.outbox,
-      ],
-      async () => {
-        await Promise.all([
-          this.orders.clear(),
-          this.assignments.clear(),
-          this.stampEvents.clear(),
-          this.timeEntries.clear(),
-          this.statusEvents.clear(),
-          this.overheadTypes.clear(),
-          this.notices.clear(),
-          this.kv.clear(),
-        ]);
-        if (!keepOutbox) await this.outbox.clear();
-      },
-    );
+    const tables = [
+      this.orders,
+      this.assignments,
+      this.stampEvents,
+      this.timeEntries,
+      this.statusEvents,
+      this.overheadTypes,
+      this.notices,
+      this.kv,
+      this.items,
+      this.storages,
+      this.stocks,
+      this.containers,
+      this.consumptions,
+      this.partRequests,
+      this.cart,
+    ];
+    await this.transaction('rw', [...tables, this.outbox], async () => {
+      await Promise.all(tables.map((t) => t.clear()));
+      if (!keepOutbox) await this.outbox.clear();
+    });
   }
 }
 

@@ -26,6 +26,7 @@ export default function MeisterDashboard() {
     days: Array<{ approvable: boolean; needsCorrection: boolean }>;
     corrections: unknown[];
     orders: unknown[];
+    consumptions: unknown[];
   }>(loc ? `/v1/approvals/inbox?locationId=${loc}` : null).data;
   return (
     <div className="flex flex-col gap-6">
@@ -48,7 +49,11 @@ export default function MeisterDashboard() {
           tone={inbox && inbox.corrections.length ? 'warning' : 'default'}
         />
         <Tile label="Aufträge zur Freigabe" value={inbox?.orders.length ?? '–'} href="/meister/freigaben" />
-        <Tile label="Material / Urlaub" value="–" />
+        <Tile
+          label="Material zur Freigabe"
+          value={inbox?.consumptions.length ?? '–'}
+          href="/meister/freigaben"
+        />
       </section>
       <section aria-label="Status" className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {STATUSES.map((s) => (

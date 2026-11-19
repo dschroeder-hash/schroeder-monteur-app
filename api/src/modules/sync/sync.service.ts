@@ -446,7 +446,13 @@ export class SyncService {
 
         // Time entries deleted by recomputation are reported via the full key set of the affected days.
         const [loc] = await tx
-          .select({ id: location.id, code: location.code, name: location.name, timezone: location.timezone })
+          .select({
+            id: location.id,
+            code: location.code,
+            name: location.name,
+            timezone: location.timezone,
+            bundesland: location.bundesland,
+          })
           .from(location)
           .where(eq(location.id, locationId));
         const overheads = await tx.select().from(overheadType).where(eq(overheadType.active, true));

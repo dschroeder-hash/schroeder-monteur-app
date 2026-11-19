@@ -4,8 +4,10 @@
  * therefore focus/interval are the primary triggers on all platforms (ENTSCHEIDUNGEN E-32).
  */
 import {
+  estimateDelivery,
   STAMP_COMMAND_KIND,
   type AppStatus,
+  type Bundesland,
   type CommandResult,
   type CommandType,
   type CommandPayload,
@@ -15,7 +17,13 @@ import {
   kvGet,
   kvSet,
   type LocalAssignment,
+  type LocalConsumption,
+  type LocalContainer,
+  type LocalItem,
   type LocalOrder,
+  type LocalPartRequest,
+  type LocalStock,
+  type LocalStorage,
   type LocalStampEvent,
   type LocalTimeEntry,
   type MonteurDb,
@@ -72,52 +80,142 @@ export async function recordCommand<T extends CommandType>(
   at: Date = new Date(),
 ): Promise<string> {
   const id = uuid();
-  await db.transaction('rw', [db.outbox, db.stampEvents, db.orders, db.statusEvents], async () => {
-    // The auto-increment key of the outbox is the device sequence (monotonic per device).
-    const seq = (await db.outbox.add({
-      id,
-      type,
-      payload,
-      deviceTime: at.toISOString(),
-      ownerOid: ownerId,
-      status: 'pending',
-    })) as number;
-    if (type in STAMP_COMMAND_KIND) {
-      const p = payload as {
-        orderId?: string;
-        activity?: 'WORK' | 'TRAVEL' | 'DIAGNOSIS';
-        overheadCode?: string;
-      };
-      const kind = STAMP_COMMAND_KIND[type as keyof typeof STAMP_COMMAND_KIND];
-      await db.stampEvents.put({
+  await db.transaction(
+    'rw',
+    [
+      db.outbox,
+      db.stampEvents,
+      db.orders,
+      db.statusEvents,
+      db.consumptions,
+      db.stocks,
+      db.partRequests,
+      db.kv,
+      db.items,
+    ],
+    async () => {
+      // The auto-increment key of the outbox is the device sequence (monotonic per device).
+      const seq = (await db.outbox.add({
         id,
-        userId: ownerId,
-        kind,
-        orderId: p.orderId ?? null,
-        activity: p.activity ?? null,
-        overheadCode: p.overheadCode ?? null,
+        type,
+        payload,
         deviceTime: at.toISOString(),
-        pending: true,
-        seq,
-      });
-      if (kind === 'JOB_START' && p.orderId) {
-        const travel = p.activity === 'TRAVEL';
-        await setLocalStatus(
-          db,
-          p.orderId,
-          travel ? 'UNTERWEGS' : 'IN_ARBEIT',
-          travel ? AUTO_TRAVEL_FROM : AUTO_WORK_FROM,
-          'STEMPELUNG',
-          at,
-        );
+        ownerOid: ownerId,
+        status: 'pending',
+      })) as number;
+      if (type in STAMP_COMMAND_KIND) {
+        const p = payload as {
+          orderId?: string;
+          activity?: 'WORK' | 'TRAVEL' | 'DIAGNOSIS';
+          overheadCode?: string;
+        };
+        const kind = STAMP_COMMAND_KIND[type as keyof typeof STAMP_COMMAND_KIND];
+        await db.stampEvents.put({
+          id,
+          userId: ownerId,
+          kind,
+          orderId: p.orderId ?? null,
+          activity: p.activity ?? null,
+          overheadCode: p.overheadCode ?? null,
+          deviceTime: at.toISOString(),
+          pending: true,
+          seq,
+        });
+        if (kind === 'JOB_START' && p.orderId) {
+          const travel = p.activity === 'TRAVEL';
+          await setLocalStatus(
+            db,
+            p.orderId,
+            travel ? 'UNTERWEGS' : 'IN_ARBEIT',
+            travel ? AUTO_TRAVEL_FROM : AUTO_WORK_FROM,
+            'STEMPELUNG',
+            at,
+          );
+        }
       }
-    }
-    if (type === 'SetOrderStatus') {
-      const p = payload as { orderId: string; status: AppStatus };
-      await setLocalStatus(db, p.orderId, p.status, null, 'MONTEUR', at);
-    }
-  });
+      if (type === 'SetOrderStatus') {
+        const p = payload as { orderId: string; status: AppStatus };
+        await setLocalStatus(db, p.orderId, p.status, null, 'MONTEUR', at);
+      }
+      if (type === 'ConsumeItem') {
+        const p = payload as CommandPayload<'ConsumeItem'>;
+        const it = await db.items.get(p.itemId);
+        await db.consumptions.put({
+          id,
+          userId: ownerId,
+          orderId: p.orderId ?? null,
+          itemId: p.itemId,
+          storageLocationId: p.storageLocationId,
+          containerId: p.containerId ?? null,
+          quantity: p.quantity,
+          unit: it?.unit ?? '',
+          costCenter: p.costCenter ?? null,
+          internalPurpose: p.internalPurpose ?? null,
+          deviceTime: at.toISOString(),
+          state: 'SUBMITTED',
+          pending: true,
+        });
+        await adjustLocalStock(db, p.itemId, p.storageLocationId, p.quantity);
+      }
+      if (type === 'RemoveConsumption') {
+        const c = await db.consumptions.get((payload as { consumptionId: string }).consumptionId);
+        if (c && c.state === 'SUBMITTED') {
+          await db.consumptions.update(c.id, { state: 'REJECTED' });
+          await adjustLocalStock(db, c.itemId, c.storageLocationId, -c.quantity);
+        }
+      }
+      if (type === 'RequestPart') {
+        const p = payload as CommandPayload<'RequestPart'>;
+        const loc = await kvGet<{ timezone: string; bundesland?: string }>(db, 'location');
+        const settings = (await kvGet<Array<{ key: string; value: unknown }>>(db, 'settings')) ?? [];
+        const cutoff =
+          (settings.find((x) => x.key === 'partsCutoff')?.value as { time?: string } | undefined)?.time ??
+          '17:00';
+        const est = estimateDelivery(
+          at,
+          loc?.timezone ?? 'Europe/Berlin',
+          (loc?.bundesland ?? 'NI') as Bundesland,
+          cutoff,
+        );
+        await db.partRequests.put({
+          id,
+          orderId: p.orderId,
+          itemId: p.itemId ?? null,
+          newItemText: p.newItemText ?? null,
+          manufacturerPartNo: p.manufacturerPartNo ?? null,
+          quantity: p.quantity,
+          expectedDelivery: est.deliveryDate,
+          state: 'OFFEN',
+          pending: true,
+        });
+        if (p.setWaitingForParts)
+          await setLocalStatus(
+            db,
+            p.orderId,
+            'WARTET_TEILE',
+            AUTO_WORK_FROM.concat(['IN_ARBEIT']),
+            'BESTELLUNG',
+            at,
+          );
+      }
+    },
+  );
   return id;
+}
+
+/** Local stock reduction (works offline); reconciled with the server values on the next pull. */
+async function adjustLocalStock(db: MonteurDb, itemId: string, storageLocationId: string, delta: number) {
+  const key: [string, string] = [itemId, storageLocationId];
+  const row = await db.stocks.get(key);
+  if (row) await db.stocks.put({ ...row, pendingWithdrawal: row.pendingWithdrawal + delta });
+  else
+    await db.stocks.put({
+      itemId,
+      storageLocationId,
+      bcInventory: 0,
+      pendingWithdrawal: delta,
+      minStock: null,
+    });
 }
 
 async function setLocalStatus(
@@ -219,6 +317,12 @@ interface PullResponse {
   /** Stamp events voided by a Meister correction (E-37). */
   voidedEventIds?: string[];
   correctionRequests?: CorrectionRequest[];
+  storages?: LocalStorage[];
+  items?: LocalItem[];
+  stocks?: LocalStock[];
+  containers?: LocalContainer[];
+  consumptions?: LocalConsumption[];
+  partRequests?: LocalPartRequest[];
 }
 
 /** Applies the server delta to the local cache. Locally pending stamp events are never overwritten. */
@@ -235,6 +339,12 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     db.kv,
     db.notices,
     db.outbox,
+    db.items,
+    db.storages,
+    db.stocks,
+    db.containers,
+    db.consumptions,
+    db.partRequests,
   ];
   await db.transaction('rw', tables, async () => {
     const before = new Map((await db.assignments.toArray()).map((a) => [a.id, a]));
@@ -246,6 +356,9 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
         db.statusEvents.clear(),
       ]);
       await db.stampEvents.filter((e) => !e.pending).delete();
+      await Promise.all([db.items.clear(), db.storages.clear(), db.stocks.clear(), db.containers.clear()]);
+      await db.consumptions.filter((c) => !c.pending).delete();
+      await db.partRequests.filter((c) => !c.pending).delete();
     }
     await db.orders.bulkPut(res.orders);
     await db.assignments.bulkPut(res.assignments);
@@ -267,6 +380,7 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     }
     await db.statusEvents.bulkPut(res.statusEvents);
     await db.overheadTypes.bulkPut(res.overheadTypes);
+    await applyMaterial(db, ownerId, res);
     await kvSet(db, 'location', res.location);
     await kvSet(db, 'settings', res.settings);
     await kvSet(db, 'cursor', res.cursor);
@@ -310,6 +424,49 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     await db.orders.filter((o) => !active.has(o.id) && !withTime.has(o.id)).delete();
   });
   return res;
+}
+
+/**
+ * Material cache from the pull. Server stock already contains every withdrawal that was pushed; withdrawals
+ * still waiting in the outbox are re-applied to the rows that were just overwritten.
+ */
+async function applyMaterial(db: MonteurDb, ownerId: string, res: PullResponse) {
+  if (res.storages) await db.storages.bulkPut(res.storages);
+  if (res.items) await db.items.bulkPut(res.items);
+  if (res.containers) await db.containers.bulkPut(res.containers);
+  if (res.consumptions)
+    await db.consumptions.bulkPut(res.consumptions.map((c) => ({ ...c, pending: false })));
+  if (res.partRequests)
+    await db.partRequests.bulkPut(res.partRequests.map((c) => ({ ...c, pending: false })));
+  if (res.stocks?.length) {
+    await db.stocks.bulkPut(
+      res.stocks.map((x) => ({
+        itemId: x.itemId,
+        storageLocationId: x.storageLocationId,
+        bcInventory: Number(x.bcInventory),
+        pendingWithdrawal: Number(x.pendingWithdrawal),
+        minStock: x.minStock,
+      })),
+    );
+    const overwritten = new Set(res.stocks.map((x) => `${x.itemId}|${x.storageLocationId}`));
+    const waiting = await db.outbox
+      .where('ownerOid')
+      .equals(ownerId)
+      .filter((e) => e.status === 'pending')
+      .toArray();
+    for (const e of waiting) {
+      if (e.type === 'ConsumeItem') {
+        const p = e.payload as CommandPayload<'ConsumeItem'>;
+        if (overwritten.has(`${p.itemId}|${p.storageLocationId}`))
+          await adjustLocalStock(db, p.itemId, p.storageLocationId, p.quantity);
+      }
+      if (e.type === 'RemoveConsumption') {
+        const c = await db.consumptions.get((e.payload as { consumptionId: string }).consumptionId);
+        if (c && overwritten.has(`${c.itemId}|${c.storageLocationId}`))
+          await adjustLocalStock(db, c.itemId, c.storageLocationId, -c.quantity);
+      }
+    }
+  }
 }
 
 /** One sync cycle; single-flight per page. */

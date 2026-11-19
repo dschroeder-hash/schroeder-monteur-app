@@ -44,6 +44,10 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 | E-38 | Zeitfreigabe je Monteur und Tag, eine BC-Zeile je Auftrag × Tätigkeit      | entschieden |
 | E-39 | Fehlgeschlagene Übertragung blockiert ihre Gruppe                          | entschieden |
 | E-40 | Plantafel: Ablegen an der Zeigerposition, Tastatur- und Dialog-Alternative | entschieden |
+| E-41 | Eigene Feiertagsberechnung statt Bibliothek `date-holidays`                | entschieden |
+| E-42 | Eine BC-Zeile je Entnahme; reservierter Bestand wird inkrementell geführt  | entschieden |
+| E-43 | Bestandskonflikte werden angenommen und gemeldet, nie abgelehnt            | entschieden |
+| E-44 | Barcode-Leser lokal ausgeliefert und vorab gecacht                         | entschieden |
 
 ---
 
@@ -242,3 +246,23 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Entscheidung:** Abgelegt wird in der Zelle unter dem Finger/Mauszeiger (`pointerWithin`). Zusätzlich gibt es Tastatur-Drag & Drop mit deutschen Screenreader-Ansagen und für jeden Auftrag den Dialog „Einplanen ohne Ziehen …“.
 **Begründung:** Die Standard-Erkennung nach größter Überlappung legte die breite Auftragskarte im Test eine Stunde zu früh ab. Barrierefreiheit verlangt eine Alternative zum Ziehen.
+
+### E-41 Eigene Feiertagsberechnung
+
+**Entscheidung:** Gesetzliche Feiertage je Bundesland (inkl. Ostern-abhängiger Tage und Buß- und Bettag in Sachsen) werden in `packages/shared/material/holidays.ts` berechnet; E-22 ist damit umgesetzt, aber ohne die Bibliothek `date-holidays`.
+**Begründung:** Die Lieferzeit-Anzeige („Bestellschluss 17:00 → Lieferung morgen“) muss offline auf dem Gerät identisch zum Server rechnen. `date-holidays` enthält Daten aller Länder und wäre für den Browser unverhältnismäßig groß. Nur teilweise geltende Feiertage (z. B. Mariä Himmelfahrt in Teilen Bayerns) sind nicht enthalten.
+
+### E-42 Eine BC-Zeile je Entnahme, inkrementeller reservierter Bestand
+
+**Entscheidung:** Jede freigegebene Entnahme wird eine eigene BC-Servicezeile (bzw. Artikel-Buch.-Blatt-Zeile). `item_stock.pending_withdrawal` wird bei Entnahme, Storno, Ablehnung und gebuchter Menge in BC unter Zeilensperre erhöht bzw. verringert.
+**Begründung:** Die gebuchte Menge aus BC (`quantityConsumed/Shipped`) lässt sich so eindeutig der Entnahme zuordnen und aus dem reservierten Bestand herausrechnen (E-16) – der angezeigte Bestand bleibt vor und nach dem Buchen in BC gleich (Test belegt). Eine Summe über alle Entnahmen wäre für den Monteur wegen RLS nicht berechenbar, da er fremde Entnahmen nicht sehen darf.
+
+### E-43 Bestandskonflikte werden gemeldet, nicht abgelehnt
+
+**Entscheidung:** Entnimmt jemand mehr als verfügbar (z. B. zwei Monteure offline aus demselben Fass), wird die Entnahme angenommen, als Bestandskonflikt markiert und Meister sowie Lager werden benachrichtigt. Mindestbestand: einmalige Meldung beim Unterschreiten.
+**Begründung:** Das Material ist real verbraucht; eine Ablehnung würde nur die Dokumentation verfälschen (ARCHITEKTUR 4.3).
+
+### E-44 Barcode-Leser lokal
+
+**Entscheidung:** Die WebAssembly-Datei von zxing-wasm wird beim Build nach `public/zxing/` kopiert und vom Service Worker vorab gespeichert; der Standard (Laden vom CDN jsDelivr) ist abgeschaltet.
+**Begründung:** Scannen muss im Funkloch funktionieren, und es soll keine Anfrage an fremde Server gehen.

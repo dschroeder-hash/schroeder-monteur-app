@@ -13,6 +13,7 @@ import {
   type BcServiceStatus,
 } from '@schroeder/shared';
 import { EMPTY_GUID, type EntityOf } from '@schroeder/bc-contract';
+import type pg from 'pg';
 import type { Db } from '../db/client.js';
 import {
   assignment,
@@ -50,9 +51,16 @@ export class BcSyncService {
 
   /** Syncs all BC companies referenced by active locations. Uses an advisory lock so only one worker runs. */
   async runAll(): Promise<SyncStats> {
-    const locks = await this.db.execute(sql`select pg_try_advisory_lock(hashtext('bc-sync')) as ok`);
-    if (!(locks.rows[0] as { ok: boolean }).ok) return {};
+    // Session-level advisory locks belong to one connection: lock and unlock must use the same client,
+    // otherwise the unlock silently fails and the lock is held forever by a pooled connection.
+    const client = await (this.db as unknown as { $client: pg.Pool }).$client.connect();
+    let locked = false;
     try {
+      const res = await client.query<{ ok: boolean }>(
+        "select pg_try_advisory_lock(hashtext('bc-sync')) as ok",
+      );
+      locked = !!res.rows[0]?.ok;
+      if (!locked) return {};
       const locs = await this.db.select().from(location).where(eq(location.active, true));
       const stats: SyncStats = {};
       for (const companyId of [...new Set(locs.map((l) => l.bcCompanyId))]) {
@@ -64,7 +72,8 @@ export class BcSyncService {
       }
       return stats;
     } finally {
-      await this.db.execute(sql`select pg_advisory_unlock(hashtext('bc-sync'))`);
+      if (locked) await client.query("select pg_advisory_unlock(hashtext('bc-sync'))").catch(() => undefined);
+      client.release();
     }
   }
 
