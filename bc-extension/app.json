@@ -1,0 +1,26 @@
+{
+  "id": "114fe171-c878-4209-bf2f-a7b80a14ab9f",
+  "name": "Schroeder Werkstatt API",
+  "publisher": "Heinrich Schröder Landmaschinen KG",
+  "version": "1.0.0.0",
+  "brief": "API pages for the Schröder Monteur-App (workshop & field service).",
+  "description": "Custom API pages (schroeder/werkstatt/v1.0) for service orders, service lines, allocations, resources, absences and journals. Adds an idempotency field 'Monteur App Id'. Contains no posting logic.",
+  "privacyStatement": "",
+  "EULA": "",
+  "help": "",
+  "url": "",
+  "logo": "",
+  "dependencies": [],
+  "screenshots": [],
+  "platform": "25.0.0.0",
+  "application": "25.0.0.0",
+  "idRanges": [{ "from": 50100, "to": 50199 }],
+  "resourceExposurePolicy": {
+    "allowDebugging": true,
+    "allowDownloadingSource": true,
+    "includeSourceInSymbolFile": true
+  },
+  "runtime": "14.0",
+  "target": "Cloud",
+  "features": ["NoImplicitWith", "TranslationFile"]
+}

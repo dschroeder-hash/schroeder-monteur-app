@@ -1,0 +1,31 @@
+import { sql } from 'drizzle-orm';
+import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
+import pg from 'pg';
+import * as schema from './schema.js';
+
+export type Db = NodePgDatabase<typeof schema>;
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+
+/** Session context applied to every transaction; drives the RLS policies. */
+export interface DbSession {
+  userId: string;
+  roles: readonly string[];
+}
+
+export function createDb(url: string, max = 10): { db: Db; pool: pg.Pool } {
+  const pool = new pg.Pool({ connectionString: url, max });
+  return { db: drizzle(pool, { schema }), pool };
+}
+
+/**
+ * Runs `fn` in a transaction with the RLS session variables set (SET LOCAL semantics).
+ * All user-facing data access must go through this function.
+ */
+export async function withSession<T>(db: Db, session: DbSession, fn: (tx: Tx) => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select set_config('app.user_id', ${session.userId}, true), set_config('app.roles', ${session.roles.join(',')}, true)`,
+    );
+    return fn(tx);
+  });
+}

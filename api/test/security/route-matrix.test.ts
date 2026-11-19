@@ -1,0 +1,108 @@
+/**
+ * Proves server-side access control for EVERY route (PROMPT section 4: "durch Tests gegen die API belegt").
+ * The route inventory is read from the OpenAPI document; a new route without an entry here fails the build.
+ */
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { buildOpenApi } from '../../src/bootstrap.js';
+import { api, createTestApp, tokenFor } from '../helpers.js';
+
+type Persona = 'monteur-wild' | 'meister-wild' | 'lager-wild' | 'personal' | 'admin';
+const ALL: Persona[] = ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'];
+
+/** Expected access per route. `allowed` personas must NOT get 401/403; all others MUST get 403. */
+const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: string; body?: unknown }> = {
+  'GET /health/live': { public: true },
+  'GET /health/ready': { public: true },
+  'GET /v1/me': { allowed: ALL },
+  'GET /v1/orders': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
+  'GET /v1/orders/{id}': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+  },
+  'GET /v1/admin/locations': { allowed: ['admin'] },
+  'POST /v1/admin/locations': { allowed: ['admin'], body: {} },
+  'PATCH /v1/admin/locations/{id}': {
+    allowed: ['admin'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+    body: {},
+  },
+  'GET /v1/admin/users': { allowed: ['admin'] },
+  'PUT /v1/admin/users/{id}/grants': {
+    allowed: ['admin'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+    body: {},
+  },
+  'PUT /v1/admin/users/{id}/bc-mapping': {
+    allowed: ['admin'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+    body: {},
+  },
+  'GET /v1/admin/features': { allowed: ['admin'] },
+  'PUT /v1/admin/features': { allowed: ['admin'], body: {} },
+};
+
+let app: NestExpressApplication;
+let routes: Array<{ key: string; method: string; path: string }>;
+const tokens = {} as Record<Persona, string>;
+
+beforeAll(async () => {
+  app = await createTestApp();
+  const doc = buildOpenApi(app);
+  routes = Object.entries(doc.paths).flatMap(([path, ops]) =>
+    Object.keys(ops as object)
+      .filter((m) => ['get', 'post', 'put', 'patch', 'delete'].includes(m))
+      .map((m) => ({ key: `${m.toUpperCase()} ${path}`, method: m, path })),
+  );
+  for (const p of ALL) tokens[p] = await tokenFor(app, p);
+});
+afterAll(async () => {
+  await app.close();
+});
+
+const url = (path: string, sample?: string) =>
+  path.replace(/\{[^}]+\}/g, sample ?? '00000000-0000-4000-8000-000000000000');
+const call = (method: string, u: string, token?: string, body?: unknown) => {
+  const r = (api(app) as unknown as Record<string, (u: string) => import('supertest').Test>)[method]!(u);
+  if (token) r.set('Authorization', `Bearer ${token}`);
+  return body !== undefined ? r.send(body as object) : r;
+};
+
+describe('route inventory', () => {
+  it('every route is covered by the access matrix', () => {
+    const missing = routes.map((r) => r.key).filter((k) => !MATRIX[k]);
+    expect(missing, 'add new routes to MATRIX in route-matrix.test.ts').toEqual([]);
+  });
+  it('matrix has no stale entries', () => {
+    const stale = Object.keys(MATRIX).filter((k) => !routes.some((r) => r.key === k));
+    expect(stale).toEqual([]);
+  });
+});
+
+describe('authentication is required (deny by default)', () => {
+  it.each(Object.entries(MATRIX).filter(([, v]) => !v.public))(
+    '%s → 401 without / with forged token',
+    async (key, v) => {
+      const [method, path] = key.split(' ') as [string, string];
+      const u = url(path, v.sample);
+      expect((await call(method.toLowerCase(), u, undefined, v.body)).status).toBe(401);
+      expect(
+        (await call(method.toLowerCase(), u, 'eyJhbGciOiJub25lIn0.eyJvaWQiOiJ4In0.', v.body)).status,
+      ).toBe(401);
+    },
+  );
+});
+
+describe('role matrix', () => {
+  for (const [key, v] of Object.entries(MATRIX).filter(([, x]) => !x.public)) {
+    for (const p of ALL) {
+      const allowed = v.allowed?.includes(p);
+      it(`${key} as ${p} → ${allowed ? 'allowed' : '403'}`, async () => {
+        const [method, path] = key.split(' ') as [string, string];
+        const res = await call(method.toLowerCase(), url(path, v.sample), tokens[p], v.body);
+        if (allowed) expect([401, 403]).not.toContain(res.status);
+        else expect(res.status).toBe(403);
+      });
+    }
+  }
+});

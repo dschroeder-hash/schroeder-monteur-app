@@ -1,0 +1,114 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Zielumgebung
+        type: choice
+        options: [dev, test, prod]
+        default: dev
+
+concurrency:
+  group: deploy-${{ github.event.inputs.target || 'dev' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # OIDC federation to Azure
+
+env:
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    environment: dev
+    outputs:
+      tag: ${{ env.IMAGE_TAG }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Build and push images to ACR
+        env:
+          ACR_NAME: ${{ vars.ACR_NAME }}
+        run: |
+          az acr login --name "$ACR_NAME"
+          REG="$ACR_NAME.azurecr.io"
+          docker build -f app/Dockerfile -t "$REG/monteur-app:$IMAGE_TAG" .
+          docker build -f api/Dockerfile -t "$REG/monteur-api:$IMAGE_TAG" .
+          docker build -f bc-mock/Dockerfile -t "$REG/monteur-bcmock:$IMAGE_TAG" .
+          docker push "$REG/monteur-app:$IMAGE_TAG"
+          docker push "$REG/monteur-api:$IMAGE_TAG"
+          docker push "$REG/monteur-bcmock:$IMAGE_TAG"
+
+  deploy-dev:
+    needs: images
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy Bicep (dev)
+        run: |
+          az deployment group create \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --parameters infra/params/dev.bicepparam \
+            --name "monteur-${{ github.run_number }}"
+
+  # test and prod use GitHub environments with required reviewers (configured in repo settings).
+  # Images are built once per commit and promoted; for test/prod the images must be imported
+  # into the target ACR (az acr import) before the Bicep deployment.
+  deploy-test:
+    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'test' || github.event.inputs.target == 'prod')
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Promote images and deploy (test)
+        run: |
+          for img in monteur-app monteur-api monteur-bcmock; do
+            az acr import --name "${{ vars.ACR_NAME }}" --source "${{ vars.SOURCE_ACR }}.azurecr.io/$img:$IMAGE_TAG" --image "$img:$IMAGE_TAG" --force
+          done
+          az deployment group create \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --parameters infra/params/test.bicepparam \
+            --name "monteur-${{ github.run_number }}"
+
+  deploy-prod:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'prod'
+    needs: deploy-test
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Promote images and deploy (prod)
+        run: |
+          for img in monteur-app monteur-api; do
+            az acr import --name "${{ vars.ACR_NAME }}" --source "${{ vars.SOURCE_ACR }}.azurecr.io/$img:$IMAGE_TAG" --image "$img:$IMAGE_TAG" --force
+          done
+          az deployment group create \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --parameters infra/params/prod.bicepparam \
+            --name "monteur-${{ github.run_number }}"

@@ -63,17 +63,17 @@ flowchart LR
 
 ### 1.1 Komponenten
 
-| Komponente | Ordner | Aufgabe |
-|---|---|---|
-| **app** | `/app` | Next.js (App Router) PWA. UI, Offline-Cache, Outbox, Sync-Client, MSAL-Login. Keine Geschäftslogik, die sicherheitsrelevant ist – alles wird serverseitig erneut geprüft. |
-| **api** | `/api` | NestJS. REST + OpenAPI. Auth (Entra-JWT), Rollen- und Standortprüfung auf jedem Endpunkt, Sync-Endpunkte (Push von Kommandos, Pull von Deltas), Freigaben, Audit, Upload-SAS, Web-PubSub-Token. |
-| **worker** | `/api` (eigener Entry-Point `worker.ts`) | Läuft als separater Prozess: BC-Delta-Sync (Lesen), BC-Transfer-Queue (Schreiben mit Idempotenz, Retry, Dead-Letter), Erinnerungen (vergessene Ausstempelung), Lösch-/Archivjobs, Mindestbestandsprüfung. |
-| **shared** | `/packages/shared` | Domänenlogik ohne I/O, im Browser **und** im Server genutzt: Zeitberechnung, ArbZG-Prüfungen, Rundung, Statusautomat, Produktivitäts-Engine, Zod-Schemas der Kommandos und DTOs. |
-| **bc-contract** | `/packages/bc-contract` | Zod-Schemas und TypeScript-Typen aller BC-Endpunkte (Standard v2.0 + eigene API-Pages). Gemeinsame Quelle für BC-Connector **und** BC-Mock → Contract-Tests. |
-| **ui** | `/packages/ui` | Designsystem: Tailwind-Preset mit CI-Tokens, Basiskomponenten (Button, Tile, StampBar, SyncBadge …). Später vom CRM nachnutzbar. |
-| **bc-mock** | `/bc-mock` | Fastify-Server mit denselben Pfaden wie BC (OData-Teilmenge: `$filter`, `$top`, `$skip`, `$expand`, `@odata.etag`, `If-Match`), Seed mit Landtechnik-Testdaten, Webhook-Simulation. |
-| **bc-extension** | `/bc-extension` | AL-Extension: API-Pages `schroeder/werkstatt/v1.0`, Tabellenerweiterungen (Idempotenz-Feld), Löschprotokoll, Permission Set, Installationsdoku. |
-| **infra** | `/infra` | Bicep-Module je Ressource, Parameterdateien dev/test/prod. |
+| Komponente       | Ordner                                   | Aufgabe                                                                                                                                                                                                   |
+| ---------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **app**          | `/app`                                   | Next.js (App Router) PWA. UI, Offline-Cache, Outbox, Sync-Client, MSAL-Login. Keine Geschäftslogik, die sicherheitsrelevant ist – alles wird serverseitig erneut geprüft.                                 |
+| **api**          | `/api`                                   | NestJS. REST + OpenAPI. Auth (Entra-JWT), Rollen- und Standortprüfung auf jedem Endpunkt, Sync-Endpunkte (Push von Kommandos, Pull von Deltas), Freigaben, Audit, Upload-SAS, Web-PubSub-Token.           |
+| **worker**       | `/api` (eigener Entry-Point `worker.ts`) | Läuft als separater Prozess: BC-Delta-Sync (Lesen), BC-Transfer-Queue (Schreiben mit Idempotenz, Retry, Dead-Letter), Erinnerungen (vergessene Ausstempelung), Lösch-/Archivjobs, Mindestbestandsprüfung. |
+| **shared**       | `/packages/shared`                       | Domänenlogik ohne I/O, im Browser **und** im Server genutzt: Zeitberechnung, ArbZG-Prüfungen, Rundung, Statusautomat, Produktivitäts-Engine, Zod-Schemas der Kommandos und DTOs.                          |
+| **bc-contract**  | `/packages/bc-contract`                  | Zod-Schemas und TypeScript-Typen aller BC-Endpunkte (Standard v2.0 + eigene API-Pages). Gemeinsame Quelle für BC-Connector **und** BC-Mock → Contract-Tests.                                              |
+| **ui**           | `/packages/ui`                           | Designsystem: Tailwind-Preset mit CI-Tokens, Basiskomponenten (Button, Tile, StampBar, SyncBadge …). Später vom CRM nachnutzbar.                                                                          |
+| **bc-mock**      | `/bc-mock`                               | Fastify-Server mit denselben Pfaden wie BC (OData-Teilmenge: `$filter`, `$top`, `$skip`, `$expand`, `@odata.etag`, `If-Match`), Seed mit Landtechnik-Testdaten, Webhook-Simulation.                       |
+| **bc-extension** | `/bc-extension`                          | AL-Extension: API-Pages `schroeder/werkstatt/v1.0`, Tabellenerweiterungen (Idempotenz-Feld), Löschprotokoll, Permission Set, Installationsdoku.                                                           |
+| **infra**        | `/infra`                                 | Bicep-Module je Ressource, Parameterdateien dev/test/prod.                                                                                                                                                |
 
 ### 1.2 Anbindung an das neue CRM (Modulfähigkeit)
 
@@ -88,13 +88,13 @@ flowchart LR
 
 ### 2.1 Rollen (Entra App Roles)
 
-| App Role | Wert | Bemerkung |
-|---|---|---|
-| Monteur | `Werkstatt.Monteur` | Auch Azubis; Kennzeichen `isApprentice` am Benutzer (für Auswertungen, nicht für Rechte). |
-| Meister | `Werkstatt.Meister` | Werkstattmeister und Werkstattleiter. |
-| Lager | `Werkstatt.Lager` | Teiledienst. Ergänzt (siehe ENTSCHEIDUNGEN E-12): empfängt Bestellanforderungen und Mindestbestandswarnungen. |
-| Personal | `Werkstatt.Personal` | Standortübergreifend Abwesenheiten, Lesezugriff Anwesenheit. |
-| Admin | `Werkstatt.Admin` | Stammdaten der App. Sieht **keine** Produktivität einzelner Monteure, sofern nicht zusätzlich Meister. |
+| App Role | Wert                 | Bemerkung                                                                                                     |
+| -------- | -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Monteur  | `Werkstatt.Monteur`  | Auch Azubis; Kennzeichen `isApprentice` am Benutzer (für Auswertungen, nicht für Rechte).                     |
+| Meister  | `Werkstatt.Meister`  | Werkstattmeister und Werkstattleiter.                                                                         |
+| Lager    | `Werkstatt.Lager`    | Teiledienst. Ergänzt (siehe ENTSCHEIDUNGEN E-12): empfängt Bestellanforderungen und Mindestbestandswarnungen. |
+| Personal | `Werkstatt.Personal` | Standortübergreifend Abwesenheiten, Lesezugriff Anwesenheit.                                                  |
+| Admin    | `Werkstatt.Admin`    | Stammdaten der App. Sieht **keine** Produktivität einzelner Monteure, sofern nicht zusätzlich Meister.        |
 
 Die **Standortzuordnung** kommt nicht aus Entra, sondern aus der App-Datenbank (`user_location`), gepflegt durch Admins. Ein Meister kann mehreren Standorten zugeordnet sein.
 
@@ -111,13 +111,13 @@ Fremde Datensätze liefern **404** (nicht 403), damit IDs nicht ausgespäht werd
 
 Flags je Modul **und** je Standort (Betriebsratszustimmung kann betriebsweise erfolgen). Durchsetzung serverseitig; das Frontend blendet nur aus.
 
-| Flag | Modul |
-|---|---|
-| `stamping` | Stempelung (Anwesenheit + Auftrag) |
-| `productivity.self` | Produktivität – eigene Sicht Monteur |
-| `productivity.team` | Produktivität – Meister-Teamansicht |
-| `team.overview` | Meister-Teamansicht (Anwesenheit, laufende Stempelungen) |
-| `materials`, `consumables`, `photos`, `chat`, `dictation`, `dictation.ai`, `absence.sick`, `absence.vacation`, `planning.board` | übrige Module |
+| Flag                                                                                                                            | Modul                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `stamping`                                                                                                                      | Stempelung (Anwesenheit + Auftrag)                       |
+| `productivity.self`                                                                                                             | Produktivität – eigene Sicht Monteur                     |
+| `productivity.team`                                                                                                             | Produktivität – Meister-Teamansicht                      |
+| `team.overview`                                                                                                                 | Meister-Teamansicht (Anwesenheit, laufende Stempelungen) |
+| `materials`, `consumables`, `photos`, `chat`, `dictation`, `dictation.ai`, `absence.sick`, `absence.vacation`, `planning.board` | übrige Module                                            |
 
 ---
 
@@ -406,18 +406,18 @@ Weitere, im Diagramm vereinfachte Tabellen: `customer`, `item`, `item_stock`, `s
 
 ### 3.3 Statusautomat
 
-| App-Feinstatus | BC-Status | Auslöser | Nach BC schreiben (Default) |
-|---|---|---|---|
-| Neu | Offen (Pending) | Import aus BC | – |
-| Eingeplant | Offen | Zuweisung auf Plantafel | nein (Zuordnung wird geschrieben) |
-| Unterwegs | In Bearbeitung | manuell / Start Fahrzeit | nein |
-| In Arbeit | In Bearbeitung | automatisch bei `JOB_START` (Arbeitszeit/Diagnose) | nein |
-| Wartet auf Teile | Zurückgestellt (On Hold) | Bestätigung Bestellanforderung | nein |
-| Wartet auf Kunde/Freigabe | Zurückgestellt | manuell | nein |
-| Fertig – Doku offen | In Bearbeitung | manuell, Pflichtfelder fehlen | nein |
-| Fertig | Erledigt (Finished) | manuell, Doku vollständig | nein |
-| Freigegeben (Meister) | Erledigt | Meister-Freigabe | **ja** (Status Finished) |
-| Abgerechnet (aus BC) | – | Gebuchte Servicerechnung mit `Order No.` erkannt | – (nur lesen) |
+| App-Feinstatus            | BC-Status                | Auslöser                                           | Nach BC schreiben (Default)       |
+| ------------------------- | ------------------------ | -------------------------------------------------- | --------------------------------- |
+| Neu                       | Offen (Pending)          | Import aus BC                                      | –                                 |
+| Eingeplant                | Offen                    | Zuweisung auf Plantafel                            | nein (Zuordnung wird geschrieben) |
+| Unterwegs                 | In Bearbeitung           | manuell / Start Fahrzeit                           | nein                              |
+| In Arbeit                 | In Bearbeitung           | automatisch bei `JOB_START` (Arbeitszeit/Diagnose) | nein                              |
+| Wartet auf Teile          | Zurückgestellt (On Hold) | Bestätigung Bestellanforderung                     | nein                              |
+| Wartet auf Kunde/Freigabe | Zurückgestellt           | manuell                                            | nein                              |
+| Fertig – Doku offen       | In Bearbeitung           | manuell, Pflichtfelder fehlen                      | nein                              |
+| Fertig                    | Erledigt (Finished)      | manuell, Doku vollständig                          | nein                              |
+| Freigegeben (Meister)     | Erledigt                 | Meister-Freigabe                                   | **ja** (Status Finished)          |
+| Abgerechnet (aus BC)      | –                        | Gebuchte Servicerechnung mit `Order No.` erkannt   | – (nur lesen)                     |
 
 Die Spalte „Nach BC schreiben“ ist pro Feinstatus konfigurierbar. Default: Die App schreibt den BC-Status nur bei Meister-Freigabe, damit der Grundsatz „Schreiben nur nach Freigabe“ gilt. Jeder Wechsel erzeugt einen `order_status_event` und eine Chat-Systemnachricht.
 
@@ -468,26 +468,26 @@ sequenceDiagram
 
 ### 4.2 Vorab-Cache
 
-| Daten | Umfang | Aktualisierung |
-|---|---|---|
-| Eigene Zuweisungen inkl. Auftrag, Kunde, Maschine, Kontakt | nächste 7 Tage + offene ältere | Pull |
-| Artikelstamm kompakt (Nr., Bezeichnung, EAN, Einheit, Bestand) | Standort-Lagerorte + eigener Servicewagen | Pull, nachts komplett |
-| Verbrauchsstoffe, Gebinde, Tanks | eigener Standort | Pull |
-| Textbausteine, Auftragsarten, Gemeinkostenarten, Einstellungen, Feature-Flags | eigener Standort | Pull |
-| App-Shell, Icons, Fonts | – | Service Worker (Precache) |
+| Daten                                                                         | Umfang                                    | Aktualisierung            |
+| ----------------------------------------------------------------------------- | ----------------------------------------- | ------------------------- |
+| Eigene Zuweisungen inkl. Auftrag, Kunde, Maschine, Kontakt                    | nächste 7 Tage + offene ältere            | Pull                      |
+| Artikelstamm kompakt (Nr., Bezeichnung, EAN, Einheit, Bestand)                | Standort-Lagerorte + eigener Servicewagen | Pull, nachts komplett     |
+| Verbrauchsstoffe, Gebinde, Tanks                                              | eigener Standort                          | Pull                      |
+| Textbausteine, Auftragsarten, Gemeinkostenarten, Einstellungen, Feature-Flags | eigener Standort                          | Pull                      |
+| App-Shell, Icons, Fonts                                                       | –                                         | Service Worker (Precache) |
 
 Artikel **außerhalb** des Caches (andere Läger) sind nur online suchbar; die UI zeigt das an.
 
 ### 4.3 Konfliktregeln
 
-| Fall | Regel |
-|---|---|
-| Stempelzeit vs. Statusänderung durch Dritte | Stempelereignisse gewinnen. Ein später eingehendes `JOB_START` setzt den Feinstatus auf „In Arbeit“, auch wenn der Meister zwischenzeitlich einen anderen Status gesetzt hat; der Meister erhält einen Hinweis. Ausnahme: Status „Freigegeben“/„Abgerechnet“ – dann wird die Zeit angenommen, aber als „nach Freigabe eingegangen“ in die Inbox gelegt. |
-| Zuweisung während Offline-Phase geändert | Kommandos zu nicht mehr zugewiesenen Aufträgen werden **angenommen** (Arbeit ist real passiert) und markiert. Der Monteur sieht nach dem Sync ein Banner „Deine Planung wurde geändert“ mit Diff. |
-| Bestand | Lokale Abbuchung sofort. Server prüft gegen verfügbaren Bestand; Unterdeckung wird **nicht abgelehnt**, sondern als Bestandskonflikt an Meister/Lager gemeldet. |
-| Chat | Keine Konflikte; Reihenfolge per `server_seq`, Nachrichten eines Autors behalten ihre `client_seq`-Reihenfolge, Anzeige mit „offline geschrieben um …“. |
-| Gleichzeitige Bearbeitung Arbeitsbericht (zwei Geräte desselben Monteurs) | Feldweise Last-Writer-Wins nach `device_time`, verlorene Version als Revision gespeichert. |
-| Abgelehnte Kommandos (z. B. Rechte entzogen) | Bleiben im Client als „fehlgeschlagen“ sichtbar, mit Grund; nie stilles Verwerfen. |
+| Fall                                                                      | Regel                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Stempelzeit vs. Statusänderung durch Dritte                               | Stempelereignisse gewinnen. Ein später eingehendes `JOB_START` setzt den Feinstatus auf „In Arbeit“, auch wenn der Meister zwischenzeitlich einen anderen Status gesetzt hat; der Meister erhält einen Hinweis. Ausnahme: Status „Freigegeben“/„Abgerechnet“ – dann wird die Zeit angenommen, aber als „nach Freigabe eingegangen“ in die Inbox gelegt. |
+| Zuweisung während Offline-Phase geändert                                  | Kommandos zu nicht mehr zugewiesenen Aufträgen werden **angenommen** (Arbeit ist real passiert) und markiert. Der Monteur sieht nach dem Sync ein Banner „Deine Planung wurde geändert“ mit Diff.                                                                                                                                                       |
+| Bestand                                                                   | Lokale Abbuchung sofort. Server prüft gegen verfügbaren Bestand; Unterdeckung wird **nicht abgelehnt**, sondern als Bestandskonflikt an Meister/Lager gemeldet.                                                                                                                                                                                         |
+| Chat                                                                      | Keine Konflikte; Reihenfolge per `server_seq`, Nachrichten eines Autors behalten ihre `client_seq`-Reihenfolge, Anzeige mit „offline geschrieben um …“.                                                                                                                                                                                                 |
+| Gleichzeitige Bearbeitung Arbeitsbericht (zwei Geräte desselben Monteurs) | Feldweise Last-Writer-Wins nach `device_time`, verlorene Version als Revision gespeichert.                                                                                                                                                                                                                                                              |
+| Abgelehnte Kommandos (z. B. Rechte entzogen)                              | Bleiben im Client als „fehlgeschlagen“ sichtbar, mit Grund; nie stilles Verwerfen.                                                                                                                                                                                                                                                                      |
 
 ### 4.4 Plattform-Grenzen (bewusst eingeplant)
 
@@ -502,42 +502,42 @@ Artikel **außerhalb** des Caches (andere Läger) sind nur online suchbar; die U
 
 ### 5.1 Lesen – Quellen
 
-| Entität | Quelle | Endpunkt | BC-Tabelle |
-|---|---|---|---|
-| Mandanten | Standard v2.0 | `companies` | Company |
-| Artikel | Standard v2.0 | `items` | 27 Item |
-| Lagerorte | Standard v2.0 | `locations` | 14 Location |
-| Debitoren | Standard v2.0 | `customers` | 18 Customer |
-| Mitarbeiter | Standard v2.0 | `employees` | 5200 Employee |
-| **Bestand je Lagerort** | Extension | `itemAvailabilities` | 27 Item (FlowFilter Location) bzw. 32 Item Ledger Entry (aggregiert) |
-| **Artikel-Barcodes / Referenzen** | Extension | `itemReferences` | 5777 Item Reference |
-| **Serviceaufträge** | Extension | `serviceOrders` | 5900 Service Header (Document Type = Order) |
-| **Serviceartikelzeilen** | Extension | `serviceOrderItems` | 5901 Service Item Line |
-| **Servicezeilen** | Extension | `serviceLines` | 5902 Service Line |
-| **Serviceartikel (Maschinen)** | Extension | `serviceItems` | 5940 Service Item |
-| **Ressourcen** | Extension | `resources` | 156 Resource |
-| **Serviceauftragszuordnungen** | Extension | `serviceOrderAllocations` | 5950 Service Order Allocation |
-| **Serviceauftragsarten** | Extension | `serviceOrderTypes` | 5903 Service Order Type |
-| **Zuständigkeitseinheiten** | Extension | `responsibilityCenters` | 5714 Responsibility Center |
-| **Abwesenheitsursachen** | Extension | `causesOfAbsence` | 5206 Cause of Absence |
-| **Gebuchte Servicerechnungen** (für „Abgerechnet“) | Extension | `postedServiceInvoices` | 5992 Service Invoice Header |
-| **Löschprotokoll** | Extension | `deletedRecords` | eigene Tabelle (Subscriber auf OnAfterDelete) |
+| Entität                                            | Quelle        | Endpunkt                  | BC-Tabelle                                                           |
+| -------------------------------------------------- | ------------- | ------------------------- | -------------------------------------------------------------------- |
+| Mandanten                                          | Standard v2.0 | `companies`               | Company                                                              |
+| Artikel                                            | Standard v2.0 | `items`                   | 27 Item                                                              |
+| Lagerorte                                          | Standard v2.0 | `locations`               | 14 Location                                                          |
+| Debitoren                                          | Standard v2.0 | `customers`               | 18 Customer                                                          |
+| Mitarbeiter                                        | Standard v2.0 | `employees`               | 5200 Employee                                                        |
+| **Bestand je Lagerort**                            | Extension     | `itemAvailabilities`      | 27 Item (FlowFilter Location) bzw. 32 Item Ledger Entry (aggregiert) |
+| **Artikel-Barcodes / Referenzen**                  | Extension     | `itemReferences`          | 5777 Item Reference                                                  |
+| **Serviceaufträge**                                | Extension     | `serviceOrders`           | 5900 Service Header (Document Type = Order)                          |
+| **Serviceartikelzeilen**                           | Extension     | `serviceOrderItems`       | 5901 Service Item Line                                               |
+| **Servicezeilen**                                  | Extension     | `serviceLines`            | 5902 Service Line                                                    |
+| **Serviceartikel (Maschinen)**                     | Extension     | `serviceItems`            | 5940 Service Item                                                    |
+| **Ressourcen**                                     | Extension     | `resources`               | 156 Resource                                                         |
+| **Serviceauftragszuordnungen**                     | Extension     | `serviceOrderAllocations` | 5950 Service Order Allocation                                        |
+| **Serviceauftragsarten**                           | Extension     | `serviceOrderTypes`       | 5903 Service Order Type                                              |
+| **Zuständigkeitseinheiten**                        | Extension     | `responsibilityCenters`   | 5714 Responsibility Center                                           |
+| **Abwesenheitsursachen**                           | Extension     | `causesOfAbsence`         | 5206 Cause of Absence                                                |
+| **Gebuchte Servicerechnungen** (für „Abgerechnet“) | Extension     | `postedServiceInvoices`   | 5992 Service Invoice Header                                          |
+| **Löschprotokoll**                                 | Extension     | `deletedRecords`          | eigene Tabelle (Subscriber auf OnAfterDelete)                        |
 
 Hinweis: Die Standard-API v2.0 liefert keinen Bestand je Lagerort, daher die zusätzliche API-Page `itemAvailabilities`.
 
 ### 5.2 Schreiben – Ziele (nur nach Freigabe)
 
-| App-Objekt | BC-Ziel (Default) | Endpunkt (Extension) | Alternative (per Konfiguration) |
-|---|---|---|---|
-| Freigegebene Auftragszeit | 5902 Service Line, Type = Resource, No. = Ressource, Work Type Code = Tätigkeitsart, Quantity = gerundete Stunden | `serviceLines` (POST) | 207 Res. Journal Line (Ressourcen Buch.-Blatt) bzw. Service-Buch.-Blatt |
-| Gemeinkostenzeit | 207 Res. Journal Line (Buch.-Blatt-Vorlage konfigurierbar) | `resourceJournalLines` | – |
-| Artikel/Verbrauchsstoff am Auftrag | 5902 Service Line, Type = Item, Location Code, Quantity, Unit of Measure Code | `serviceLines` (POST) | – |
-| Diesel intern (Servicewagen, Vorführer) | 83 Item Journal Line (Artikel Buch.-Blatt, Abgang) mit Dimension Kostenstelle, **ungebucht** | `itemJournalLines` | – |
-| Zuweisung | 5950 Service Order Allocation (Resource No., Allocation Date, Start/Finishing Time, Allocated Hours) | `serviceOrderAllocations` | Resource am Service Item Line |
-| Arbeitsbericht | 5906 Service Comment Line (Type = Fault/Resolution/General), umbrochen auf 80 Zeichen | `serviceCommentLines` | Work Description (Blob am Service Header) |
-| Status | 5900 Service Header.Status | `serviceOrders` (PATCH mit `If-Match`) | – |
-| Krankheit / Urlaub | 5207 Employee Absence (Cause of Absence `KRANK` / `URLAUB`, je Tag eine Zeile, Halbtag als Quantity 0,5) | `employeeAbsences` | Adapter „Zeiterfassungsposten“ (OP-01), Time Sheet via Standard `timeRegistrationEntries` |
-| Bestellanforderung | App-Datensatz + Benachrichtigung Lager | – | Adapter BC-Umlagerungsauftrag (5740 Transfer Header) |
+| App-Objekt                              | BC-Ziel (Default)                                                                                                 | Endpunkt (Extension)                   | Alternative (per Konfiguration)                                                           |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Freigegebene Auftragszeit               | 5902 Service Line, Type = Resource, No. = Ressource, Work Type Code = Tätigkeitsart, Quantity = gerundete Stunden | `serviceLines` (POST)                  | 207 Res. Journal Line (Ressourcen Buch.-Blatt) bzw. Service-Buch.-Blatt                   |
+| Gemeinkostenzeit                        | 207 Res. Journal Line (Buch.-Blatt-Vorlage konfigurierbar)                                                        | `resourceJournalLines`                 | –                                                                                         |
+| Artikel/Verbrauchsstoff am Auftrag      | 5902 Service Line, Type = Item, Location Code, Quantity, Unit of Measure Code                                     | `serviceLines` (POST)                  | –                                                                                         |
+| Diesel intern (Servicewagen, Vorführer) | 83 Item Journal Line (Artikel Buch.-Blatt, Abgang) mit Dimension Kostenstelle, **ungebucht**                      | `itemJournalLines`                     | –                                                                                         |
+| Zuweisung                               | 5950 Service Order Allocation (Resource No., Allocation Date, Start/Finishing Time, Allocated Hours)              | `serviceOrderAllocations`              | Resource am Service Item Line                                                             |
+| Arbeitsbericht                          | 5906 Service Comment Line (Type = Fault/Resolution/General), umbrochen auf 80 Zeichen                             | `serviceCommentLines`                  | Work Description (Blob am Service Header)                                                 |
+| Status                                  | 5900 Service Header.Status                                                                                        | `serviceOrders` (PATCH mit `If-Match`) | –                                                                                         |
+| Krankheit / Urlaub                      | 5207 Employee Absence (Cause of Absence `KRANK` / `URLAUB`, je Tag eine Zeile, Halbtag als Quantity 0,5)          | `employeeAbsences`                     | Adapter „Zeiterfassungsposten“ (OP-01), Time Sheet via Standard `timeRegistrationEntries` |
+| Bestellanforderung                      | App-Datensatz + Benachrichtigung Lager                                                                            | –                                      | Adapter BC-Umlagerungsauftrag (5740 Transfer Header)                                      |
 
 **Idempotenz:** Tabellenerweiterungen ergänzen an 5902, 5906, 5950, 5207, 207, 83 das Feld `Monteur App Id` (Guid, indiziert). Die API-Page prüft im `OnInsertRecord`, ob ein Datensatz mit dieser ID existiert, und liefert dann den vorhandenen zurück (HTTP 201 mit Bestandsdatensatz statt Duplikat). Damit ist jeder Retry gefahrlos.
 

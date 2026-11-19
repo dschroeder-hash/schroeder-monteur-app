@@ -1,0 +1,131 @@
+### Sample requests for the Werkstatt API (VS Code "REST Client" extension).
+### Fill in the variables; get a token via client credentials (see docs/SETUP-BC.md).
+
+@tenantId = <tenant-guid>
+@environment = sandbox
+@companyId = <company-guid>
+@token = <access-token>
+@base = https://api.businesscentral.dynamics.com/v2.0/{{tenantId}}/{{environment}}/api
+@ws = {{base}}/schroeder/werkstatt/v1.0/companies({{companyId}})
+
+### Get token (client credentials)
+POST https://login.microsoftonline.com/{{tenantId}}/oauth2/v2.0/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=client_credentials&client_id=<client-id>&client_secret=<secret>&scope=https://api.businesscentral.dynamics.com/.default
+
+### Companies (standard API)
+GET {{base}}/v2.0/companies
+Authorization: Bearer {{token}}
+
+### Service orders changed since a timestamp (delta sync)
+GET {{ws}}/serviceOrders?$filter=lastModifiedDateTime gt 2026-11-01T00:00:00Z&$top=100
+Authorization: Bearer {{token}}
+
+### Service order items of one order
+GET {{ws}}/serviceOrderItems?$filter=documentNumber eq 'SA-000123'
+Authorization: Bearer {{token}}
+
+### Inventory per location for an item
+GET {{ws}}/itemAvailabilities?$filter=itemNumber eq '1000' and locationCode eq 'WILD'
+Authorization: Bearer {{token}}
+
+### Create resource line (time) - idempotent; send twice, the second call returns the same line
+POST {{ws}}/serviceLines
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "monteurAppId": "6f1c3a1e-2b7d-4a77-9a55-0c1f9d1e0001",
+  "documentNumber": "SA-000123",
+  "serviceItemLineNumber": 10000,
+  "type": "Resource",
+  "number": "R-MUELLER",
+  "quantity": 1.75,
+  "unitOfMeasureCode": "STUNDE",
+  "workTypeCode": "ARBEIT"
+}
+
+### Create item line (12 l engine oil)
+POST {{ws}}/serviceLines
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "monteurAppId": "6f1c3a1e-2b7d-4a77-9a55-0c1f9d1e0002",
+  "documentNumber": "SA-000123",
+  "serviceItemLineNumber": 10000,
+  "type": "Item",
+  "number": "OEL-15W40",
+  "locationCode": "WILD",
+  "quantity": 12,
+  "unitOfMeasureCode": "L"
+}
+
+### Allocation (planning board)
+POST {{ws}}/serviceOrderAllocations
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "monteurAppId": "6f1c3a1e-2b7d-4a77-9a55-0c1f9d1e0003",
+  "documentNumber": "SA-000123",
+  "serviceItemLineNumber": 10000,
+  "resourceNumber": "R-MUELLER",
+  "allocationDate": "2026-11-20",
+  "startingTime": "08:00:00",
+  "finishingTime": "11:00:00",
+  "allocatedHours": 3
+}
+
+### Work report as comment line (max. 80 characters per line)
+POST {{ws}}/serviceCommentLines
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "monteurAppId": "6f1c3a1e-2b7d-4a77-9a55-0c1f9d1e0004",
+  "type": "Resolution",
+  "documentNumber": "SA-000123",
+  "serviceItemLineNumber": 10000,
+  "date": "2026-11-20",
+  "comment": "Wartung nach Herstellerplan durchgeführt, Öle und Filter gewechselt."
+}
+
+### Absence (one line per working day)
+POST {{ws}}/employeeAbsences
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "monteurAppId": "6f1c3a1e-2b7d-4a77-9a55-0c1f9d1e0005",
+  "employeeNumber": "M-0042",
+  "fromDate": "2026-11-23",
+  "toDate": "2026-11-23",
+  "causeOfAbsenceCode": "URLAUB",
+  "unitOfMeasureCode": "TAG",
+  "quantity": 1
+}
+
+### Set order status after master approval (needs current @odata.etag)
+PATCH {{ws}}/serviceOrders(<systemId>)
+Authorization: Bearer {{token}}
+Content-Type: application/json
+If-Match: <etag>
+
+{ "status": "Finished" }
+
+### Deletions since cursor
+GET {{ws}}/deletedRecords?$filter=deletedAt gt 2026-11-19T00:00:00Z
+Authorization: Bearer {{token}}
+
+### Webhook subscription on service orders (standard subscription endpoint)
+POST {{base}}/v2.0/subscriptions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "notificationUrl": "https://<monteur-app-api>/bc/webhook",
+  "resource": "/api/schroeder/werkstatt/v1.0/companies({{companyId}})/serviceOrders",
+  "clientState": "<shared-secret>"
+}

@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+@import '@schroeder/ui/theme.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+html {
+  font-family: var(--font-body);
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 1.0625rem;
+  line-height: 1.5;
+}
+/* Headlines: CD typeface (italic). Body text stays upright and readable. */
+.font-headline {
+  font-family: var(--font-headline);
+  font-style: italic;
+  font-weight: 500;
+}
+.font-emphasis {
+  font-family: var(--font-emphasis);
+  font-style: italic;
+  font-weight: 800;
+}
+:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
