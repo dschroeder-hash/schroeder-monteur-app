@@ -42,5 +42,8 @@
     "typescript": "^5.9.3",
     "unplugin-swc": "^1.5.9",
     "vitest": "^4.0.10"
+  },
+  "exports": {
+    "./dist/*": "./dist/*"
   }
 }

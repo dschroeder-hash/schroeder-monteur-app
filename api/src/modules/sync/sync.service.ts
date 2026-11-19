@@ -274,17 +274,15 @@ export class SyncService {
     note?: string,
   ) {
     await tx.update(serviceOrder).set({ appStatus: to }).where(eq(serviceOrder.id, orderId));
-    await tx
-      .insert(orderStatusEvent)
-      .values({
-        orderId,
-        fromStatus: from,
-        toStatus: to,
-        actorId: scope.userId,
-        source,
-        note: note ?? null,
-        deviceTime: at,
-      });
+    await tx.insert(orderStatusEvent).values({
+      orderId,
+      fromStatus: from,
+      toStatus: to,
+      actorId: scope.userId,
+      source,
+      note: note ?? null,
+      deviceTime: at,
+    });
   }
 
   // -------------------------------------------------------------------------

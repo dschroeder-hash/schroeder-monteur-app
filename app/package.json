@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --webpack -p 3000",
-    "build": "next build --webpack",
-    "start": "next start -p 3000",
+    "build": "next build --webpack && node scripts/copy-standalone.mjs",
+    "start": "node .next/standalone/app/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run",

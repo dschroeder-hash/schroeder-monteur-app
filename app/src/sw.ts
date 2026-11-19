@@ -16,6 +16,9 @@ declare const self: ServiceWorkerGlobalScope;
  */
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
+  // /monteur/auftrag?id=… must hit the precached page offline; RSC requests (_rsc) are deliberately not matched,
+  // so Next falls back to a full navigation that the precache can answer.
+  precacheOptions: { cleanupOutdatedCaches: true, ignoreURLParametersMatching: [/^id$/, /^utm_/] },
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,

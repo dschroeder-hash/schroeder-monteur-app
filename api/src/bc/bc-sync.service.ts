@@ -264,15 +264,13 @@ export class BcSyncService {
         existing.appStatus !== 'ABGERECHNET'
       ) {
         appStatus = appStatusFromBc(r.status as BcServiceStatus);
-        await this.db
-          .insert(orderStatusEvent)
-          .values({
-            orderId: existing.id,
-            fromStatus: existing.appStatus,
-            toStatus: appStatus,
-            source: 'BC',
-            note: `BC-Status: ${r.status}`,
-          });
+        await this.db.insert(orderStatusEvent).values({
+          orderId: existing.id,
+          fromStatus: existing.appStatus,
+          toStatus: appStatus,
+          source: 'BC',
+          note: `BC-Status: ${r.status}`,
+        });
       }
       await this.db
         .update(serviceOrder)
@@ -391,15 +389,13 @@ export class BcSyncService {
         .update(serviceOrder)
         .set({ appStatus: 'ABGERECHNET', billedAt: new Date(r.postingDate) })
         .where(eq(serviceOrder.id, order.id));
-      await this.db
-        .insert(orderStatusEvent)
-        .values({
-          orderId: order.id,
-          fromStatus: cur.s,
-          toStatus: 'ABGERECHNET',
-          source: 'BC',
-          note: `Rechnung ${r.number}`,
-        });
+      await this.db.insert(orderStatusEvent).values({
+        orderId: order.id,
+        fromStatus: cur.s,
+        toStatus: 'ABGERECHNET',
+        source: 'BC',
+        note: `Rechnung ${r.number}`,
+      });
     }
   }
 }

@@ -2,39 +2,44 @@
 
 Format: kurze Architecture Decision Records. Status: **entschieden** (von mir getroffen, änderbar mit Begründung), **vorgegeben** (aus dem Auftrag, nicht neu verhandeln), **vorläufig** (Annahme bis zur Klärung in OFFENE-PUNKTE.md).
 
-| Nr.  | Thema                                                          | Status      |
-| ---- | -------------------------------------------------------------- | ----------- |
-| E-01 | Monorepo mit pnpm + Turborepo, zusätzlicher Ordner `/packages` | entschieden |
-| E-02 | Backend: NestJS (API + Worker aus einer Codebasis)             | entschieden |
-| E-03 | ORM: Drizzle statt Prisma                                      | entschieden |
-| E-04 | Hosting: Azure Container Apps                                  | vorläufig   |
-| E-05 | PWA-Tooling: Serwist (Workbox-basiert)                         | entschieden |
-| E-06 | Sync über idempotente Kommandos + Cursor-Pull                  | entschieden |
-| E-07 | Stempelereignisse append-only, Zeiten abgeleitet               | entschieden |
-| E-08 | Rechte doppelt: Service-Scope + PostgreSQL RLS                 | entschieden |
-| E-09 | BC-Transfer-Queue in PostgreSQL statt Service Bus              | entschieden |
-| E-10 | Echtzeit: Azure Web PubSub                                     | entschieden |
-| E-11 | Infrastruktur als Code: Bicep                                  | entschieden |
-| E-12 | Zusätzliche Rolle „Lager“                                      | vorläufig   |
-| E-13 | Zuweisungen werden sofort nach BC geschrieben                  | entschieden |
-| E-14 | BC-Status wird nur bei Meister-Freigabe geschrieben            | entschieden |
-| E-15 | Rundung auf Tagessumme je Auftrag und Tätigkeit                | vorläufig   |
-| E-16 | Bestand = BC-Bestand − noch nicht in BC gebuchte App-Entnahmen | entschieden |
-| E-17 | Diesel intern als ungebuchte Artikel-Buch.-Blatt-Zeile         | vorläufig   |
-| E-18 | Barcode-Scan mit zxing-wasm                                    | entschieden |
-| E-19 | Feature-Flags je Modul **und** Standort                        | entschieden |
-| E-20 | Fremde Datensätze → 404 statt 403                              | entschieden |
-| E-21 | Plantafel mit dnd-kit                                          | entschieden |
-| E-22 | Feiertage nach Bundesland des Standorts                        | entschieden |
-| E-23 | Auftragsart-Mapping versioniert (`valid_from`)                 | entschieden |
-| E-24 | Abwesenheit nach BC: eine Zeile je Kalendertag                 | vorläufig   |
-| E-25 | Mock-Server mit Fastify, gemeinsame Contract-Schemas           | entschieden |
-| E-26 | NestJS 11 statt 12                                             | entschieden |
-| E-27 | PWA-Build mit Webpack statt Turbopack                          | entschieden |
-| E-28 | Eigene Datenbankrollen für API und Worker                      | entschieden |
-| E-29 | Unbekannte Entra-Benutzer werden ohne Rechte angelegt          | entschieden |
-| E-30 | Service Worker cacht keine API-Daten                           | entschieden |
-| E-31 | Logo auf weißer Fläche im Dunkelmodus                          | entschieden |
+| Nr.  | Thema                                                                     | Status      |
+| ---- | ------------------------------------------------------------------------- | ----------- |
+| E-01 | Monorepo mit pnpm + Turborepo, zusätzlicher Ordner `/packages`            | entschieden |
+| E-02 | Backend: NestJS (API + Worker aus einer Codebasis)                        | entschieden |
+| E-03 | ORM: Drizzle statt Prisma                                                 | entschieden |
+| E-04 | Hosting: Azure Container Apps                                             | vorläufig   |
+| E-05 | PWA-Tooling: Serwist (Workbox-basiert)                                    | entschieden |
+| E-06 | Sync über idempotente Kommandos + Cursor-Pull                             | entschieden |
+| E-07 | Stempelereignisse append-only, Zeiten abgeleitet                          | entschieden |
+| E-08 | Rechte doppelt: Service-Scope + PostgreSQL RLS                            | entschieden |
+| E-09 | BC-Transfer-Queue in PostgreSQL statt Service Bus                         | entschieden |
+| E-10 | Echtzeit: Azure Web PubSub                                                | entschieden |
+| E-11 | Infrastruktur als Code: Bicep                                             | entschieden |
+| E-12 | Zusätzliche Rolle „Lager“                                                 | vorläufig   |
+| E-13 | Zuweisungen werden sofort nach BC geschrieben                             | entschieden |
+| E-14 | BC-Status wird nur bei Meister-Freigabe geschrieben                       | entschieden |
+| E-15 | Rundung auf Tagessumme je Auftrag und Tätigkeit                           | vorläufig   |
+| E-16 | Bestand = BC-Bestand − noch nicht in BC gebuchte App-Entnahmen            | entschieden |
+| E-17 | Diesel intern als ungebuchte Artikel-Buch.-Blatt-Zeile                    | vorläufig   |
+| E-18 | Barcode-Scan mit zxing-wasm                                               | entschieden |
+| E-19 | Feature-Flags je Modul **und** Standort                                   | entschieden |
+| E-20 | Fremde Datensätze → 404 statt 403                                         | entschieden |
+| E-21 | Plantafel mit dnd-kit                                                     | entschieden |
+| E-22 | Feiertage nach Bundesland des Standorts                                   | entschieden |
+| E-23 | Auftragsart-Mapping versioniert (`valid_from`)                            | entschieden |
+| E-24 | Abwesenheit nach BC: eine Zeile je Kalendertag                            | vorläufig   |
+| E-25 | Mock-Server mit Fastify, gemeinsame Contract-Schemas                      | entschieden |
+| E-26 | NestJS 11 statt 12                                                        | entschieden |
+| E-27 | PWA-Build mit Webpack statt Turbopack                                     | entschieden |
+| E-28 | Eigene Datenbankrollen für API und Worker                                 | entschieden |
+| E-29 | Unbekannte Entra-Benutzer werden ohne Rechte angelegt                     | entschieden |
+| E-30 | Service Worker cacht keine API-Daten                                      | entschieden |
+| E-31 | Logo auf weißer Fläche im Dunkelmodus                                     | entschieden |
+| E-32 | Sync-Auslöser: Fokus, Online-Event, Intervall – keine Background Sync API | entschieden |
+| E-33 | Lückenloser Delta-Pull über Transaktions-IDs (xid8)                       | entschieden |
+| E-34 | Auftragsdetail über Query-Parameter, App-Seiten vorab gecacht             | entschieden |
+| E-35 | Stempelregeln: implizites Kommen, Pause unterbricht und setzt fort        | entschieden |
+| E-36 | Zeitbuchungen werden bei jedem Stempel neu abgeleitet                     | entschieden |
 
 ---
 
@@ -189,3 +194,27 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Entscheidung:** Das Logo steht immer auf einer kleinen weißen Fläche.
 **Begründung:** Die Reinzeichnung enthält schwarzen Text, der auf dunklem Grund nicht lesbar wäre. Liefert Marketing eine Negativversion, wird diese im Dunkelmodus verwendet.
+
+### E-32 Sync-Auslöser ohne Background Sync API
+
+**Entscheidung:** Synchronisiert wird nach jeder Eingabe (0,5 s verzögert), beim `online`-Event, wenn die App in den Vordergrund kommt, und jede Minute.
+**Begründung:** Safari/iOS unterstützt die Background Sync API nicht, und der Service Worker hat keinen Zugriff auf das MSAL-Token. Ein zweiter Weg nur für Android brächte doppelte Logik ohne echten Gewinn: Monteure öffnen die App ohnehin regelmäßig. Die Outbox bleibt bis zur Übertragung erhalten.
+
+### E-33 Lückenloser Delta-Pull über Transaktions-IDs
+
+**Entscheidung:** Jede Zeile speichert per Trigger `pg_current_xact_id()`. Der Pull läuft in einer REPEATABLE-READ-Transaktion, liefert `tx_id >= cursor` und gibt den Snapshot-Horizont (`pg_snapshot_xmin`) als neuen Cursor zurück.
+**Begründung:** Ein reiner Sequenzzähler verliert Änderungen, wenn eine Transaktion mit kleinerer Nummer erst nach dem Pull committet. Der Test `pull › does not skip a change committed after the pull started` belegt das Verhalten. Doppelt gelieferte Zeilen sind harmlos, weil der Client per Upsert speichert.
+
+### E-34 Auftragsdetail über Query-Parameter
+
+**Entscheidung:** `/monteur/auftrag?id=…` statt `/monteur/auftrag/[id]`. Alle Monteur-Seiten werden vom Service Worker vorab gespeichert; der Parameter `id` wird beim Cache-Abgleich ignoriert.
+**Begründung:** Dynamische Routen wären offline nur erreichbar, wenn genau dieser Auftrag vorher online geöffnet wurde. So öffnet jeder synchronisierte Auftrag auch im Funkloch.
+
+### E-35 Stempelregeln
+
+**Entscheidung:** Auftragsstart ohne „Kommen“ eröffnet die Anwesenheit implizit zur selben Zeit (Hinweis in der App). „Pause“ unterbricht einen laufenden Auftrag, „Pause beenden“ setzt ihn als neues Segment fort. „Gehen“ beendet alles. Doppelte oder sinnlose Ereignisse werden ignoriert, nie abgelehnt.
+**Begründung:** Zwei Taps maximal bis zur Kernaktion, keine Datenverluste durch Bedienfehler offline.
+
+### E-36 Zeitbuchungen werden bei jedem Stempel neu abgeleitet
+
+**Entscheidung:** Der Server berechnet nach jedem Stempelereignis die Zeitbuchungen des Tages und des Vortags neu (deterministische Schlüssel, Upsert). Offene, abgeleitete Buchungen darf nur ihr Eigentümer löschen (restriktive RLS-Richtlinie). Sind Buchungen eines Tages bereits eingereicht oder freigegeben, wird nichts automatisch geändert; der Monteur erhält einen Hinweis (Freigabe-Workflow: Phase 3).

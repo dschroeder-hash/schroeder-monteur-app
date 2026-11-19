@@ -57,3 +57,10 @@ export const stampEventSchema = z.object({
   activity: z.enum(ACTIVITIES).nullish(),
   overheadCode: z.string().max(40).nullish(),
 });
+
+/** Short labels for the large start buttons. */
+export const ACTIVITY_SHORT_LABELS: Record<Activity, string> = {
+  WORK: 'Arbeit',
+  TRAVEL: 'Fahrt',
+  DIAGNOSIS: 'Diagnose',
+};

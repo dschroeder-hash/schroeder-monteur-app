@@ -35,3 +35,27 @@ Architektur, Entscheidungen, offene Punkte. Bestätigt durch den Auftraggeber: S
 - Schriftdateien fehlen (OP-04): Browser meldet 404 für die Platzhalter-Fonts, Fallback Inter greift.
 - Aufträge kommen in dev/test per Seed aus den Mock-Daten; der BC-Delta-Sync folgt in Phase 2.
 - Zeitzonen der geplanten Zuweisungen im Seed sind UTC; die Zeitlogik mit Europe/Berlin folgt in Phase 2.
+
+## Phase 2 – Kernprozess Monteur ✅ (19.11.2026)
+
+**Fertig**
+
+| Bereich                            | Inhalt                                                                                                                                                                                                                                                              | Tests                      |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| Zeitlogik (`packages/shared/time`) | Segmente aus Stempelereignissen (Browser und Server identisch), Tageszusammenfassung, ArbZG-Warnungen (Pausen 30/45 min in 15-min-Blöcken, 6 h am Stück, 10 h/Tag, 11 h Ruhezeit), Viertelstunden-Rundung auf Tagessumme, Zeitzonen inkl. Sommerzeit                | 23 (inkl. Referenztag 5.1) |
+| Sync-API                           | `POST /v1/sync/push` (idempotent, Gerätereihenfolge, Geräteuhr-Erkennung, Statusautomatik, Konfliktregeln), `GET /v1/sync/pull` (lückenloser Delta-Abruf)                                                                                                           | 14                         |
+| BC-Delta-Sync (Worker)             | Auftragsarten, Debitoren, Maschinen, Serviceaufträge, Zeilen, Zuordnungen → Zuweisungen, Löschungen, gebuchte Rechnungen → „Abgerechnet“; Cursor je Entität, Fehler je Entität isoliert, Advisory Lock                                                              | 9                          |
+| Worker-Jobs                        | Vergessene Ausstempelung → Pflichtkorrektur am Folgetag                                                                                                                                                                                                             | 1                          |
+| App                                | Stempelleiste (Kommen/Gehen, Auftrag, Pause, Gemeinkosten, Stopp), Auftragsdetail (Navigation, Anrufen, Maschine, Status, Verlauf), Kalender Tag/Woche/Liste, „Meine Zeiten“ mit ArbZG-Hinweisen, Dashboard aus lokalen Daten, Sync-Engine mit Outbox und Hinweisen | 9                          |
+| E2E (Playwright)                   | Arbeitstag mit 3 Aufträgen, Fahrzeit, Pause komplett im Flugmodus → Sync → 8 Ereignisse genau einmal, Zeiten korrekt, Status „In Arbeit“                                                                                                                            | 1                          |
+
+**Bewusst verschoben**
+
+- Push-Erinnerung „Ausstempeln vergessen“ → Phase 5 (Web Push). Das Markieren zur Pflichtkorrektur läuft bereits.
+- Korrektur und Freigabe von Zeiten durch den Meister → Phase 3.
+- On-Demand-Aktualisierung eines einzelnen Auftrags aus BC → Phase 3 (zusammen mit dem Rückschreiben).
+- Webhook-Empfang aus BC → Phase 3; bis dahin läuft der Delta-Sync alle 3 Minuten.
+
+**Aufgefallen**
+
+- Im E2E-Test ging ein Tap auf „Gehen“ verloren, als er unmittelbar nach „Stopp“ kam, während sich die Leiste umbaute. Der Test wartet jetzt auf den neuen Zustand; im echten Betrieb sollte das in der Pilotphase beobachtet werden (Phase 8: Härtung der Stempelleiste gegen Schnellklicks).

@@ -138,7 +138,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    await localDb.kv.delete(ME_CACHE_KEY);
+    const pending = await localDb.outbox.filter((e) => e.status !== 'rejected').count();
+    if (
+      pending &&
+      !window.confirm(
+        `${pending} Einträge sind noch nicht übertragen. Sie bleiben auf dem Gerät und werden nach Ihrer nächsten Anmeldung gesendet. Trotzdem abmelden?`,
+      )
+    )
+      return;
+    // Personal data cache is removed on logout (E-30); the outbox stays bound to its owner.
+    await localDb.clearCache(true);
     setMe(null);
     setStatus('signed-out');
     if (config.authMode === 'dev') sessionStorage.removeItem(DEV_TOKEN_KEY);

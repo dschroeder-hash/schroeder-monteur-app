@@ -166,21 +166,21 @@
     );
   }
   let D = ['get', 'getKey', 'getAll', 'getAllKeys', 'count'],
-    N = ['put', 'add', 'delete', 'clear'],
-    C = new Map();
+    C = ['put', 'add', 'delete', 'clear'],
+    N = new Map();
   function T(e, t) {
     if (!(e instanceof IDBDatabase && !(t in e) && 'string' == typeof t)) return;
-    if (C.get(t)) return C.get(t);
+    if (N.get(t)) return N.get(t);
     let a = t.replace(/FromIndex$/, ''),
       s = t !== a,
-      r = N.includes(a);
+      r = C.includes(a);
     if (!(a in (s ? IDBIndex : IDBObjectStore).prototype) || !(r || D.includes(a))) return;
     let n = async function (e, ...t) {
       let n = this.transaction(e, r ? 'readwrite' : 'readonly'),
         i = n.store;
       return (s && (i = i.index(t.shift())), (await Promise.all([i[a](...t), r && n.done]))[0]);
     };
-    return (C.set(t, n), n);
+    return (N.set(t, n), n);
   }
   E = { ...(e = E), get: (t, a, s) => T(t, a) || e.get(t, a, s), has: (t, a) => !!T(t, a) || e.has(t, a) };
   let P = ['continue', 'continuePrimaryKey', 'advance'],
@@ -214,7 +214,7 @@
     );
   }
   E = { ...(t = E), get: (e, a, s) => (F(e, a) ? L : t.get(e, a, s)), has: (e, a) => F(e, a) || t.has(e, a) };
-  let M = async (e, t) => {
+  let O = async (e, t) => {
       let s = null;
       if ((e.url && (s = new URL(e.url).origin), s !== self.location.origin))
         throw new l('cross-origin-copy-response', { origin: s });
@@ -238,25 +238,25 @@
           : r.body;
       return new Response(c, i);
     },
-    O = 'requests',
+    M = 'requests',
     B = 'queueName';
   var K = class {
       _db = null;
       async addEntry(e) {
-        let t = (await this.getDb()).transaction(O, 'readwrite', { durability: 'relaxed' });
+        let t = (await this.getDb()).transaction(M, 'readwrite', { durability: 'relaxed' });
         (await t.store.add(e), await t.done);
       }
       async getFirstEntryId() {
-        return (await (await this.getDb()).transaction(O).store.openCursor())?.value.id;
+        return (await (await this.getDb()).transaction(M).store.openCursor())?.value.id;
       }
       async getAllEntriesByQueueName(e) {
-        return (await (await this.getDb()).getAllFromIndex(O, B, IDBKeyRange.only(e))) || [];
+        return (await (await this.getDb()).getAllFromIndex(M, B, IDBKeyRange.only(e))) || [];
       }
       async getEntryCountByQueueName(e) {
-        return (await this.getDb()).countFromIndex(O, B, IDBKeyRange.only(e));
+        return (await this.getDb()).countFromIndex(M, B, IDBKeyRange.only(e));
       }
       async deleteEntry(e) {
-        await (await this.getDb()).delete(O, e);
+        await (await this.getDb()).delete(M, e);
       }
       async getFirstEntryByQueueName(e) {
         return await this.getEndEntryFromIndex(IDBKeyRange.only(e), 'next');
@@ -265,7 +265,7 @@
         return await this.getEndEntryFromIndex(IDBKeyRange.only(e), 'prev');
       }
       async getEndEntryFromIndex(e, t) {
-        return (await (await this.getDb()).transaction(O).store.index(B).openCursor(e, t))?.value;
+        return (await (await this.getDb()).transaction(M).store.index(B).openCursor(e, t))?.value;
       }
       async getDb() {
         return (
@@ -274,8 +274,8 @@
         );
       }
       _upgradeDb(e, t) {
-        (t > 0 && t < 3 && e.objectStoreNames.contains(O) && e.deleteObjectStore(O),
-          e.createObjectStore(O, { autoIncrement: !0, keyPath: 'id' }).createIndex(B, B, { unique: !1 }));
+        (t > 0 && t < 3 && e.objectStoreNames.contains(M) && e.deleteObjectStore(M),
+          e.createObjectStore(M, { autoIncrement: !0, keyPath: 'id' }).createIndex(B, B, { unique: !1 }));
       }
     },
     W = class {
@@ -789,7 +789,7 @@
         cacheWillUpdate: async ({ response: e }) => (!e || e.status >= 400 ? null : e),
       };
       static copyRedirectedCacheableResponsesPlugin = {
-        cacheWillUpdate: async ({ response: e }) => (e.redirected ? await M(e) : e),
+        cacheWillUpdate: async ({ response: e }) => (e.redirected ? await O(e) : e),
       };
       constructor(t = {}) {
         ((t.cacheName = c(t.cacheName)),
@@ -1738,52 +1738,68 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
   ];
   new eR({
     precacheEntries: [
-      { revision: null, url: '/_next/static/chunks/173-b640981339368628.js' },
-      { revision: null, url: '/_next/static/chunks/338-467e4783b9353451.js' },
-      { revision: null, url: '/_next/static/chunks/5719f590-b168fc30e1c5ae41.js' },
-      { revision: null, url: '/_next/static/chunks/5dd9ad9f-45f00311959b14c1.js' },
-      { revision: null, url: '/_next/static/chunks/74-ed6ab7e226d6d55e.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/admin/page-4dbfd0ae821dd430.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/layout-db60d912658e7a4d.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/meister/page-2b8af34d7c7a463f.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/page-87a4424c41c7be10.js' },
-      { revision: null, url: '/_next/static/chunks/app/(app)/personal/page-cb37051e128fa268.js' },
-      { revision: null, url: '/_next/static/chunks/app/_global-error/page-cb37051e128fa268.js' },
-      { revision: null, url: '/_next/static/chunks/app/_not-found/page-177ecc9a9a355698.js' },
-      { revision: null, url: '/_next/static/chunks/app/layout-8dd7f56c9e167973.js' },
-      { revision: null, url: '/_next/static/chunks/app/login/page-f4d04883e30ca17f.js' },
-      { revision: null, url: '/_next/static/chunks/app/manifest.webmanifest/route-cb37051e128fa268.js' },
-      { revision: null, url: '/_next/static/chunks/app/offline/page-cb37051e128fa268.js' },
-      { revision: null, url: '/_next/static/chunks/app/page-452f7a495f9d23d2.js' },
-      { revision: null, url: '/_next/static/chunks/framework-ff6c40930293627d.js' },
-      { revision: null, url: '/_next/static/chunks/main-app-322af087a2210821.js' },
-      { revision: null, url: '/_next/static/chunks/main-e838a12fba5d0cb1.js' },
+      { revision: 'b39ab4a0-08c1-4726-b005-abdbb0eeb9a8', url: '/' },
+      {
+        revision: 'c8a83d3aa99c1fc6a32a0dfb35745abc',
+        url: '/_next/static/XARFWko7zPKKrNDMrmZaq/_buildManifest.js',
+      },
+      {
+        revision: 'b6652df95db52feb4daf4eca35380933',
+        url: '/_next/static/XARFWko7zPKKrNDMrmZaq/_ssgManifest.js',
+      },
+      { revision: null, url: '/_next/static/chunks/363-f60b8a3c072b6080.js' },
+      { revision: null, url: '/_next/static/chunks/422-b7609f42990e7cdc.js' },
+      { revision: null, url: '/_next/static/chunks/5dd9ad9f-cbb954d65fc74967.js' },
+      { revision: null, url: '/_next/static/chunks/736-fbbfdba7242674ed.js' },
+      { revision: null, url: '/_next/static/chunks/767-9c952b55594c97a8.js' },
+      { revision: null, url: '/_next/static/chunks/966-aa824dc0a595ceac.js' },
+      { revision: null, url: '/_next/static/chunks/996-0693e21b1718e941.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/admin/page-99169b45298058d7.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/layout-865bd54f840b1e0c.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/meister/page-169986030d536c5e.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/auftrag/page-203ff2421800fad7.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/kalender/page-e7a2d4542eb9d197.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/layout-d19bbb3cc8b9f4b2.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/page-1e313591c2c25a3c.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/monteur/zeiten/page-cde43f52cf929f74.js' },
+      { revision: null, url: '/_next/static/chunks/app/(app)/personal/page-1252a74f7f531cc0.js' },
+      { revision: null, url: '/_next/static/chunks/app/_global-error/page-1252a74f7f531cc0.js' },
+      { revision: null, url: '/_next/static/chunks/app/_not-found/page-81f63e7a3ac7c515.js' },
+      { revision: null, url: '/_next/static/chunks/app/layout-d9917e0e1c9c3d81.js' },
+      { revision: null, url: '/_next/static/chunks/app/login/page-d648bbdce85e1319.js' },
+      { revision: null, url: '/_next/static/chunks/app/manifest.webmanifest/route-1252a74f7f531cc0.js' },
+      { revision: null, url: '/_next/static/chunks/app/offline/page-1252a74f7f531cc0.js' },
+      { revision: null, url: '/_next/static/chunks/app/page-dbb95625d1ddda38.js' },
+      { revision: null, url: '/_next/static/chunks/f092e497-f94a7ed60665601c.js' },
+      { revision: null, url: '/_next/static/chunks/framework-74f142ca4c2bcb31.js' },
+      { revision: null, url: '/_next/static/chunks/main-3877ecb57f30b29a.js' },
+      { revision: null, url: '/_next/static/chunks/main-app-6a54669344cf6be0.js' },
       {
         revision: null,
-        url: '/_next/static/chunks/next/dist/client/components/builtin/app-error-cb37051e128fa268.js',
+        url: '/_next/static/chunks/next/dist/client/components/builtin/app-error-1252a74f7f531cc0.js',
       },
       {
         revision: null,
-        url: '/_next/static/chunks/next/dist/client/components/builtin/forbidden-cb37051e128fa268.js',
+        url: '/_next/static/chunks/next/dist/client/components/builtin/forbidden-1252a74f7f531cc0.js',
       },
       {
         revision: null,
-        url: '/_next/static/chunks/next/dist/client/components/builtin/global-error-bddc4cc753749e3b.js',
+        url: '/_next/static/chunks/next/dist/client/components/builtin/global-error-c93021fb90774dee.js',
       },
       {
         revision: null,
-        url: '/_next/static/chunks/next/dist/client/components/builtin/not-found-cb37051e128fa268.js',
+        url: '/_next/static/chunks/next/dist/client/components/builtin/not-found-1252a74f7f531cc0.js',
       },
       {
         revision: null,
-        url: '/_next/static/chunks/next/dist/client/components/builtin/unauthorized-cb37051e128fa268.js',
+        url: '/_next/static/chunks/next/dist/client/components/builtin/unauthorized-1252a74f7f531cc0.js',
       },
       {
         revision: '846118c33b2c0e922d7b3a7676f81f6f',
         url: '/_next/static/chunks/polyfills-42372ed130431b0a.js',
       },
-      { revision: null, url: '/_next/static/chunks/webpack-6914f860ca7ffecb.js' },
-      { revision: null, url: '/_next/static/css/7f5d9432ef86babf.css' },
+      { revision: null, url: '/_next/static/chunks/webpack-d5d6d9843b1b148d.js' },
+      { revision: null, url: '/_next/static/css/c26d3416617b2e77.css' },
       { revision: null, url: '/_next/static/media/inter-cyrillic-ext-wght-normal.460bdf14.woff2' },
       { revision: null, url: '/_next/static/media/inter-cyrillic-wght-normal.491cbc05.woff2' },
       { revision: null, url: '/_next/static/media/inter-greek-ext-wght-normal.23aae568.woff2' },
@@ -1791,22 +1807,15 @@ This is generally NOT safe. Learn more at https://bit.ly/wb-precache`);
       { revision: null, url: '/_next/static/media/inter-latin-ext-wght-normal.3835a68e.woff2' },
       { revision: null, url: '/_next/static/media/inter-latin-wght-normal.6c596dfc.woff2' },
       { revision: null, url: '/_next/static/media/inter-vietnamese-wght-normal.113a630f.woff2' },
-      {
-        revision: '44ea7f78295d59752ea57d992e03f01e',
-        url: '/_next/static/ukSzrgqEUFc0TBHU5PdRj/_buildManifest.js',
-      },
-      {
-        revision: 'b6652df95db52feb4daf4eca35380933',
-        url: '/_next/static/ukSzrgqEUFc0TBHU5PdRj/_ssgManifest.js',
-      },
-      { revision: 'a647088583ef5886d4f09168cad23459', url: '/brand/logo.svg' },
-      { revision: 'ce2bf4fb107b90c822b2761fa32487c7', url: '/icons/apple-touch-icon.png' },
-      { revision: '0a63d43e973f351f0edccb2e8c726494', url: '/icons/icon-192.png' },
-      { revision: '283029037d2da0b0bc06559a7735ca6a', url: '/icons/icon-512.png' },
-      { revision: '283029037d2da0b0bc06559a7735ca6a', url: '/icons/icon-maskable-512.png' },
-      { revision: '4b2a7d9305e678e8c6fff3190ddab0b5', url: '/icons/icon.svg' },
+      { revision: 'b39ab4a0-08c1-4726-b005-abdbb0eeb9a8', url: '/login' },
+      { revision: 'b39ab4a0-08c1-4726-b005-abdbb0eeb9a8', url: '/monteur' },
+      { revision: 'b39ab4a0-08c1-4726-b005-abdbb0eeb9a8', url: '/monteur/auftrag' },
+      { revision: 'b39ab4a0-08c1-4726-b005-abdbb0eeb9a8', url: '/monteur/kalender' },
+      { revision: 'b39ab4a0-08c1-4726-b005-abdbb0eeb9a8', url: '/monteur/zeiten' },
+      { revision: 'b39ab4a0-08c1-4726-b005-abdbb0eeb9a8', url: '/offline' },
       { revision: '1666c6f1e8ae3b302483082700dd1822', url: '/swe-worker-329bb92787b7a9d9.js' },
     ],
+    precacheOptions: { cleanupOutdatedCaches: !0, ignoreURLParametersMatching: [/^id$/, /^utm_/] },
     skipWaiting: !0,
     clientsClaim: !0,
     navigationPreload: !0,

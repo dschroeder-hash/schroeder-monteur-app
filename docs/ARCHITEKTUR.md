@@ -123,7 +123,7 @@ Flags je Modul **und** je Standort (Betriebsratszustimmung kann betriebsweise er
 
 ## 3. Datenmodell
 
-Konventionen: Primärschlüssel `uuid` (clientseitig erzeugbar → offline-fähig), `created_at`/`updated_at` (Serverzeit, UTC), `row_version bigint` aus einer globalen Sequenz (Delta-Pull-Cursor), Soft-Delete `deleted_at` wo Pull-Clients Löschungen erfahren müssen. BC-Spiegeltabellen tragen `bc_system_id`, `bc_etag`, `bc_modified_at`.
+Konventionen: Primärschlüssel `uuid` (clientseitig erzeugbar → offline-fähig), `created_at`/`updated_at` (Serverzeit, UTC), `tx_id xid8` (schreibende Transaktion, Delta-Pull-Cursor, E-33) und `row_version bigint` (Reihenfolge), Soft-Delete `deleted_at` wo Pull-Clients Löschungen erfahren müssen. BC-Spiegeltabellen tragen `bc_system_id`, `bc_etag`, `bc_modified_at`.
 
 ### 3.1 ER-Diagramm
 
@@ -457,13 +457,13 @@ sequenceDiagram
   API-->>SYNC: Ergebnis je Kommando (applied | duplicate | rejected + Grund)
   SYNC->>IDB: Bestätigte Kommandos aus Outbox entfernen
   SYNC->>API: GET /sync/pull?cursor=…
-  API->>PG: Datensätze mit row_version > cursor im AccessScope
+  API->>PG: Datensätze mit tx_id >= cursor im AccessScope (REPEATABLE READ)
   API-->>SYNC: Änderungen + neuer Cursor
   SYNC->>IDB: Lokalen Cache aktualisieren, Konflikthinweise anzeigen
 ```
 
 - **Kommandos statt Zustandsabgleich:** Der Client sendet fachliche Kommandos (`StampJobStart`, `ConsumeItem`, `SendChatMessage`, `ReportSick` …), jeweils mit Client-UUID. Der Server verarbeitet sie **idempotent** (`sync_command.id` ist Primärschlüssel) und **in Client-Reihenfolge** (`seq` je Gerät). Doppelt gesendete Kommandos (z. B. nach Verbindungsabbruch) liefern `duplicate` und ändern nichts.
-- **Pull per Cursor:** Eine globale Sequenz `row_version` für alle synchronisierten Tabellen. Der Server filtert über den AccessScope; der Monteur bekommt nur eigene Daten.
+- **Pull per Cursor:** Jede Zeile speichert die ID der schreibenden Transaktion (`tx_id`). Ein Pull liefert alle Zeilen mit `tx_id >= cursor` und gibt `pg_snapshot_xmin(pg_current_snapshot())` als neuen Cursor zurück. Transaktionen, die beim Pull noch liefen, kommen dadurch sicher beim nächsten Pull mit – nichts wird übersprungen (E-33). Der Server filtert über den AccessScope und RLS; der Monteur bekommt nur eigene Daten.
 - **Fotos** laufen getrennt vom Kommandokanal: Das `AttachPhoto`-Kommando trägt nur Metadaten; die Binärdaten gehen per **Blob-Block-Upload** (Put Block à 1 MB + Put Block List) mit kurzlebigem SAS. Fortsetzung nach Abbruch: Client fragt bereits angenommene Blöcke ab (`Get Block List`) und lädt nur die fehlenden nach.
 
 ### 4.2 Vorab-Cache

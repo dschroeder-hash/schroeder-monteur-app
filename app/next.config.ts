@@ -1,7 +1,21 @@
+import { randomUUID } from 'node:crypto';
 import withSerwistInit from '@serwist/next';
 import type { NextConfig } from 'next';
 
+// App shell pages are precached so the Monteur can open them offline even if never visited (ARCHITEKTUR 4.2).
+const revision = process.env.GIT_SHA ?? randomUUID();
+const OFFLINE_PAGES = [
+  '/',
+  '/login',
+  '/offline',
+  '/monteur',
+  '/monteur/auftrag',
+  '/monteur/kalender',
+  '/monteur/zeiten',
+];
+
 const withSerwist = withSerwistInit({
+  additionalPrecacheEntries: OFFLINE_PAGES.map((url) => ({ url, revision })),
   swSrc: 'src/sw.ts',
   swDest: 'public/sw.js',
   // Service worker only in production builds; dev uses network.
