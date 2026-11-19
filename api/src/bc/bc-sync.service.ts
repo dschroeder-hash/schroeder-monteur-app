@@ -3,27 +3,35 @@
  * Each entity keeps its own cursor (max lastModifiedDateTime seen); reads overlap by 5 s and upsert,
  * so repeated or overlapping runs are harmless.
  */
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   appStatusFromBc,
+  DEFAULT_CONSUMABLE_CATEGORIES,
   DEFAULT_STATUS_DEFINITIONS,
   zonedToUtc,
   type AppStatus,
   type BcServiceStatus,
 } from '@schroeder/shared';
-import type { EntityOf } from '@schroeder/bc-contract';
+import { EMPTY_GUID, type EntityOf } from '@schroeder/bc-contract';
 import type { Db } from '../db/client.js';
 import {
   assignment,
   bcResourceMapping,
   bcSyncCursor,
+  bcTransfer,
+  consumption,
   customer,
+  item,
+  itemBarcode,
+  itemStock,
   location,
   machine,
   orderStatusEvent,
   orderType,
   serviceOrder,
   serviceOrderItem,
+  setting,
+  storageLocation,
 } from '../db/schema.js';
 import type { BcClient } from './bc-client.js';
 
@@ -157,7 +165,158 @@ export class BcSyncService {
       (s) => bc.listModifiedSince('postedServiceInvoices', s),
       (rows) => this.applyInvoices(companyId, rows),
     );
+    // Material (phase 4). Posted quantities first, then inventory – keeps the "BC − pending" window small.
+    await step(
+      'items',
+      (s) => bc.listModifiedSince('items', s),
+      (rows) => this.applyItems(companyId, locs, rows),
+    );
+    await step(
+      'itemReferences',
+      (s) => bc.listModifiedSince('itemReferences', s),
+      (rows) => this.applyBarcodes(companyId, rows),
+    );
+    await step(
+      'serviceLines',
+      (s) => bc.listModifiedSince('serviceLines', s, 5000, "type eq 'Item'"),
+      (rows) => this.applyPostedQuantities(rows),
+    );
+    await step(
+      'itemAvailabilities',
+      (s) =>
+        bc.list(
+          'itemAvailabilities',
+          s ? { filter: `lastModifiedDateTime gt ${new Date(s.getTime() - 5000).toISOString()}` } : {},
+        ),
+      (rows) => this.applyAvailability(companyId, locs, rows),
+    );
     return stats;
+  }
+
+  private async consumableCategories(): Promise<string[]> {
+    const [row] = await this.db
+      .select()
+      .from(setting)
+      .where(and(eq(setting.key, 'consumableCategories'), isNull(setting.locationId)));
+    return (row?.value as string[] | undefined) ?? DEFAULT_CONSUMABLE_CATEGORIES;
+  }
+
+  private async applyItems(companyId: string, _locs: Loc[], rows: EntityOf<'items'>[]) {
+    const consumable = await this.consumableCategories();
+    for (const r of rows) {
+      const v = {
+        bcCompanyId: companyId,
+        number: r.number,
+        name: r.displayName,
+        unit: r.baseUnitOfMeasureCode,
+        category: r.itemCategoryCode,
+        gtin: r.gtin,
+        blocked: r.blocked,
+        isConsumable: consumable.includes(r.itemCategoryCode),
+        bcSystemId: r.id,
+        bcModifiedAt: new Date(r.lastModifiedDateTime),
+      };
+      await this.db
+        .insert(item)
+        .values(v)
+        .onConflictDoUpdate({ target: [item.bcCompanyId, item.number], set: v });
+    }
+  }
+
+  private async applyBarcodes(companyId: string, rows: EntityOf<'itemReferences'>[]) {
+    const codes = rows.filter((r) => r.referenceType === 'Bar Code' && r.referenceNumber);
+    if (!codes.length) return;
+    const items = await this.db
+      .select({ id: item.id, number: item.number })
+      .from(item)
+      .where(
+        and(
+          eq(item.bcCompanyId, companyId),
+          inArray(item.number, [...new Set(codes.map((c) => c.itemNumber))]),
+        ),
+      );
+    const byNo = new Map(items.map((i) => [i.number, i.id]));
+    for (const c of codes) {
+      const itemId = byNo.get(c.itemNumber);
+      if (itemId)
+        await this.db.insert(itemBarcode).values({ itemId, code: c.referenceNumber }).onConflictDoNothing();
+    }
+  }
+
+  private async applyAvailability(companyId: string, locs: Loc[], rows: EntityOf<'itemAvailabilities'>[]) {
+    const storages = await this.db
+      .select()
+      .from(storageLocation)
+      .where(
+        inArray(
+          storageLocation.locationId,
+          locs.map((l) => l.id).concat(['00000000-0000-0000-0000-000000000000']),
+        ),
+      );
+    const byCode = new Map(storages.map((st) => [st.bcLocationCode, st.id]));
+    const relevant = rows.filter((r) => byCode.has(r.locationCode));
+    if (!relevant.length) return;
+    const items = await this.db
+      .select({ id: item.id, number: item.number })
+      .from(item)
+      .where(
+        and(
+          eq(item.bcCompanyId, companyId),
+          inArray(item.number, [...new Set(relevant.map((r) => r.itemNumber))]),
+        ),
+      );
+    const byNo = new Map(items.map((i) => [i.number, i.id]));
+    for (const r of relevant) {
+      const itemId = byNo.get(r.itemNumber);
+      if (!itemId) continue;
+      const v = {
+        itemId,
+        storageLocationId: byCode.get(r.locationCode)!,
+        bcInventory: r.inventory,
+        bcModifiedAt: new Date(r.lastModifiedDateTime),
+      };
+      await this.db
+        .insert(itemStock)
+        .values(v)
+        .onConflictDoUpdate({
+          target: [itemStock.itemId, itemStock.storageLocationId],
+          set: { bcInventory: v.bcInventory, bcModifiedAt: v.bcModifiedAt },
+        });
+    }
+  }
+
+  /**
+   * Quantities posted in BC (shipment/consumption) for lines the app created. Once posted, the withdrawal is
+   * part of the BC inventory and must no longer be subtracted as pending (E-16).
+   */
+  private async applyPostedQuantities(rows: EntityOf<'serviceLines'>[]) {
+    const ours = rows.filter((r) => r.monteurAppId && r.monteurAppId !== EMPTY_GUID);
+    if (!ours.length) return;
+    const transfers = await this.db
+      .select({ id: bcTransfer.id, payload: bcTransfer.payload })
+      .from(bcTransfer)
+      .where(
+        inArray(
+          bcTransfer.id,
+          ours.map((r) => r.monteurAppId),
+        ),
+      );
+    for (const t of transfers) {
+      const line = ours.find((r) => r.monteurAppId === t.id)!;
+      const ids = (t.payload as { meta?: { consumptionIds?: string[] } }).meta?.consumptionIds ?? [];
+      if (ids.length !== 1) continue; // one BC line per withdrawal (E-42)
+      const posted = Math.max(line.quantityShipped, line.quantityConsumed);
+      await this.db.transaction(async (tx) => {
+        const [c] = await tx.select().from(consumption).where(eq(consumption.id, ids[0]!)).for('update');
+        if (!c || c.bcPostedQty === posted) return;
+        const delta = Math.min(posted, c.quantity) - Math.min(c.bcPostedQty, c.quantity);
+        await tx.update(consumption).set({ bcPostedQty: posted }).where(eq(consumption.id, c.id));
+        await tx
+          .update(itemStock)
+          .set({ pendingWithdrawal: sql`greatest(0, ${itemStock.pendingWithdrawal} - ${delta})` })
+          .where(and(eq(itemStock.itemId, c.itemId), eq(itemStock.storageLocationId, c.storageLocationId)));
+      });
+    }
   }
 
   private async applyOrderTypes(companyId: string, rows: EntityOf<'serviceOrderTypes'>[]) {

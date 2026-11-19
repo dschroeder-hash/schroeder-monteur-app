@@ -8,6 +8,7 @@ type Target = (typeof bcTransfer.$inferInsert)['target'];
 /** Back-references updated by the worker once the transfer is done. */
 export interface TransferMeta {
   timeEntryIds?: string[];
+  consumptionIds?: string[];
   approvalId?: string;
 }
 

@@ -29,6 +29,8 @@ const decideBody = z.object({
   decision: z.enum(['ANGENOMMEN', 'ABGELEHNT']),
   reason: z.string().max(500).default(''),
 });
+const consumptionsBody = z.object({ ids: z.array(z.string().uuid()).min(1).max(200) });
+const rejectBody = z.object({ reason: z.string().trim().min(3, 'Begründung ist Pflicht').max(500) });
 const statusBody = z.object({ status: z.enum(APP_STATUSES), note: z.string().max(500).optional() });
 
 /** Approval inbox of the Meister (PROMPT 5.3). */
@@ -74,6 +76,27 @@ export class ApprovalsController {
     @Body(new ZodPipe(decideBody)) b: z.infer<typeof decideBody>,
   ) {
     return this.approvals.decideCorrection(s, id, b.decision, b.reason);
+  }
+
+  @Post('approvals/consumptions')
+  @HttpCode(200)
+  @ZodBody(consumptionsBody)
+  approveConsumptions(
+    @Scope() s: AccessScope,
+    @Body(new ZodPipe(consumptionsBody)) b: z.infer<typeof consumptionsBody>,
+  ) {
+    return this.approvals.approveConsumptions(s, b.ids);
+  }
+
+  @Post('approvals/consumptions/:id/reject')
+  @HttpCode(200)
+  @ZodBody(rejectBody)
+  rejectConsumption(
+    @Scope() s: AccessScope,
+    @Param('id', new ZodPipe(uuidParam)) id: string,
+    @Body(new ZodPipe(rejectBody)) b: z.infer<typeof rejectBody>,
+  ) {
+    return this.approvals.rejectConsumption(s, id, b.reason);
   }
 
   @Post('orders/:id/status')

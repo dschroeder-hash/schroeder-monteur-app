@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { sql } from 'drizzle-orm';
-import { appStatusFromBc, type BcServiceStatus } from '@schroeder/shared';
+import { appStatusFromBc, DEFAULT_CONSUMABLE_CATEGORIES, type BcServiceStatus } from '@schroeder/shared';
 import { buildSeed, SEED_COMPANY, SEED_LOCATIONS } from '@schroeder/bc-mock';
 import { createDb, type Db } from '../db/client.js';
 import * as s from '../db/schema.js';
@@ -213,6 +213,110 @@ export async function seedDev(db: Db, now = new Date()): Promise<void> {
         .set({ appStatus: 'EINGEPLANT' })
         .where(sql`${s.serviceOrder.id} = ${order.id}`);
     }
+  }
+
+  // ---- Material: items, barcodes, stock of our storages, containers (phase 4) ----
+  const storages = await db.select().from(s.storageLocation);
+  const storageByCode = new Map(storages.map((x) => [x.bcLocationCode, x]));
+  const itemIds = new Map<string, string>();
+  for (const it of bc.items) {
+    const [row] = await db
+      .insert(s.item)
+      .values({
+        bcCompanyId: SEED_COMPANY.id,
+        number: String(it.number),
+        name: String(it.displayName),
+        unit: String(it.baseUnitOfMeasureCode),
+        category: String(it.itemCategoryCode),
+        gtin: String(it.gtin),
+        isConsumable: DEFAULT_CONSUMABLE_CATEGORIES.includes(String(it.itemCategoryCode)),
+        bcSystemId: String(it.id),
+      })
+      .returning();
+    itemIds.set(String(it.number), row!.id);
+  }
+  for (const r of bc.itemReferences)
+    await db
+      .insert(s.itemBarcode)
+      .values({ itemId: itemIds.get(String(r.itemNumber))!, code: String(r.referenceNumber) })
+      .onConflictDoNothing();
+  for (const a of bc.itemAvailabilities) {
+    const st = storageByCode.get(String(a.locationCode));
+    if (st)
+      await db
+        .insert(s.itemStock)
+        .values({
+          itemId: itemIds.get(String(a.itemNumber))!,
+          storageLocationId: st.id,
+          bcInventory: Number(a.inventory),
+        });
+  }
+  for (const l of SEED_LOCATIONS) {
+    const locationId = locIds.get(l.code)!;
+    const wh = storageByCode.get(l.warehouse)!.id;
+    const tank = storageByCode.get(l.tank)!.id;
+    await db.insert(s.container).values([
+      {
+        locationId,
+        storageLocationId: wh,
+        itemId: itemIds.get('X990.200.000')!,
+        kind: 'FASS',
+        name: 'Motoröl 15W-40 (Fass 200 l)',
+        capacity: 200,
+        minStock: 50,
+        quickQuantities: [5, 10, 20, 40],
+      },
+      {
+        locationId,
+        storageLocationId: wh,
+        itemId: itemIds.get('X990.210.000')!,
+        kind: 'IBC',
+        name: 'Getriebe-/Hydrauliköl Vario (IBC 1.000 l)',
+        capacity: 1000,
+        minStock: 150,
+        quickQuantities: [5, 10, 20, 40],
+      },
+      {
+        locationId,
+        storageLocationId: wh,
+        itemId: itemIds.get('X990.220.000')!,
+        kind: 'FASS',
+        name: 'Hydrauliköl HVLP 46 (Fass 200 l)',
+        capacity: 200,
+        minStock: 40,
+        quickQuantities: [5, 10, 20, 40],
+      },
+      {
+        locationId,
+        storageLocationId: wh,
+        itemId: itemIds.get('ADBLUE')!,
+        kind: 'IBC',
+        name: 'AdBlue (IBC 1.000 l)',
+        capacity: 1000,
+        minStock: 100,
+        quickQuantities: [10, 20, 40, 80],
+      },
+      {
+        locationId,
+        storageLocationId: wh,
+        itemId: itemIds.get('X990.300.000')!,
+        kind: 'KARTUSCHE',
+        name: 'Mehrzweckfett EP2 (Kartusche)',
+        minStock: 10,
+        quickQuantities: [1, 2, 5, 10],
+      },
+      {
+        locationId,
+        storageLocationId: tank,
+        itemId: itemIds.get('DIESEL')!,
+        kind: 'TANK',
+        name: `Tankanlage Diesel ${l.name}`,
+        capacity: 10000,
+        minStock: 1000,
+        hasMeter: true,
+        quickQuantities: [20, 50, 100, 200],
+      },
+    ]);
   }
 
   await db.insert(s.setting).values([

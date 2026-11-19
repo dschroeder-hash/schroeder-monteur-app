@@ -6,6 +6,7 @@ import {
   COMMAND_PAYLOADS,
   STAMP_COMMAND_KIND,
   type AppStatus,
+  type CommandPayload,
   type CommandResult,
   type CommandType,
   type PushRequest,
@@ -17,15 +18,22 @@ import { DB } from '../../db/db.module.js';
 import { withSession, type Db, type Tx } from '../../db/client.js';
 import {
   assignment,
+  consumption,
+  container,
+  item,
+  itemBarcode,
+  itemStock,
   location,
   machine,
   orderStatusEvent,
   overheadType,
+  partRequest,
   serviceOrder,
   serviceOrderItem,
   setting,
   stampEvent,
   stampEventVoid,
+  storageLocation,
   syncCommand,
   timeCorrectionRequest,
   timeEntry,
@@ -34,9 +42,10 @@ import {
 import { notify } from '../notifications.js';
 import { FeatureService } from '../../features/feature.service.js';
 import { TimeService } from '../time/time.service.js';
+import { MaterialService } from '../material/material.service.js';
 
-/** Business rejection of a single command (shown to the user, command stays visible as failed). */
-export class CommandRejected extends Error {}
+import { CommandRejected } from './command-rejected.js';
+export { CommandRejected };
 
 /** Statuses that are moved to "In Arbeit" / "Unterwegs" automatically when stamping starts. */
 const AUTO_WORK_FROM: AppStatus[] = [
@@ -60,6 +69,7 @@ export class SyncService {
     @Inject(DB) private readonly db: Db,
     @Inject(TimeService) private readonly time: TimeService,
     @Inject(FeatureService) private readonly features: FeatureService,
+    @Inject(MaterialService) private readonly material: MaterialService,
   ) {}
 
   private session(s: AccessScope) {
@@ -225,6 +235,36 @@ export class SyncService {
         new Date(cmd.deviceTime),
         note,
       );
+      return warnings;
+    }
+
+    if (cmd.type === 'ConsumeItem' || cmd.type === 'RemoveConsumption' || cmd.type === 'RequestPart') {
+      const p = payload as Record<string, unknown>;
+      const feature = cmd.type === 'ConsumeItem' && p.containerId ? 'consumables' : 'materials';
+      if (!(await this.features.isEnabled(feature, locationId)))
+        throw new CommandRejected('Dieses Modul ist für Ihren Standort nicht freigeschaltet');
+      const access = (orderId: string) => this.orderAccess(tx, scope, orderId);
+      if (cmd.type === 'ConsumeItem')
+        return this.material.consume(
+          tx,
+          scope,
+          locationId,
+          cmd.id,
+          new Date(cmd.deviceTime),
+          payload as CommandPayload<'ConsumeItem'>,
+          access,
+        );
+      if (cmd.type === 'RequestPart')
+        return this.material.requestPart(
+          tx,
+          scope,
+          locationId,
+          cmd.id,
+          new Date(cmd.deviceTime),
+          payload as CommandPayload<'RequestPart'>,
+          access,
+        );
+      await this.material.removeConsumption(tx, scope, (payload as { consumptionId: string }).consumptionId);
       return warnings;
     }
 
@@ -415,6 +455,76 @@ export class SyncService {
           .from(setting)
           .where(or(isNull(setting.locationId), eq(setting.locationId, locationId)));
 
+        // Material cache (ARCHITEKTUR 4.2): own location's storages (warehouse, vans, tank), compact item master.
+        const storages = await tx
+          .select()
+          .from(storageLocation)
+          .where(eq(storageLocation.locationId, locationId));
+        const storageIds = storages.map((x) => x.id).concat(['00000000-0000-0000-0000-000000000000']);
+        const stocks = await tx
+          .select()
+          .from(itemStock)
+          .where(and(inArray(itemStock.storageLocationId, storageIds), since(itemStock.txId)));
+        const itemCond = sql`(${item.isConsumable} or exists (select 1 from ${itemStock} s where s.item_id = item.id and s.storage_location_id in (${sql.join(
+          storageIds.map((x) => sql`${x}::uuid`),
+          sql`, `,
+        )}) and s.bc_inventory > 0))`;
+        const catalog = await tx
+          .select({
+            id: item.id,
+            number: item.number,
+            name: item.name,
+            unit: item.unit,
+            category: item.category,
+            gtin: item.gtin,
+            isConsumable: item.isConsumable,
+            blocked: item.blocked,
+            imageUrl: item.imageUrl,
+          })
+          .from(item)
+          .where(
+            and(
+              itemCond,
+              cursor === null
+                ? sql`true`
+                : or(
+                    since(item.txId),
+                    inArray(
+                      item.id,
+                      stocks.map((x) => x.itemId).concat(['00000000-0000-0000-0000-000000000000']),
+                    ),
+                  ),
+            ),
+          );
+        const barcodes = catalog.length
+          ? await tx
+              .select({ itemId: itemBarcode.itemId, code: itemBarcode.code })
+              .from(itemBarcode)
+              .where(
+                inArray(
+                  itemBarcode.itemId,
+                  catalog.map((i) => i.id),
+                ),
+              )
+          : [];
+        const containers = await tx
+          .select()
+          .from(container)
+          .where(and(eq(container.locationId, locationId), since(container.txId)));
+        const consumptions = await tx
+          .select()
+          .from(consumption)
+          .where(
+            and(
+              eq(consumption.userId, scope.userId),
+              cursor === null ? gte(consumption.createdAt, historyFrom) : since(consumption.txId),
+            ),
+          );
+        const partRequests = await tx
+          .select()
+          .from(partRequest)
+          .where(and(eq(partRequest.requestedBy, scope.userId), since(partRequest.txId)));
+
         const voided = await tx
           .select({ id: stampEventVoid.eventId })
           .from(stampEventVoid)
@@ -431,6 +541,15 @@ export class SyncService {
 
         return {
           voidedEventIds: voided.map((v) => v.id),
+          storages,
+          items: catalog.map((i) => ({
+            ...i,
+            barcodes: barcodes.filter((b) => b.itemId === i.id).map((b) => b.code),
+          })),
+          stocks,
+          containers,
+          consumptions,
+          partRequests,
           correctionRequests: corrections,
           cursor: next,
           full: cursor === null,

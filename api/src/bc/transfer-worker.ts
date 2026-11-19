@@ -10,7 +10,7 @@
  */
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
-import { assignment, bcTransfer, serviceOrder, timeEntry } from '../db/schema.js';
+import { assignment, bcTransfer, consumption, serviceOrder, timeEntry } from '../db/schema.js';
 import type { TransferPayload } from '../modules/transfer/transfer.service.js';
 import { BcContractError, BcError, type BcClient } from './bc-client.js';
 
@@ -113,6 +113,12 @@ export class BcTransferWorker {
             .update(timeEntry)
             .set({ state: 'TRANSFERRED' })
             .where(and(inArray(timeEntry.id, ids), eq(timeEntry.state, 'APPROVED')));
+        const cIds = payload.op === 'create' ? payload.meta?.consumptionIds : undefined;
+        if (cIds?.length)
+          await tx
+            .update(consumption)
+            .set({ state: 'TRANSFERRED' })
+            .where(and(inArray(consumption.id, cIds), eq(consumption.state, 'APPROVED')));
       });
       return 'done';
     } catch (e) {

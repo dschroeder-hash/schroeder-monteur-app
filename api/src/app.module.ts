@@ -21,6 +21,8 @@ import { ApprovalsService } from './modules/approvals/approvals.service.js';
 import { PlanningController } from './modules/planning/planning.controller.js';
 import { PlanningService } from './modules/planning/planning.service.js';
 import { TransferService } from './modules/transfer/transfer.service.js';
+import { MaterialService } from './modules/material/material.service.js';
+import { ContainersController, MaterialController } from './modules/material/material.controller.js';
 import { SyncService } from './modules/sync/sync.service.js';
 import { TimeService } from './modules/time/time.service.js';
 
@@ -41,6 +43,8 @@ export class AppModule {
         PlanningController,
         ApprovalsController,
         TransfersController,
+        MaterialController,
+        ContainersController,
       ],
       providers: [
         { provide: APP_CONFIG, useValue: config },
@@ -53,6 +57,7 @@ export class AppModule {
         PlanningService,
         ApprovalsService,
         TransferService,
+        MaterialService,
         TimeService,
         { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_FILTER, useClass: HttpErrorFilter },

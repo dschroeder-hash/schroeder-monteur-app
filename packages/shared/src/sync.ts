@@ -43,6 +43,40 @@ export const COMMAND_PAYLOADS = {
       .max(6),
     comment: z.string().max(500).optional(),
   }),
+  /**
+   * Withdrawal of a part or consumable (PROMPT 5.4/5.5). Booked on the order, or internally (diesel for
+   * service van / demo machine) with a cost centre. Stock is reduced locally at once, approval by the Meister.
+   */
+  ConsumeItem: z
+    .object({
+      orderId: uuid.nullish(),
+      itemId: uuid,
+      storageLocationId: uuid,
+      containerId: uuid.nullish(),
+      quantity: z.number().positive().max(100_000),
+      internalPurpose: z.enum(['SERVICEWAGEN', 'VORFUEHRMASCHINE', 'SONSTIGES']).nullish(),
+      costCenter: z.string().max(20).nullish(),
+      meterBefore: z.number().nonnegative().nullish(),
+      meterAfter: z.number().nonnegative().nullish(),
+    })
+    .refine((v) => !!v.orderId || (!!v.internalPurpose && !!v.costCenter), {
+      message: 'Ohne Auftrag sind Zweck und Kostenstelle Pflicht',
+    }),
+  /** Undo a withdrawal that has not been approved yet (wrong tap). */
+  RemoveConsumption: z.object({ consumptionId: uuid }),
+  /** Part missing at the location → request to the own warehouses (overnight, cutoff 17:00). */
+  RequestPart: z
+    .object({
+      orderId: uuid,
+      itemId: uuid.nullish(),
+      newItemText: z.string().max(200).nullish(),
+      manufacturerPartNo: z.string().max(60).nullish(),
+      quantity: z.number().positive().max(10_000),
+      sourceBcLocationCode: z.string().max(20).nullish(),
+      /** Monteur confirms → order status "Wartet auf Teile". */
+      setWaitingForParts: z.boolean().default(false),
+    })
+    .refine((v) => !!v.itemId || !!v.newItemText, { message: 'Artikel oder Beschreibung angeben' }),
 } as const;
 
 export type CommandType = keyof typeof COMMAND_PAYLOADS;

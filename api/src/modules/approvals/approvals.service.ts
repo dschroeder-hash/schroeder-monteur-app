@@ -13,6 +13,7 @@ import {
   canTransition,
   DEFAULT_STATUS_DEFINITIONS,
   localDate,
+  meterPlausible,
   summarizeDay,
   zonedToUtc,
   type Activity,
@@ -28,6 +29,9 @@ import {
   appUser,
   approval,
   bcResourceMapping,
+  consumption,
+  item,
+  itemStock,
   location,
   orderStatusEvent,
   overheadType,
@@ -35,6 +39,7 @@ import {
   setting,
   stampEvent,
   stampEventVoid,
+  storageLocation,
   timeCorrectionRequest,
   timeEntry,
   userLocation,
@@ -189,7 +194,7 @@ export class ApprovalsService {
         corrections: corrections.map((c) => ({ ...c.r, userName: c.userName })),
         orders: ordersToApprove,
         // filled in phase 4 (material) and phase 6 (vacation)
-        consumptions: [],
+        consumptions: await this.consumptionsOf(tx, locationId),
         vacations: [],
       };
     });
@@ -553,6 +558,185 @@ export class ApprovalsService {
         .where(eq(timeCorrectionRequest.id, id));
       return { ok: true };
     });
+  }
+
+  private async consumptionsOf(tx: Tx, locationId: string) {
+    const rows = await tx
+      .select({
+        c: consumption,
+        itemNumber: item.number,
+        itemName: item.name,
+        storage: storageLocation.name,
+        userName: appUser.displayName,
+        bcNo: serviceOrder.bcNo,
+        customerName: serviceOrder.customerName,
+      })
+      .from(consumption)
+      .innerJoin(item, eq(item.id, consumption.itemId))
+      .innerJoin(storageLocation, eq(storageLocation.id, consumption.storageLocationId))
+      .innerJoin(appUser, eq(appUser.id, consumption.userId))
+      .leftJoin(serviceOrder, eq(serviceOrder.id, consumption.orderId))
+      .where(and(eq(consumption.locationId, locationId), eq(consumption.state, 'SUBMITTED')))
+      .orderBy(asc(consumption.deviceTime));
+    return rows.map((r) => ({
+      ...r.c,
+      itemNumber: r.itemNumber,
+      itemName: r.itemName,
+      storage: r.storage,
+      userName: r.userName,
+      bcNo: r.bcNo,
+      customerName: r.customerName,
+      meterPlausible: meterPlausible(r.c.quantity, r.c.meterBefore, r.c.meterAfter),
+    }));
+  }
+
+  /**
+   * Approves withdrawals (PROMPT 5.4): on an order → BC service line of type Item with location code;
+   * internal (diesel for service van / demo machine) → item journal line (negative adjustment) with cost centre.
+   * One BC line per withdrawal, so the posted quantity can be matched back exactly (E-42). Nothing is posted.
+   */
+  async approveConsumptions(scope: AccessScope, ids: string[]) {
+    return withSession(this.db, this.session(scope), async (tx) => {
+      const rows = await tx
+        .select({ c: consumption, it: item, st: storageLocation, bcNo: serviceOrder.bcNo, loc: location })
+        .from(consumption)
+        .innerJoin(item, eq(item.id, consumption.itemId))
+        .innerJoin(storageLocation, eq(storageLocation.id, consumption.storageLocationId))
+        .innerJoin(location, eq(location.id, consumption.locationId))
+        .leftJoin(serviceOrder, eq(serviceOrder.id, consumption.orderId))
+        .where(inArray(consumption.id, ids))
+        .for('update', { of: consumption });
+      if (rows.length !== ids.length || rows.some((r) => !scope.meisterLocationIds.includes(r.c.locationId)))
+        throw new NotFoundException('Entnahme nicht gefunden');
+      if (rows.some((r) => r.c.state !== 'SUBMITTED'))
+        throw new ConflictException('Entnahme ist bereits entschieden');
+      const [ap] = await tx
+        .insert(approval)
+        .values({
+          subjectType: 'consumption',
+          subjectId: randomUUID(),
+          decision: 'APPROVED',
+          approvedBy: scope.userId,
+        })
+        .returning();
+      await tx
+        .update(consumption)
+        .set({ state: 'APPROVED', approvalId: ap!.id })
+        .where(inArray(consumption.id, ids));
+      for (const { c, it, st, bcNo, loc } of rows) {
+        const meta = { consumptionIds: [c.id], approvalId: ap!.id };
+        if (c.orderId)
+          await this.transfers.enqueue(tx, {
+            locationId: loc.id,
+            bcCompanyId: loc.bcCompanyId,
+            target: 'SERVICE_LINE_ITEM',
+            subjectType: 'consumption',
+            subjectId: c.id,
+            groupKey: `order:${c.orderId}`,
+            payload: {
+              op: 'create',
+              endpoint: 'serviceLines',
+              body: {
+                documentNumber: bcNo,
+                serviceItemLineNumber: 10000,
+                type: 'Item',
+                number: it.number,
+                quantity: c.quantity,
+                unitOfMeasureCode: c.unit,
+                locationCode: st.bcLocationCode,
+              },
+              meta,
+            },
+          });
+        else {
+          const journal = await this.journalSettings(tx, loc.id);
+          await this.transfers.enqueue(tx, {
+            locationId: loc.id,
+            bcCompanyId: loc.bcCompanyId,
+            target: 'ITEM_JOURNAL',
+            subjectType: 'consumption',
+            subjectId: c.id,
+            groupKey: `itemjournal:${loc.id}`,
+            payload: {
+              op: 'create',
+              endpoint: 'itemJournalLines',
+              body: {
+                ...journal,
+                postingDate: localDate(c.deviceTime, loc.timezone),
+                entryType: 'Negative Adjmt.',
+                documentNumber: `INT-${localDate(c.deviceTime, loc.timezone)}`,
+                itemNumber: it.number,
+                locationCode: st.bcLocationCode,
+                quantity: c.quantity,
+                unitOfMeasureCode: c.unit,
+                shortcutDimension1Code: c.costCenter ?? '',
+                shortcutDimension2Code: '',
+                description: `${c.internalPurpose === 'SERVICEWAGEN' ? 'Servicewagen' : c.internalPurpose === 'VORFUEHRMASCHINE' ? 'Vorführmaschine' : 'Intern'} – Monteur-App`,
+              },
+              meta,
+            },
+          });
+        }
+      }
+      await this.audit.log(tx, {
+        actorId: scope.userId,
+        action: 'APPROVE_CONSUMPTION',
+        entity: 'consumption',
+        entityId: ap!.id,
+        newValue: { ids },
+      });
+      return { approvalId: ap!.id, bcLines: rows.length };
+    });
+  }
+
+  async rejectConsumption(scope: AccessScope, id: string, reason: string) {
+    return withSession(this.db, this.session(scope), async (tx) => {
+      const [c] = await tx.select().from(consumption).where(eq(consumption.id, id)).for('update');
+      if (!c || !scope.meisterLocationIds.includes(c.locationId))
+        throw new NotFoundException('Entnahme nicht gefunden');
+      if (c.state !== 'SUBMITTED') throw new ConflictException('Entnahme ist bereits entschieden');
+      await tx.update(consumption).set({ state: 'REJECTED' }).where(eq(consumption.id, id));
+      await tx
+        .update(itemStock)
+        .set({ pendingWithdrawal: sql`greatest(0, ${itemStock.pendingWithdrawal} - ${c.quantity})` })
+        .where(and(eq(itemStock.itemId, c.itemId), eq(itemStock.storageLocationId, c.storageLocationId)));
+      await notify(
+        tx,
+        c.userId,
+        'CONSUMPTION_REJECTED',
+        'Entnahme abgelehnt',
+        reason,
+        c.orderId ? `/monteur/auftrag?id=${c.orderId}` : undefined,
+      );
+      await this.audit.log(tx, {
+        actorId: scope.userId,
+        action: 'REJECT_CONSUMPTION',
+        entity: 'consumption',
+        entityId: id,
+        oldValue: c,
+        reason,
+      });
+      return { ok: true };
+    });
+  }
+
+  private async journalSettings(tx: Tx, locationId: string) {
+    const rows = await tx
+      .select()
+      .from(setting)
+      .where(
+        and(
+          eq(setting.key, 'itemJournal'),
+          or(isNull(setting.locationId), eq(setting.locationId, locationId)),
+        ),
+      );
+    return (
+      ((rows.find((r) => r.locationId === locationId) ?? rows[0])?.value as
+        { journalTemplateName: string; journalBatchName: string } | undefined) ?? {
+        journalTemplateName: 'ARTIKEL',
+        journalBatchName: 'MONTEUR',
+      }
+    );
   }
 
   /** Raw events of a Monteur's day for the correction dialog. */
