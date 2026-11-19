@@ -40,6 +40,8 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
   },
   'GET /v1/admin/features': { allowed: ['admin'] },
   'PUT /v1/admin/features': { allowed: ['admin'], body: {} },
+  'POST /v1/sync/push': { allowed: ['monteur-wild'], body: {} },
+  'GET /v1/sync/pull': { allowed: ['monteur-wild'] },
 };
 
 let app: NestExpressApplication;

@@ -1,0 +1,29 @@
+ALTER TABLE "absence" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "app_user" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "assignment" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "chat_message" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "consumption" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "container" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "customer" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "item" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "item_stock" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "location" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "machine" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "notification" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "order_status_event" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "order_type" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "overhead_type" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "part_request" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "photo" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "productivity_snapshot" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "service_order" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "service_order_item" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "setting" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "stamp_event" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "storage_location" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "text_template" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "time_entry" ADD COLUMN "segment_key" text;--> statement-breakpoint
+ALTER TABLE "time_entry" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "vacation_balance" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+ALTER TABLE "work_report" ADD COLUMN "tx_id" "xid8" DEFAULT pg_current_xact_id() NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "time_entry_segment_uq" ON "time_entry" USING btree ("user_id","segment_key");

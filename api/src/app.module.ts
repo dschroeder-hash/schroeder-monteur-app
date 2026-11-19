@@ -14,6 +14,9 @@ import { HealthController } from './modules/health.controller.js';
 import { MeController } from './modules/me/me.controller.js';
 import { OrdersController } from './modules/orders/orders.controller.js';
 import { OrdersService } from './modules/orders/orders.service.js';
+import { SyncController } from './modules/sync/sync.controller.js';
+import { SyncService } from './modules/sync/sync.service.js';
+import { TimeService } from './modules/time/time.service.js';
 
 @Module({})
 export class AppModule {
@@ -22,7 +25,14 @@ export class AppModule {
       module: AppModule,
       global: true,
       imports: [DbModule],
-      controllers: [HealthController, DevAuthController, MeController, OrdersController, AdminController],
+      controllers: [
+        HealthController,
+        DevAuthController,
+        MeController,
+        OrdersController,
+        AdminController,
+        SyncController,
+      ],
       providers: [
         { provide: APP_CONFIG, useValue: config },
         TokenVerifier,
@@ -30,6 +40,8 @@ export class AppModule {
         FeatureService,
         AuditService,
         OrdersService,
+        SyncService,
+        TimeService,
         { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_FILTER, useClass: HttpErrorFilter },
       ],

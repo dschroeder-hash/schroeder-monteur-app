@@ -18,19 +18,22 @@ const schema = z
     BC_CLIENT_ID: z.string().default('mock'),
     BC_CLIENT_SECRET: z.string().default('mock'),
     BC_SCOPE: z.string().default('https://api.businesscentral.dynamics.com/.default'),
+    BC_SYNC_INTERVAL_SEC: z.coerce.number().min(60).max(600).default(180),
+    /** Set by the worker entry point: the worker does not validate user tokens. */
+    COMPONENT: z.enum(['api', 'worker']).default('api'),
   })
   .superRefine((c, ctx) => {
     if (c.APP_ENV === 'prod' && c.AUTH_MODE === 'dev')
       ctx.addIssue({ code: 'custom', message: 'AUTH_MODE=dev is not allowed in prod', path: ['AUTH_MODE'] });
     if (c.APP_ENV === 'prod' && c.BC_MODE === 'mock')
       ctx.addIssue({ code: 'custom', message: 'BC_MODE=mock is not allowed in prod', path: ['BC_MODE'] });
-    if (c.AUTH_MODE === 'entra' && (!c.ENTRA_TENANT_ID || !c.ENTRA_API_AUDIENCE))
+    if (c.COMPONENT === 'api' && c.AUTH_MODE === 'entra' && (!c.ENTRA_TENANT_ID || !c.ENTRA_API_AUDIENCE))
       ctx.addIssue({
         code: 'custom',
         message: 'ENTRA_TENANT_ID and ENTRA_API_AUDIENCE are required',
         path: ['AUTH_MODE'],
       });
-    if (c.AUTH_MODE === 'dev' && !c.DEV_AUTH_SECRET)
+    if (c.COMPONENT === 'api' && c.AUTH_MODE === 'dev' && !c.DEV_AUTH_SECRET)
       ctx.addIssue({
         code: 'custom',
         message: 'DEV_AUTH_SECRET is required for AUTH_MODE=dev',

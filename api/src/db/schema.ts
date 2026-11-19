@@ -9,6 +9,7 @@
  */
 import { sql } from 'drizzle-orm';
 import {
+  customType,
   bigint,
   bigserial,
   boolean,
@@ -34,7 +35,15 @@ const timestamps = {
     .defaultNow()
     .$onUpdate(() => new Date()),
 };
-const rowVersion = { rowVersion: bigint('row_version', { mode: 'number' }).notNull().default(0) };
+/** PostgreSQL xid8 (transaction id), transported as string. */
+const xid8 = customType<{ data: string; driverData: string }>({ dataType: () => 'xid8' });
+const rowVersion = {
+  rowVersion: bigint('row_version', { mode: 'number' }).notNull().default(0),
+  /** Writing transaction; drives the gap-free delta pull (migration 0003, sync.service.ts). */
+  txId: xid8('tx_id')
+    .notNull()
+    .default(sql`pg_current_xact_id()`),
+};
 const bcMirror = {
   bcSystemId: uuid('bc_system_id'),
   bcEtag: text('bc_etag'),
@@ -572,12 +581,15 @@ export const timeEntry = pgTable(
     needsCorrection: boolean('needs_correction').notNull().default(false),
     skewFlag: boolean('skew_flag').notNull().default(false),
     approvalId: uuid('approval_id'),
+    /** Deterministic key of the derived segment (opening stamp event id + kind); null for manual corrections. */
+    segmentKey: text('segment_key'),
     ...timestamps,
     ...rowVersion,
   },
   (t) => [
     index('time_entry_user_date_idx').on(t.userId, t.workDate),
     index('time_entry_order_idx').on(t.orderId),
+    uniqueIndex('time_entry_segment_uq').on(t.userId, t.segmentKey),
   ],
 );
 

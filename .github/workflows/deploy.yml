@@ -1,8 +1,8 @@
 name: Deploy
 
+# Manual only until Azure (subscription, OIDC federation, ACR) is set up – see infra/README.md.
+# Re-enable `push: branches: [main]` afterwards for automatic dev deployments.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       target:

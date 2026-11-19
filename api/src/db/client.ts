@@ -21,11 +21,19 @@ export function createDb(url: string, max = 10): { db: Db; pool: pg.Pool } {
  * Runs `fn` in a transaction with the RLS session variables set (SET LOCAL semantics).
  * All user-facing data access must go through this function.
  */
-export async function withSession<T>(db: Db, session: DbSession, fn: (tx: Tx) => Promise<T>): Promise<T> {
+export async function withSession<T>(
+  db: Db,
+  session: DbSession,
+  fn: (tx: Tx) => Promise<T>,
+  opts: {
+    isolationLevel?: 'read committed' | 'repeatable read';
+    accessMode?: 'read only' | 'read write';
+  } = {},
+): Promise<T> {
   return db.transaction(async (tx) => {
     await tx.execute(
       sql`select set_config('app.user_id', ${session.userId}, true), set_config('app.roles', ${session.roles.join(',')}, true)`,
     );
     return fn(tx);
-  });
+  }, opts);
 }
