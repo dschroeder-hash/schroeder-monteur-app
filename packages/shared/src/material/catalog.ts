@@ -15,20 +15,29 @@ export interface PartsCatalogAdapter {
   brands: string[];
   /** URL to open in a new tab, or null if nothing to search. Never called server-side. */
   buildSearchUrl(q: CatalogSearch): string | null;
+  /** true if the URL already contains the search; otherwise the app copies the query to the clipboard. */
+  searchInUrl: boolean;
 }
 
-/** Default search URL – to be confirmed with AGCO (OFFENE-PUNKTE OP-24); configurable via setting `partsCatalogs`. */
-export const AGCO_DEFAULT_TEMPLATE = 'https://shop.agcoparts.com/search?text={query}';
+/**
+ * AGCO Parts catalog (German site). The search URL format is not known yet (OFFENE-PUNKTE OP-24): without a
+ * `{query}` placeholder the catalog start page is opened and the app copies the part/serial number to the
+ * clipboard. Once the search URL is known, set setting `partsCatalogs.agcoTemplate`, e.g. `…?q={query}`.
+ */
+export const AGCO_DEFAULT_TEMPLATE = 'https://parts.agcocorp.com/de/de/';
 
 export function agcoDeeplinkAdapter(template = AGCO_DEFAULT_TEMPLATE): PartsCatalogAdapter {
   return {
     id: 'agco',
     label: 'AGCO Parts (Fendt, Valtra, Massey Ferguson)',
     brands: ['FENDT', 'VALTRA', 'MF', 'AGCO'],
+    searchInUrl: template.includes('{query}'),
     buildSearchUrl({ partNo, serialNo }) {
       const query = (partNo || serialNo || '').trim();
       if (!query) return null;
-      const url = template.replace('{query}', encodeURIComponent(query));
+      const url = template.includes('{query}')
+        ? template.replace('{query}', encodeURIComponent(query))
+        : template;
       // Only plain https links to the configured shop – no data is sent anywhere else.
       return url.startsWith('https://') ? url : null;
     },

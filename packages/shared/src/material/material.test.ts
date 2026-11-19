@@ -49,10 +49,14 @@ describe('overnight delivery with 17:00 cutoff', () => {
 describe('AGCO deep link (no scraping)', () => {
   const agco = agcoDeeplinkAdapter();
   it('builds a search URL from part number or serial number', () => {
-    expect(agco.buildSearchUrl({ partNo: 'X548.880.400' })).toBe(
-      'https://shop.agcoparts.com/search?text=X548.880.400',
+    // default: German catalog start page, query goes to the clipboard (search URL format unknown, OP-24)
+    expect(agco.buildSearchUrl({ partNo: 'X548.880.400' })).toBe('https://parts.agcocorp.com/de/de/');
+    expect(agco.searchInUrl).toBe(false);
+    const withSearch = agcoDeeplinkAdapter('https://parts.agcocorp.com/de/de/search?q={query}');
+    expect(withSearch.searchInUrl).toBe(true);
+    expect(withSearch.buildSearchUrl({ serialNo: 'FEN 123' })).toBe(
+      'https://parts.agcocorp.com/de/de/search?q=FEN%20123',
     );
-    expect(agco.buildSearchUrl({ serialNo: 'FEN 123' })).toContain('FEN%20123');
     expect(agco.buildSearchUrl({})).toBeNull();
   });
   it('refuses non-https templates', () => {

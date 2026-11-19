@@ -47,7 +47,22 @@ function PartsPage() {
   const [requestFor, setRequestFor] = useState<{ item?: ItemWithStock; text?: string } | null>(null);
   const [paste, setPaste] = useState('');
   const machine = order?.items[0]?.machine;
-  const agco = agcoDeeplinkAdapter();
+  const [catalogTemplate, setCatalogTemplate] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (navigator.onLine)
+      apiFetch<Array<{ id: string; template: string | null }>>('/v1/parts/catalogs')
+        .then((c) => setCatalogTemplate(c.find((x) => x.id === 'agco')?.template ?? undefined))
+        .catch(() => undefined);
+  }, []);
+  const agco = agcoDeeplinkAdapter(catalogTemplate);
+  /** Without a search URL the catalog opens on its start page; the number is put on the clipboard (OP-24). */
+  const copyForCatalog = (q: string) => {
+    if (agco.searchInUrl) return;
+    void navigator.clipboard
+      ?.writeText(q)
+      .then(() => toast(`„${q}“ kopiert – im AGCO-Katalog in die Suche einfügen`))
+      .catch(() => toast(`Im AGCO-Katalog nach „${q}“ suchen`));
+  };
 
   const search = useCallback(async (q: string, code = false) => {
     const local = await searchLocal(q);
@@ -203,6 +218,7 @@ function PartsPage() {
             <a
               className="inline-flex min-h-touch items-center rounded-card border-2 border-border px-4 font-semibold"
               href={agco.buildSearchUrl({ serialNo: machine.serialNo }) ?? '#'}
+              onClick={() => copyForCatalog(machine.serialNo)}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -213,6 +229,7 @@ function PartsPage() {
             <a
               className="inline-flex min-h-touch items-center rounded-card border-2 border-border px-4 font-semibold"
               href={agco.buildSearchUrl({ partNo: text }) ?? '#'}
+              onClick={() => copyForCatalog(text)}
               target="_blank"
               rel="noopener noreferrer"
             >
