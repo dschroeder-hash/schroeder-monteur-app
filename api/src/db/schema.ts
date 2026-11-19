@@ -553,9 +553,56 @@ export const stampEvent = pgTable(
     skewFlag: boolean('skew_flag').notNull().default(false),
     implicit: boolean('implicit').notNull().default(false),
     deviceId: text('device_id'),
+    /** Set when a Meister added the event as a correction (null = stamped by the Monteur). */
+    createdBy: uuid('created_by').references(() => appUser.id),
+    correctionReason: text('correction_reason'),
     ...rowVersion,
   },
   (t) => [index('stamp_event_user_idx').on(t.userId, t.deviceTime)],
+);
+
+/** Correction: a stamp event is voided (never deleted or changed – E-07). */
+export const stampEventVoid = pgTable('stamp_event_void', {
+  eventId: uuid('event_id')
+    .primaryKey()
+    .references(() => stampEvent.id),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => appUser.id),
+  voidedBy: uuid('voided_by')
+    .notNull()
+    .references(() => appUser.id),
+  reason: text('reason').notNull(),
+  at: ts('at').notNull().defaultNow(),
+});
+
+export const correctionStateEnum = pgEnum('correction_state', ['OFFEN', 'ANGENOMMEN', 'ABGELEHNT']);
+
+/** Correction requested by the Monteur (e.g. forgotten clock-out), decided by the Meister (PROMPT 5.1). */
+export const timeCorrectionRequest = pgTable(
+  'time_correction_request',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUser.id),
+    locationId: uuid('location_id')
+      .notNull()
+      .references(() => location.id),
+    workDate: date('work_date', { mode: 'string' }).notNull(),
+    /** Proposed additional events, e.g. [{ kind: 'CLOCK_OUT', time: '16:30' }] (local time). */
+    proposal: jsonb('proposal')
+      .$type<Array<{ kind: string; time: string; orderId?: string | null; activity?: string | null }>>()
+      .notNull(),
+    comment: text('comment'),
+    state: correctionStateEnum('state').notNull().default('OFFEN'),
+    decidedBy: uuid('decided_by').references(() => appUser.id),
+    decidedAt: ts('decided_at'),
+    decisionReason: text('decision_reason'),
+    ...timestamps,
+    ...rowVersion,
+  },
+  (t) => [index('time_correction_request_loc_idx').on(t.locationId, t.state)],
 );
 
 export const timeEntry = pgTable(

@@ -29,6 +29,20 @@ export const COMMAND_PAYLOADS = {
     status: z.enum(APP_STATUSES),
     note: z.string().max(500).optional(),
   }),
+  /** Monteur asks the Meister to correct a day, e.g. forgotten clock-out (PROMPT 5.1). Times are local HH:mm. */
+  RequestTimeCorrection: z.object({
+    workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    proposal: z
+      .array(
+        z.object({
+          kind: z.enum(['CLOCK_OUT', 'CLOCK_IN', 'BREAK_START', 'BREAK_STOP']),
+          time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+        }),
+      )
+      .min(1)
+      .max(6),
+    comment: z.string().max(500).optional(),
+  }),
 } as const;
 
 export type CommandType = keyof typeof COMMAND_PAYLOADS;

@@ -12,7 +12,7 @@ import {
   type StampEvent,
 } from '@schroeder/shared';
 import type { Tx } from '../../db/client.js';
-import { location, setting, stampEvent, timeEntry } from '../../db/schema.js';
+import { location, setting, stampEvent, stampEventVoid, timeEntry } from '../../db/schema.js';
 
 export interface RecomputeResult {
   workDates: string[];
@@ -54,7 +54,13 @@ export class TimeService {
       .select()
       .from(stampEvent)
       .where(
-        and(eq(stampEvent.userId, userId), gte(stampEvent.deviceTime, from), lt(stampEvent.deviceTime, to)),
+        and(
+          eq(stampEvent.userId, userId),
+          gte(stampEvent.deviceTime, from),
+          lt(stampEvent.deviceTime, to),
+          // voided by a Meister correction (E-37)
+          sql`not exists (select 1 from ${stampEventVoid} v where v.event_id = ${stampEvent.id})`,
+        ),
       );
     const events: StampEvent[] = rows.map((r) => ({
       id: r.id,
@@ -111,6 +117,8 @@ export class TimeService {
         billableMinutes: billable.get(s.id) ?? null,
         skewFlag: flagged.some((t) => t >= start && t <= end),
         segmentKey: s.id,
+        // a closed segment no longer needs the forgotten-clock-out correction
+        ...(s.end ? { needsCorrection: false } : {}),
       };
       await tx
         .insert(timeEntry)

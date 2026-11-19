@@ -302,6 +302,17 @@ export const resourceJournalLineCreateSchema = resourceJournalLineSchema.omit({
 });
 export const itemJournalLineCreateSchema = itemJournalLineSchema.omit({ ...omitServer, lineNumber: true });
 export const serviceOrderStatusPatchSchema = z.object({ status: bcServiceStatus });
+/** Moving or cancelling an allocation from the planning board. */
+export const serviceOrderAllocationPatchSchema = z
+  .object({
+    resourceNumber: z.string(),
+    allocationDate: isoDate,
+    startingTime: isoTime,
+    finishingTime: isoTime,
+    allocatedHours: z.number(),
+    status: allocationStatus,
+  })
+  .partial();
 
 // ---------------------------------------------------------------------------
 // Endpoint registry
@@ -384,7 +395,7 @@ export const endpoints = {
     entitySet: 'serviceOrderAllocations',
     schema: serviceOrderAllocationSchema,
     delta: true,
-    writable: { create: serviceOrderAllocationCreateSchema },
+    writable: { create: serviceOrderAllocationCreateSchema, patch: serviceOrderAllocationPatchSchema },
   }),
   serviceLines: def({
     family: 'werkstatt',

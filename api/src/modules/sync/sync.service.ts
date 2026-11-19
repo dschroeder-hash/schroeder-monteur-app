@@ -25,9 +25,13 @@ import {
   serviceOrderItem,
   setting,
   stampEvent,
+  stampEventVoid,
   syncCommand,
+  timeCorrectionRequest,
   timeEntry,
+  userLocation,
 } from '../../db/schema.js';
+import { notify } from '../notifications.js';
 import { FeatureService } from '../../features/feature.service.js';
 import { TimeService } from '../time/time.service.js';
 
@@ -224,6 +228,38 @@ export class SyncService {
       return warnings;
     }
 
+    if (cmd.type === 'RequestTimeCorrection') {
+      const p = payload as {
+        workDate: string;
+        proposal: Array<{ kind: string; time: string }>;
+        comment?: string;
+      };
+      await tx
+        .insert(timeCorrectionRequest)
+        .values({
+          id: cmd.id,
+          userId: scope.userId,
+          locationId,
+          workDate: p.workDate,
+          proposal: p.proposal,
+          comment: p.comment ?? null,
+        });
+      const meister = await tx
+        .select({ userId: userLocation.userId })
+        .from(userLocation)
+        .where(and(eq(userLocation.locationId, locationId), eq(userLocation.role, 'MEISTER')));
+      for (const m of meister)
+        await notify(
+          tx,
+          m.userId,
+          'CORRECTION_REQUEST',
+          'Korrekturantrag',
+          `Zeitkorrektur für ${p.workDate} beantragt`,
+          '/meister/freigaben',
+        );
+      return warnings;
+    }
+
     throw new CommandRejected('Unbekannter Befehl');
   }
 
@@ -381,7 +417,23 @@ export class SyncService {
           .from(setting)
           .where(or(isNull(setting.locationId), eq(setting.locationId, locationId)));
 
+        const voided = await tx
+          .select({ id: stampEventVoid.eventId })
+          .from(stampEventVoid)
+          .where(
+            and(
+              eq(stampEventVoid.userId, scope.userId),
+              cursor === null ? sql`true` : gte(stampEventVoid.at, new Date(Date.now() - 2 * 86_400_000)),
+            ),
+          );
+        const corrections = await tx
+          .select()
+          .from(timeCorrectionRequest)
+          .where(and(eq(timeCorrectionRequest.userId, scope.userId), since(timeCorrectionRequest.txId)));
+
         return {
+          voidedEventIds: voided.map((v) => v.id),
+          correctionRequests: corrections,
           cursor: next,
           full: cursor === null,
           serverTime: new Date().toISOString(),

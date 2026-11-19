@@ -42,6 +42,41 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
   'PUT /v1/admin/features': { allowed: ['admin'], body: {} },
   'POST /v1/sync/push': { allowed: ['monteur-wild'], body: {} },
   'GET /v1/sync/pull': { allowed: ['monteur-wild'] },
+  'GET /v1/planning/board': { allowed: ['meister-wild'] },
+  'POST /v1/planning/assignments': { allowed: ['meister-wild'], body: {} },
+  'PATCH /v1/planning/assignments/{id}': {
+    allowed: ['meister-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+    body: {},
+  },
+  'DELETE /v1/planning/assignments/{id}': {
+    allowed: ['meister-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+  },
+  'GET /v1/approvals/inbox': { allowed: ['meister-wild'] },
+  'GET /v1/approvals/day-events': { allowed: ['meister-wild'] },
+  'POST /v1/approvals/time-days': { allowed: ['meister-wild'], body: {} },
+  'POST /v1/approvals/time-corrections': { allowed: ['meister-wild'], body: {} },
+  'POST /v1/approvals/correction-requests/{id}': {
+    allowed: ['meister-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+    body: {},
+  },
+  'POST /v1/orders/{id}/status': {
+    allowed: ['meister-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+    body: {},
+  },
+  'GET /v1/admin/transfers': { allowed: ['admin'] },
+  'POST /v1/admin/transfers/{id}/retry': {
+    allowed: ['admin'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+  },
+  'POST /v1/admin/transfers/{id}/resolve': {
+    allowed: ['admin'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+    body: {},
+  },
 };
 
 let app: NestExpressApplication;

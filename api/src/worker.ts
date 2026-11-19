@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { BcClient } from './bc/bc-client.js';
 import { BcSyncService } from './bc/bc-sync.service.js';
+import { BcTransferWorker } from './bc/transfer-worker.js';
 import { loadConfig } from './config.js';
 import { createDb } from './db/client.js';
 import { flagForgottenClockOuts } from './jobs.js';
@@ -28,8 +29,10 @@ const clientFor = (companyId: string) => {
   return c;
 };
 const bcSync = new BcSyncService(db, clientFor, (m) => console.warn(m));
+const bcTransfer = new BcTransferWorker(db, clientFor, (m) => console.warn(m));
 
 const jobs: Array<{ name: string; intervalMs: number; run: () => Promise<unknown> }> = [
+  { name: 'bc-transfer', intervalMs: 15_000, run: () => bcTransfer.runOnce() },
   { name: 'bc-sync', intervalMs: config.BC_SYNC_INTERVAL_SEC * 1000, run: () => bcSync.runAll() },
   { name: 'forgotten-clock-out', intervalMs: 15 * 60_000, run: () => flagForgottenClockOuts(db) },
 ];

@@ -16,6 +16,7 @@ export class HttpErrorFilter implements ExceptionFilter {
       return;
     }
     this.log.error(exception instanceof Error ? exception.stack : String(exception));
+    if (process.env.DEBUG_ERRORS) console.error(exception);
     res.status(500).json({ statusCode: 500, message: 'Interner Fehler' });
   }
 }

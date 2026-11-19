@@ -10,11 +10,17 @@ import { APP_CONFIG, type AppConfig } from './config.js';
 import { DbModule } from './db/db.module.js';
 import { FeatureService } from './features/feature.service.js';
 import { AdminController } from './modules/admin/admin.controller.js';
+import { TransfersController } from './modules/admin/transfers.controller.js';
 import { HealthController } from './modules/health.controller.js';
 import { MeController } from './modules/me/me.controller.js';
 import { OrdersController } from './modules/orders/orders.controller.js';
 import { OrdersService } from './modules/orders/orders.service.js';
 import { SyncController } from './modules/sync/sync.controller.js';
+import { ApprovalsController } from './modules/approvals/approvals.controller.js';
+import { ApprovalsService } from './modules/approvals/approvals.service.js';
+import { PlanningController } from './modules/planning/planning.controller.js';
+import { PlanningService } from './modules/planning/planning.service.js';
+import { TransferService } from './modules/transfer/transfer.service.js';
 import { SyncService } from './modules/sync/sync.service.js';
 import { TimeService } from './modules/time/time.service.js';
 
@@ -32,6 +38,9 @@ export class AppModule {
         OrdersController,
         AdminController,
         SyncController,
+        PlanningController,
+        ApprovalsController,
+        TransfersController,
       ],
       providers: [
         { provide: APP_CONFIG, useValue: config },
@@ -41,6 +50,9 @@ export class AppModule {
         AuditService,
         OrdersService,
         SyncService,
+        PlanningService,
+        ApprovalsService,
+        TransferService,
         TimeService,
         { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_FILTER, useClass: HttpErrorFilter },

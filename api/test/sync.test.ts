@@ -48,7 +48,7 @@ beforeAll(async () => {
     .rows[0].id;
   orders = (
     await owner.query(
-      "select distinct a.order_id from assignment a join service_order o on o.id = a.order_id where a.user_id = $1 and a.cancelled_at is null and o.app_status in ('NEU','EINGEPLANT') order by 1",
+      "select distinct a.order_id from assignment a join service_order o on o.id = a.order_id where a.user_id = $1 and a.cancelled_at is null and o.app_status not in ('FERTIG','FREIGEGEBEN','ABGERECHNET') and o.bc_status = 'Pending' order by 1",
       [userId],
     )
   ).rows.map((r) => r.order_id);
@@ -84,7 +84,9 @@ describe('offline working day → sync (acceptance 5.1)', () => {
   it('a replay of the same batch creates no duplicates', async () => {
     const res = await push(batch);
     expect(res.body.results.every((r: { result: string }) => r.result === 'duplicate')).toBe(true);
-    const n = await owner.query('select count(*)::int as n from stamp_event where user_id = $1', [userId]);
+    const n = await owner.query('select count(*)::int as n from stamp_event where id = any($1)', [
+      batch.map((c) => c.id),
+    ]);
     expect(n.rows[0].n).toBe(10);
   });
 
