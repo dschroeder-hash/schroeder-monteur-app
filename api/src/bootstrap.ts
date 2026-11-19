@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import express from 'express';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
@@ -13,6 +14,9 @@ export async function createApp(
     logger: opts.logger === false ? false : ['error', 'warn', 'log'],
   });
   app.disable('x-powered-by');
+  // Raw bodies for the local blob protocol (block uploads); must run before the JSON body parser.
+  app.use('/v1/blob', express.raw({ type: () => true, limit: '8mb' }));
+  app.use('/v1/speech/transcribe', express.raw({ type: () => true, limit: '5mb' }));
   app.set('query parser', 'extended');
   app.enableCors({ origin: config.CORS_ORIGINS.split(',').map((s) => s.trim()), credentials: false });
   app.enableShutdownHooks();

@@ -77,6 +77,27 @@ export const COMMAND_PAYLOADS = {
       setWaitingForParts: z.boolean().default(false),
     })
     .refine((v) => !!v.itemId || !!v.newItemText, { message: 'Artikel oder Beschreibung angeben' }),
+  /** Work report (PROMPT 5.6). Whole document; the newest device time wins (ARCHITEKTUR 4.3). */
+  SaveWorkReport: z.object({
+    orderId: uuid,
+    body: z.string().max(20_000),
+    requiredFields: z.record(z.string(), z.union([z.string().max(200), z.number(), z.null()])).default({}),
+    usedTemplateIds: z.array(uuid).max(100).default([]),
+  }),
+  /** Photo metadata; the binary is uploaded separately (resumable block upload). */
+  AttachPhoto: z.object({
+    orderId: uuid,
+    category: z.enum(['VORHER', 'NACHHER', 'TYPENSCHILD', 'BSZ', 'TEIL', 'SONSTIGES']),
+    capturedAt: isoDateTime,
+    width: z.number().int().positive().max(10_000),
+    height: z.number().int().positive().max(10_000),
+    sizeBytes: z.number().int().positive().max(25_000_000),
+  }),
+  /** Chat message; written offline, delivered in device order (PROMPT 5.8). */
+  SendChatMessage: z
+    .object({ orderId: uuid, body: z.string().max(4000).default(''), photoId: uuid.nullish() })
+    .refine((v) => v.body.trim().length > 0 || !!v.photoId, { message: 'Nachricht ist leer' }),
+  MarkChatRead: z.object({ orderId: uuid, upToServerSeq: z.number().int().nonnegative() }),
 } as const;
 
 export type CommandType = keyof typeof COMMAND_PAYLOADS;

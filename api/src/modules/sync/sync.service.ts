@@ -17,7 +17,10 @@ import type { AccessScope } from '../../auth/auth.types.js';
 import { DB } from '../../db/db.module.js';
 import { withSession, type Db, type Tx } from '../../db/client.js';
 import {
+  appUser,
   assignment,
+  chatMessage,
+  chatRead,
   consumption,
   container,
   item,
@@ -28,6 +31,7 @@ import {
   orderStatusEvent,
   overheadType,
   partRequest,
+  photo,
   serviceOrder,
   serviceOrderItem,
   setting,
@@ -35,14 +39,18 @@ import {
   stampEventVoid,
   storageLocation,
   syncCommand,
+  textTemplate,
   timeCorrectionRequest,
   timeEntry,
   userLocation,
+  workReport,
 } from '../../db/schema.js';
 import { notify } from '../notifications.js';
 import { FeatureService } from '../../features/feature.service.js';
 import { TimeService } from '../time/time.service.js';
 import { MaterialService } from '../material/material.service.js';
+import { ReportService } from '../docs/report.service.js';
+import { CommService } from '../files/comm.service.js';
 
 import { CommandRejected } from './command-rejected.js';
 export { CommandRejected };
@@ -70,6 +78,8 @@ export class SyncService {
     @Inject(TimeService) private readonly time: TimeService,
     @Inject(FeatureService) private readonly features: FeatureService,
     @Inject(MaterialService) private readonly material: MaterialService,
+    @Inject(ReportService) private readonly report: ReportService,
+    @Inject(CommService) private readonly comm: CommService,
   ) {}
 
   private session(s: AccessScope) {
@@ -220,17 +230,28 @@ export class SyncService {
         throw new CommandRejected('Auftrag nicht gefunden oder nicht zugewiesen');
       const [order] = await tx.select().from(serviceOrder).where(eq(serviceOrder.id, orderId));
       if (!order) throw new CommandRejected('Auftrag nicht gefunden');
-      if (order.appStatus === status) return warnings;
-      if (!canTransition(order.appStatus, status, 'MONTEUR'))
+      let target = status;
+      // "Fertig" requires complete documentation – otherwise "Fertig – Doku offen" (PROMPT 5.3/5.6).
+      if (status === 'FERTIG') {
+        const c = await this.report.completeness(tx, orderId);
+        if (!c.complete) {
+          target = 'FERTIG_DOKU_OFFEN';
+          warnings.push(
+            `Dokumentation unvollständig (${c.missing.join(', ')}) – Status „Fertig – Doku offen“.`,
+          );
+        }
+      }
+      if (order.appStatus === target) return warnings;
+      if (!canTransition(order.appStatus, target, 'MONTEUR'))
         throw new CommandRejected(
-          `Statuswechsel von „${order.appStatus}“ nach „${status}“ ist nicht erlaubt`,
+          `Statuswechsel von „${order.appStatus}“ nach „${target}“ ist nicht erlaubt`,
         );
       await this.setStatus(
         tx,
         scope,
         order.id,
         order.appStatus,
-        status,
+        target,
         'MONTEUR',
         new Date(cmd.deviceTime),
         note,
@@ -265,6 +286,49 @@ export class SyncService {
           access,
         );
       await this.material.removeConsumption(tx, scope, (payload as { consumptionId: string }).consumptionId);
+      return warnings;
+    }
+
+    if (cmd.type === 'SaveWorkReport')
+      return this.report.save(
+        tx,
+        scope,
+        new Date(cmd.deviceTime),
+        payload as CommandPayload<'SaveWorkReport'>,
+        (id) => this.orderAccess(tx, scope, id),
+      );
+
+    if (cmd.type === 'AttachPhoto') {
+      if (!(await this.features.isEnabled('photos', locationId)))
+        throw new CommandRejected('Fotos sind für Ihren Standort nicht freigeschaltet');
+      await this.comm.attachPhoto(tx, scope, cmd.id, payload as CommandPayload<'AttachPhoto'>, (id) =>
+        this.orderAccess(tx, scope, id),
+      );
+      return warnings;
+    }
+
+    if (cmd.type === 'SendChatMessage' || cmd.type === 'MarkChatRead') {
+      if (!(await this.features.isEnabled('chat', locationId)))
+        throw new CommandRejected('Der Chat ist für Ihren Standort nicht freigeschaltet');
+      const p = payload as {
+        orderId: string;
+        body?: string;
+        photoId?: string | null;
+        upToServerSeq?: number;
+      };
+      if ((await this.orderAccess(tx, scope, p.orderId)) === 'none')
+        throw new CommandRejected('Auftrag nicht gefunden oder nicht zugewiesen');
+      if (cmd.type === 'MarkChatRead') await this.comm.markRead(tx, scope, p.orderId, p.upToServerSeq ?? 0);
+      else
+        await this.comm.sendMessage(
+          tx,
+          scope,
+          cmd.id,
+          cmd.deviceSeq,
+          new Date(cmd.deviceTime),
+          { orderId: p.orderId, body: p.body ?? '', photoId: p.photoId },
+          null,
+        );
       return warnings;
     }
 
@@ -531,6 +595,47 @@ export class SyncService {
           .from(partRequest)
           .where(and(eq(partRequest.requestedBy, scope.userId), since(partRequest.txId)));
 
+        // Documentation & communication (phase 5): only for orders visible to the Monteur (RLS).
+        const visibleOrders = sql`exists (select 1 from ${serviceOrder} so where so.id = order_id)`;
+        const reports = await tx
+          .select()
+          .from(workReport)
+          .where(and(since(workReport.txId), visibleOrders));
+        const templates = await tx
+          .select()
+          .from(textTemplate)
+          .where(
+            and(
+              since(textTemplate.txId),
+              or(isNull(textTemplate.locationId), eq(textTemplate.locationId, locationId)),
+            ),
+          );
+        const messages = await tx
+          .select({ m: chatMessage, authorName: appUser.displayName })
+          .from(chatMessage)
+          .leftJoin(appUser, eq(appUser.id, chatMessage.authorId))
+          .where(
+            and(
+              cursor === null ? gte(chatMessage.createdAt, historyFrom) : since(chatMessage.txId),
+              isNull(chatMessage.deletedAt),
+            ),
+          )
+          .orderBy(chatMessage.serverSeq)
+          .limit(2000);
+        const myMessageIds = (
+          await tx
+            .select({ id: chatMessage.id })
+            .from(chatMessage)
+            .where(and(eq(chatMessage.authorId, scope.userId), gte(chatMessage.createdAt, historyFrom)))
+        ).map((x) => x.id);
+        const reads = myMessageIds.length
+          ? await tx.select().from(chatRead).where(inArray(chatRead.messageId, myMessageIds))
+          : [];
+        const photos = await tx
+          .select()
+          .from(photo)
+          .where(and(since(photo.txId), isNull(photo.deletedAt)));
+
         const voided = await tx
           .select({ id: stampEventVoid.eventId })
           .from(stampEventVoid)
@@ -556,6 +661,11 @@ export class SyncService {
           containers,
           consumptions,
           partRequests,
+          workReports: reports,
+          templates,
+          chatMessages: messages.map((x) => ({ ...x.m, authorName: x.authorName })),
+          chatReads: reads,
+          photos: photos.map(({ blobPath: _b, ...p }) => p),
           correctionRequests: corrections,
           cursor: next,
           full: cursor === null,

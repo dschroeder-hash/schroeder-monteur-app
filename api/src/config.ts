@@ -19,12 +19,41 @@ const schema = z
     BC_CLIENT_SECRET: z.string().default('mock'),
     BC_SCOPE: z.string().default('https://api.businesscentral.dynamics.com/.default'),
     BC_SYNC_INTERVAL_SEC: z.coerce.number().min(60).max(600).default(180),
+    /** Photos: 'azure' (Blob Storage, user delegation SAS) or 'local' (dev/test, files under LOCAL_STORAGE_DIR). */
+    STORAGE_MODE: z.enum(['azure', 'local']).default('local'),
+    STORAGE_ACCOUNT_URL: z.string().url().optional(),
+    STORAGE_CONTAINER: z.string().default('photos'),
+    LOCAL_STORAGE_DIR: z.string().default('./var/uploads'),
+    /** Public base URL of this API (signed local blob URLs). */
+    PUBLIC_API_URL: z.string().url().default('http://localhost:4000'),
+    /** Web Push (VAPID). Generate with `npx web-push generate-vapid-keys`. */
+    VAPID_PUBLIC_KEY: z.string().optional(),
+    VAPID_PRIVATE_KEY: z.string().optional(),
+    VAPID_SUBJECT: z.string().default('mailto:werkstatt-app@example.invalid'),
+    /** Azure Web PubSub endpoint (Managed Identity); without it clients fall back to polling. */
+    WEB_PUBSUB_ENDPOINT: z.string().url().optional(),
+    WEB_PUBSUB_HUB: z.string().default('werkstatt'),
+    /** Azure AI Speech (dictation fallback). */
+    SPEECH_REGION: z.string().default('germanywestcentral'),
+    SPEECH_KEY: z.string().optional(),
     /** Set by the worker entry point: the worker does not validate user tokens. */
     COMPONENT: z.enum(['api', 'worker']).default('api'),
   })
   .superRefine((c, ctx) => {
     if (c.APP_ENV === 'prod' && c.AUTH_MODE === 'dev')
       ctx.addIssue({ code: 'custom', message: 'AUTH_MODE=dev is not allowed in prod', path: ['AUTH_MODE'] });
+    if (c.APP_ENV === 'prod' && c.STORAGE_MODE === 'local')
+      ctx.addIssue({
+        code: 'custom',
+        message: 'STORAGE_MODE=local is not allowed in prod',
+        path: ['STORAGE_MODE'],
+      });
+    if (c.STORAGE_MODE === 'azure' && !c.STORAGE_ACCOUNT_URL)
+      ctx.addIssue({
+        code: 'custom',
+        message: 'STORAGE_ACCOUNT_URL is required for STORAGE_MODE=azure',
+        path: ['STORAGE_ACCOUNT_URL'],
+      });
     if (c.APP_ENV === 'prod' && c.BC_MODE === 'mock')
       ctx.addIssue({ code: 'custom', message: 'BC_MODE=mock is not allowed in prod', path: ['BC_MODE'] });
     if (c.COMPONENT === 'api' && c.AUTH_MODE === 'entra' && (!c.ENTRA_TENANT_ID || !c.ENTRA_API_AUDIENCE))

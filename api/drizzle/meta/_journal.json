@@ -50,6 +50,20 @@
       "when": 1795104687911,
       "tag": "0006_phase3_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795107447621,
+      "tag": "0007_phase5",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795107470224,
+      "tag": "0008_chat_system_messages",
+      "breakpoints": true
     }
   ]
 }

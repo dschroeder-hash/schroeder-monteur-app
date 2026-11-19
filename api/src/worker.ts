@@ -4,7 +4,15 @@ import { BcSyncService } from './bc/bc-sync.service.js';
 import { BcTransferWorker } from './bc/transfer-worker.js';
 import { loadConfig } from './config.js';
 import { createDb } from './db/client.js';
-import { flagForgottenClockOuts } from './jobs.js';
+import { applyRetention, flagForgottenClockOuts } from './jobs.js';
+import { resolve } from 'node:path';
+import { AzureBlobStorage, LocalBlobStorage } from './modules/files/blob-storage.js';
+import {
+  deliverPush,
+  remindForgottenClockOut,
+  webPushSender,
+  type PushSender,
+} from './modules/files/push.js';
 
 /**
  * Background worker (separate process, DB role monteur_worker): BC delta sync, BC transfer queue (phase 3),
@@ -31,7 +39,23 @@ const clientFor = (companyId: string) => {
 const bcSync = new BcSyncService(db, clientFor, (m) => console.warn(m));
 const bcTransfer = new BcTransferWorker(db, clientFor, (m) => console.warn(m));
 
+const storage =
+  config.STORAGE_MODE === 'azure'
+    ? new AzureBlobStorage(config.STORAGE_ACCOUNT_URL!, config.STORAGE_CONTAINER)
+    : new LocalBlobStorage(
+        resolve(config.LOCAL_STORAGE_DIR),
+        config.PUBLIC_API_URL,
+        'worker-has-no-signing-need',
+      );
+let pushSender: PushSender | null = null;
+if (config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY)
+  pushSender = await webPushSender(config.VAPID_PUBLIC_KEY, config.VAPID_PRIVATE_KEY, config.VAPID_SUBJECT);
+else console.warn('[worker] VAPID keys missing – Web Push disabled (notifications stay in the app)');
+
 const jobs: Array<{ name: string; intervalMs: number; run: () => Promise<unknown> }> = [
+  { name: 'forgotten-clock-out-reminder', intervalMs: 5 * 60_000, run: () => remindForgottenClockOut(db) },
+  ...(pushSender ? [{ name: 'web-push', intervalMs: 20_000, run: () => deliverPush(db, pushSender!) }] : []),
+  { name: 'retention', intervalMs: 6 * 3_600_000, run: () => applyRetention(db, (p) => storage.delete(p)) },
   { name: 'bc-transfer', intervalMs: 15_000, run: () => bcTransfer.runOnce() },
   { name: 'bc-sync', intervalMs: config.BC_SYNC_INTERVAL_SEC * 1000, run: () => bcSync.runAll() },
   { name: 'forgotten-clock-out', intervalMs: 15 * 60_000, run: () => flagForgottenClockOuts(db) },

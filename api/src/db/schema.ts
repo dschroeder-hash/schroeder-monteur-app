@@ -776,6 +776,8 @@ export const photo = pgTable(
     height: integer('height'),
     capturedAt: ts('captured_at'),
     uploadState: uploadStateEnum('upload_state').notNull().default('PENDING'),
+    /** Blocks already received by the local storage adapter (resumable upload); unused with Azure Blob. */
+    uploadedAt: ts('uploaded_at'),
     deletedAt: ts('deleted_at'),
     ...timestamps,
     ...rowVersion,
@@ -983,6 +985,8 @@ export const notification = pgTable(
     body: text('body').notNull(),
     link: text('link'),
     readAt: ts('read_at'),
+    /** Web Push delivery (worker); null = not yet pushed. */
+    pushedAt: ts('pushed_at'),
     ...timestamps,
     ...rowVersion,
   },

@@ -46,13 +46,23 @@ beforeAll(async () => {
   token = await tokenFor(app, 'monteur-wild');
   userId = (await owner.query('select id from app_user where entra_oid = $1', [persona('monteur-wild').oid]))
     .rows[0].id;
+  // Self-contained preconditions (test files share one database and run in varying order):
+  // three fresh WILD orders, assigned to this Monteur, in status "Eingeplant".
+  const wild = (await owner.query("select id from location where code = 'WILD'")).rows[0].id;
   orders = (
     await owner.query(
-      "select distinct a.order_id from assignment a join service_order o on o.id = a.order_id where a.user_id = $1 and a.cancelled_at is null and o.app_status not in ('FERTIG','FREIGEGEBEN','ABGERECHNET') and o.bc_status = 'Pending' order by 1",
-      [userId],
+      "select id from service_order where location_id = $1 and bc_status = 'Pending' and not exists (select 1 from time_entry te where te.order_id = service_order.id) order by bc_no limit 3",
+      [wild],
     )
-  ).rows.map((r) => r.order_id);
-  expect(orders.length).toBeGreaterThanOrEqual(3);
+  ).rows.map((r) => r.id);
+  expect(orders).toHaveLength(3);
+  await owner.query("update service_order set app_status = 'EINGEPLANT' where id = any($1)", [orders]);
+  for (const o of orders)
+    await owner.query(
+      "insert into assignment (order_id, location_id, user_id, planned_start, planned_end) values ($1, $2, $3, now(), now() + interval '2 hours')",
+      [o, wild, userId],
+    );
+  orders.sort();
 });
 afterAll(async () => {
   await owner.end();

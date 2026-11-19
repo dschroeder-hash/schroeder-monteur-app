@@ -85,6 +85,62 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
   },
   'GET /v1/stock/warnings': { allowed: ['meister-wild', 'lager-wild'] },
   'GET /v1/admin/containers': { allowed: ['admin'] },
+  'POST /v1/photos/{id}/upload-target': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+  },
+  'POST /v1/photos/{id}/complete': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+  },
+  'GET /v1/orders/{id}/photos': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+  },
+  'GET /v1/photos/{id}/url': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+  },
+  'GET /v1/orders/{id}/chat': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+  },
+  'POST /v1/orders/{id}/chat': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+    body: {},
+  },
+  'POST /v1/orders/{id}/chat/read': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+    body: {},
+  },
+  'GET /v1/notifications': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'] },
+  'POST /v1/notifications/read': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'],
+    body: {},
+  },
+  'GET /v1/push/vapid-public-key': { public: true },
+  'POST /v1/push/subscriptions': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'],
+    body: {},
+  },
+  'DELETE /v1/push/subscriptions': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'],
+    body: {},
+  },
+  'GET /v1/realtime/negotiate': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'],
+  },
+  'POST /v1/speech/transcribe': { allowed: ['monteur-wild', 'meister-wild'] },
+  'POST /v1/speech/rewrite': { allowed: ['monteur-wild', 'meister-wild'], body: {} },
+  'GET /v1/templates': { allowed: ['meister-wild', 'admin'] },
+  'POST /v1/templates': { allowed: ['meister-wild', 'admin'], body: {} },
+  'PATCH /v1/templates/{id}': {
+    allowed: ['meister-wild', 'admin'],
+    sample: '00000000-0000-4000-8000-00000000dead',
+    body: {},
+  },
   'POST /v1/admin/containers': { allowed: ['admin'], body: {} },
   'PATCH /v1/admin/containers/{id}': {
     allowed: ['admin'],

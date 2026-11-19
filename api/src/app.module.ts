@@ -22,6 +22,22 @@ import { PlanningController } from './modules/planning/planning.controller.js';
 import { PlanningService } from './modules/planning/planning.service.js';
 import { TransferService } from './modules/transfer/transfer.service.js';
 import { MaterialService } from './modules/material/material.service.js';
+import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
+import { ReportService } from './modules/docs/report.service.js';
+import { AzureBlobStorage, LocalBlobStorage } from './modules/files/blob-storage.js';
+import { LocalBlobController } from './modules/files/blob.controller.js';
+import {
+  ChatController,
+  NotificationsController,
+  PhotosController,
+  SpeechController,
+  TemplatesController,
+} from './modules/files/comm.controller.js';
+import { CommService } from './modules/files/comm.service.js';
+import { BLOB_STORAGE } from './modules/files/files.tokens.js';
+import { NoRealtime, REALTIME, WebPubSubRealtime } from './modules/files/realtime.js';
+import { AzureSpeech, NoRewrite, SPEECH, TEXT_REWRITE } from './modules/files/speech.js';
 import { ContainersController, MaterialController } from './modules/material/material.controller.js';
 import { SyncService } from './modules/sync/sync.service.js';
 import { TimeService } from './modules/time/time.service.js';
@@ -45,6 +61,12 @@ export class AppModule {
         TransfersController,
         MaterialController,
         ContainersController,
+        PhotosController,
+        ChatController,
+        NotificationsController,
+        SpeechController,
+        TemplatesController,
+        LocalBlobController,
       ],
       providers: [
         { provide: APP_CONFIG, useValue: config },
@@ -58,6 +80,28 @@ export class AppModule {
         ApprovalsService,
         TransferService,
         MaterialService,
+        ReportService,
+        CommService,
+        {
+          provide: BLOB_STORAGE,
+          useFactory: () =>
+            config.STORAGE_MODE === 'azure'
+              ? new AzureBlobStorage(config.STORAGE_ACCOUNT_URL!, config.STORAGE_CONTAINER)
+              : new LocalBlobStorage(
+                  resolve(config.LOCAL_STORAGE_DIR),
+                  config.PUBLIC_API_URL,
+                  config.DEV_AUTH_SECRET ?? randomUUID(),
+                ),
+        },
+        {
+          provide: REALTIME,
+          useFactory: () =>
+            config.WEB_PUBSUB_ENDPOINT
+              ? new WebPubSubRealtime(config.WEB_PUBSUB_ENDPOINT, config.WEB_PUBSUB_HUB)
+              : new NoRealtime(),
+        },
+        { provide: SPEECH, useFactory: () => new AzureSpeech(config.SPEECH_REGION, config.SPEECH_KEY) },
+        { provide: TEXT_REWRITE, useFactory: () => new NoRewrite() },
         TimeService,
         { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_FILTER, useClass: HttpErrorFilter },

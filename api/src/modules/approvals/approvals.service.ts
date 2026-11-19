@@ -46,6 +46,7 @@ import {
 } from '../../db/schema.js';
 import { notify } from '../notifications.js';
 import { TimeService } from '../time/time.service.js';
+import { ReportService } from '../docs/report.service.js';
 import { TransferService } from '../transfer/transfer.service.js';
 
 export interface CorrectionEvent {
@@ -91,6 +92,7 @@ export class ApprovalsService {
     @Inject(TimeService) private readonly time: TimeService,
     @Inject(TransferService) private readonly transfers: TransferService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(ReportService) private readonly report: ReportService,
   ) {}
 
   private session(s: AccessScope) {
@@ -785,6 +787,8 @@ export class ApprovalsService {
         source: 'MEISTER',
         note: note ?? null,
       });
+      // Work report as comment lines first – same group, so BC receives them before the status (PROMPT 6.2).
+      if (status === 'FREIGEGEBEN') await this.report.enqueueComments(tx, this.transfers, orderId);
       const def = DEFAULT_STATUS_DEFINITIONS[status];
       if (def.writeToBc && def.bcStatus)
         await this.transfers.enqueue(tx, {

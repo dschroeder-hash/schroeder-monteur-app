@@ -317,6 +317,38 @@ export async function seedDev(db: Db, now = new Date()): Promise<void> {
     ]);
   }
 
+  await db.insert(s.textTemplate).values([
+    {
+      title: 'Wartung nach Herstellerplan',
+      body: 'Wartung nach Herstellerplan durchgeführt bei {Betriebsstunden} h.',
+      orderTypeCode: 'WARTUNG',
+      sortOrder: 1,
+    },
+    {
+      title: 'Öle und Filter gewechselt',
+      body: 'Motoröl, Getriebe-/Hydrauliköl und alle Filter gewechselt.',
+      sortOrder: 2,
+    },
+    {
+      title: 'Fehlerspeicher',
+      body: 'Fehlerspeicher ausgelesen, Fehler behoben und Speicher gelöscht.',
+      sortOrder: 3,
+    },
+    { title: 'Probefahrt ohne Befund', body: 'Probefahrt durchgeführt – ohne Befund.', sortOrder: 4 },
+    {
+      title: 'Übergabeinspektion',
+      body: 'Übergabeinspektion an {Maschine} (SN {Seriennummer}) durchgeführt, Kunde eingewiesen.',
+      orderTypeCode: 'UEBERGABE',
+      sortOrder: 5,
+    },
+    {
+      title: 'Schmierstellen',
+      body: 'Alle Schmierstellen abgeschmiert.',
+      machineGroup: 'BODENBEARBEITUNG',
+      sortOrder: 6,
+    },
+  ]);
+
   await db.insert(s.setting).values([
     { key: 'rounding', value: { gridMinutes: 15, mode: 'commercial', basis: 'daily_sum' } },
     { key: 'forgotClockOutReminder', value: { time: '19:00' } },
