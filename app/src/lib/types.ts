@@ -8,7 +8,7 @@ export interface Me {
   roles: Role[];
   grants: Array<{
     locationId: string;
-    role: 'MONTEUR' | 'MEISTER' | 'LAGER';
+    role: 'MONTEUR' | 'MEISTER' | 'LAGER' | 'TERMINAL';
     location?: { id: string; code: string; name: string };
   }>;
   bcResourceNo: string | null;

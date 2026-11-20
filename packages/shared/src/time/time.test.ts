@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StampEvent, StampKind } from './model.js';
-import { allocateBillable, roundMinutes } from './rounding.js';
+import { allocateBillable, roundMinutes, roundStampTime } from './rounding.js';
 import { currentState, deriveSegments, segmentMinutes } from './segments.js';
 import { summarizeDay } from './summary.js';
 import { localDate, zonedToUtc } from './tz.js';
@@ -205,5 +205,52 @@ describe('time zones', () => {
     expect(roundMinutes(8, 15, 'commercial')).toBe(15);
     expect(roundMinutes(1, 15, 'up')).toBe(15);
     expect(roundMinutes(29, 15, 'down')).toBe(15);
+  });
+});
+
+describe('stamp clock (quarter hours, E-69)', () => {
+  const cfg = { gridMinutes: 15, startGraceMinutes: 5 };
+  const at = (hms: string) => `2026-11-20T${hms}.000Z`;
+  it('start: 5 minutes grace, then the next quarter', () => {
+    expect(roundStampTime(at('06:35:59'), 'CLOCK_IN', cfg)).toBe(at('06:30:00'));
+    expect(roundStampTime(at('06:36:00'), 'CLOCK_IN', cfg)).toBe(at('06:45:00'));
+    expect(roundStampTime(at('06:45:00'), 'CLOCK_IN', cfg)).toBe(at('06:45:00'));
+    expect(roundStampTime(at('06:44:59'), 'JOB_START', cfg)).toBe(at('06:45:00'));
+  });
+  it('stop: always down to the quarter', () => {
+    expect(roundStampTime(at('15:29:59'), 'CLOCK_OUT', cfg)).toBe(at('15:15:00'));
+    expect(roundStampTime(at('15:30:00'), 'CLOCK_OUT', cfg)).toBe(at('15:30:00'));
+    expect(roundStampTime(at('15:44:00'), 'JOB_STOP', cfg)).toBe(at('15:30:00'));
+  });
+  it('segments use the quarter hours; a direct switch leaves no gap', () => {
+    const ev = (id: string, kind: StampEvent['kind'], hms: string, orderId: string | null = null) => ({
+      id,
+      kind,
+      deviceTime: at(hms),
+      orderId,
+      activity: orderId ? ('WORK' as const) : null,
+      overheadCode: null,
+    });
+    const segs = deriveSegments(
+      [
+        ev('1', 'CLOCK_IN', '06:34:10'),
+        ev('2', 'JOB_START', '06:34:30', 'A'),
+        ev('3', 'JOB_START', '09:07:00', 'B'),
+        ev('4', 'CLOCK_OUT', '15:29:59'),
+      ],
+      'Europe/Berlin',
+      cfg,
+    );
+    const job = segs
+      .filter((s) => s.kind === 'ORDER')
+      .map((s) => [s.orderId, s.start.slice(11, 16), s.end?.slice(11, 16)]);
+    expect(job).toEqual([
+      ['A', '06:30', '09:15'],
+      ['B', '09:15', '15:15'],
+    ]);
+    expect(segs.find((s) => s.kind === 'ATTENDANCE')).toMatchObject({
+      start: at('06:30:00'),
+      end: at('15:15:00'),
+    });
   });
 });

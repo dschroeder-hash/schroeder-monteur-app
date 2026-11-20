@@ -49,6 +49,11 @@ darf **nicht** aktiv sein (sonst scheitert die Microsoft-Anmeldung).
 
 - **Querformat:** links die Seitenleiste mit allen Bereichen, unten darin die Stempelknöpfe (Kommen, Pause, Gehen).
 - **Hochformat:** schmale Symbolleiste links, Stempelknöpfe unten am Bildschirmrand.
+- **AGCO-Katalog neben der App:** In „Teile“ den Knopf „AGCO-Katalog öffnen“ gedrückt halten und an den rechten
+  Bildschirmrand ziehen – der Katalog öffnet sich daneben (Split View). Teilenummer im Katalog markieren und in den
+  Bereich „Herstellerkatalog“ der App ziehen; mehrere markierte Zeilen ergeben eine Liste zum Auswählen. Ohne Split
+  View: kopieren und „Teilenummer aus Zwischenablage“ tippen. Eine Web-App kann Split View nicht selbst öffnen –
+  das erlaubt iPadOS nur über diese Geste.
 - **Plantafel:** Auftrag kurz **gedrückt halten**, dann auf Monteur und Uhrzeit ziehen. Alternativ „Einplanen ohne
   Ziehen …“.
 - **Abgleich:** Das iPad überträgt nur, solange die App geöffnet ist (iPadOS erlaubt Web-Apps keinen Abgleich im

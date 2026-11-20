@@ -12,12 +12,14 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import {
   assignment,
+  bcChecklistLine,
   bcResourceMapping,
   bcTransfer,
   consumption,
   serviceOrder,
   timeEntry,
 } from '../db/schema.js';
+import { buildWorkOrderPdf } from '../modules/docs/work-order-pdf.js';
 import type { TransferPayload } from '../modules/transfer/transfer.service.js';
 import { BcContractError, BcError, type BcClient } from './bc-client.js';
 
@@ -106,6 +108,10 @@ export class BcTransferWorker {
             );
           body.employeeNumber = m.no;
         }
+        if (payload.meta?.workOrderPdfOf)
+          body.fileContent = Buffer.from(
+            await buildWorkOrderPdf(this.db, payload.meta.workOrderPdfOf),
+          ).toString('base64');
         const res = await bc.create(payload.endpoint, body);
         recordId = String((res.record as { id: string }).id);
       } else if (payload.op === 'delete') {
@@ -187,9 +193,16 @@ export class BcTransferWorker {
   }
 
   private async resolveRef(ref: {
-    table: 'assignment' | 'service_order';
+    table: 'assignment' | 'service_order' | 'bc_checklist_line';
     id: string;
   }): Promise<string | null> {
+    if (ref.table === 'bc_checklist_line') {
+      const [l] = await this.db
+        .select({ id: bcChecklistLine.bcSystemId })
+        .from(bcChecklistLine)
+        .where(eq(bcChecklistLine.id, ref.id));
+      return l?.id ?? null;
+    }
     if (ref.table === 'assignment') {
       const [a] = await this.db
         .select({ id: assignment.bcAllocationId })

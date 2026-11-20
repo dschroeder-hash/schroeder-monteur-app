@@ -43,5 +43,12 @@ export default async function setup() {
       from assignment where cancelled_at is null`);
     await c.end();
   }
+  // No Meister in the app (E-66): the worker hands over at once in the tests (no grace period).
+  const st = new pg.Client({ connectionString: ownerUrl });
+  await st.connect();
+  await st.query(
+    `insert into setting (key, value) values ('approval', '{"mode": "auto", "graceMinutes": 0}')`,
+  );
+  await st.end();
   process.env.E2E_OWNER_DATABASE_URL = ownerUrl;
 }

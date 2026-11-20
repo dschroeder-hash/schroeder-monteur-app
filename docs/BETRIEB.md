@@ -90,6 +90,27 @@ Fachliche Einstellungen (Tabelle `setting`, je Standort überschreibbar) pflegt 
 Arbeitstypen, Buch.-Blätter, Pflichtfelder Arbeitsbericht, Löschfristen, Abwesenheitsziel (`absence.bcTarget`,
 Ursachencodes), Produktivität (Zielkorridor, Altdaten-Regel).
 
+Übergabe ohne Meister (E-66 bis E-68):
+
+| Einstellung (`setting`)        | Standard                                        | Bedeutung                                                                                                     |
+| ------------------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `approval.mode`                | `auto`                                          | `auto`: Stunden, Entnahmen und abgeschlossene Aufträge gehen ohne Prüfung nach BC. `meister`: keine Übergabe. |
+| `approval.graceMinutes`        | `30`                                            | Karenzzeit nach der letzten Buchung bzw. Entnahme, in der der Monteur noch korrigieren kann.                  |
+| `completion.signatureRequired` | `true` (je Standort überschreibbar)             | „Arbeit abgeschlossen“ nur mit Kundenunterschrift oder vermerktem Grund.                                      |
+| `rounding.stampClock`          | `{ "gridMinutes": 15, "startGraceMinutes": 5 }` | Stempeluhr im Viertelstundentakt (E-69); `null` = minutengenau.                                               |
+| `checklist.bcLines`            | `true`                                          | Checkliste aus den BC-Zeilen des Auftrags lesen und dorthin zurückschreiben (E-67, OP-44).                    |
+
+Servicechecklisten: aus BC (`serviceChecklistLines`) oder als App-Vorlage unter Admin → „Servicechecklisten“ (JSON).
+
+**Werkstatt-PC (E-72):** In Entra ein Konto je Standort (z. B. `werkstatt-pc-wild@…`) mit der App-Rolle
+`Werkstatt.Terminal` anlegen, ohne MFA-Abfrage auf dem festen Gerät (Conditional Access: konforme bzw. benannte
+Geräte); in der App unter Admin dem Standort als „Werkstatt-PC“ zuordnen. Mitarbeiter legen ihre PIN im Benutzermenü
+fest; der Admin setzt sie mit `PUT /v1/admin/users/{id}/pin`. Der PC braucht dauerhaft Verbindung.
+
+**M-Files (E-73):** `MFILES_BASE_URL`, `MFILES_VAULT_GUID`, `MFILES_USERNAME`, `MFILES_PASSWORD` (Key Vault),
+`MFILES_MACHINE_OBJECT_TYPE`, `MFILES_MACHINE_KEY_PROPERTY`, `MFILES_PHOTO_CLASS`, `MFILES_MACHINE_LOOKUP_PROPERTY`,
+`MFILES_ORDER_NO_PROPERTY` (Worker). Ohne `MFILES_BASE_URL` ist die Übergabe aus.
+
 ## 4. Hintergrundjobs (Worker)
 
 | Job                            | Intervall | Aufgabe                                                                                                                                                                                                                                                                                                     |
@@ -100,6 +121,8 @@ Ursachencodes), Produktivität (Zielkorridor, Altdaten-Regel).
 | `forgotten-clock-out`          | 15 min    | Markiert vergessene „Gehen“-Buchungen zur Korrektur.                                                                                                                                                                                                                                                        |
 | `forgotten-clock-out-reminder` | 5 min     | Erinnerung 19:00 Uhr Standortzeit (OP-17).                                                                                                                                                                                                                                                                  |
 | `retention`                    | 6 h       | Löschfristen: Chat/Fotos 24 Monate nach Abrechnung, Krankmeldungen und Kommentare 12 Monate nach Ende, Benachrichtigungen 180 Tage, Sync-Protokoll 90 Tage; Zeitdaten, Audit-Log, Freigaben, Produktivität und Urlaub nach 6 Jahren (`retention.timeDataYears`); lange inaktive Konten werden anonymisiert. |
+| `mfiles-photos`                | 60 s      | Fotos als Dokument an das Maschinenobjekt in M-Files (nur wenn konfiguriert, E-73).                                                                                                                                                                                                                         |
+| `auto-approve`                 | 60 s      | Übergabe ohne Meister (E-66): Korrekturanträge, abgeschlossene Tage, Entnahmen, abgeschlossene Aufträge (Bericht, Checkliste, PDF mit Unterschrift, Status). Fehler einzelner Einträge (z. B. fehlende BC-Ressource) stehen im Log und werden beim nächsten Lauf wiederholt.                                |
 | `productivity-snapshot`        | 6 h       | Vormonat bis zum 10. neu berechnen, danach fest (E-54).                                                                                                                                                                                                                                                     |
 
 `GET /health/ready` des Workers (Port `WORKER_HEALTH_PORT`, Standard 4001) liefert je Job den Zeitpunkt des letzten

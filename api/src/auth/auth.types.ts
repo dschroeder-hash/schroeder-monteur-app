@@ -11,7 +11,7 @@ export interface Principal {
 
 export interface LocationGrant {
   locationId: string;
-  role: 'MONTEUR' | 'MEISTER' | 'LAGER';
+  role: 'MONTEUR' | 'MEISTER' | 'LAGER' | 'TERMINAL';
 }
 
 /**
@@ -28,6 +28,8 @@ export interface AccessScope {
   /** Locations where the user is Meister (requires Entra role Meister). */
   meisterLocationIds: string[];
   lagerLocationIds: string[];
+  /** Locations whose shared workshop PC this account is (E-72). */
+  terminalLocationIds?: string[];
   /** All locations the user is assigned to. */
   locationIds: string[];
 }

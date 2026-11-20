@@ -322,7 +322,12 @@ export function buildMockServer(opts: MockOptions = {}): { app: FastifyInstance;
             `The Cause of Absence does not exist. Identification fields and values: Code='${String(data.causeOfAbsenceCode)}'`,
           );
       }
-      if (name === 'serviceLines' || name === 'serviceCommentLines' || name === 'serviceOrderAllocations') {
+      if (
+        name === 'serviceLines' ||
+        name === 'serviceCommentLines' ||
+        name === 'serviceOrderAllocations' ||
+        name === 'serviceOrderAttachments'
+      ) {
         const so = state.tables.serviceOrders.find((o) => o.number === data.documentNumber);
         if (!so)
           throw new ODataError(

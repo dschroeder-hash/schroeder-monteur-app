@@ -68,10 +68,29 @@ export function extractPartNo(text: string): string | null {
   const t = text.trim();
   if (!t) return null;
   const labelled =
-    /(?:teile?-?nr\.?|teilenummer|part\s*(?:no|number)\.?)\s*[:#]?\s*([A-Z0-9][A-Z0-9.\-/ ]{2,30}[A-Z0-9])/i.exec(
+    /(?:teile?-?nr\.?|teilenummer|part\s*(?:no|number)\.?)\s*[:#]?\s*([A-Z0-9][A-Z0-9.\-/]{2,30}(?: \d[A-Z0-9.\-/]*)*)/i.exec(
       t,
     );
   if (labelled?.[1]) return labelled[1].trim();
   const token = t.split(/[\s,;|–]+/).find((w) => /\d/.test(w) && w.replace(/[^A-Za-z0-9]/g, '').length >= 4);
   return token ? token.replace(/[^A-Za-z0-9.\-/]/g, '') : null;
+}
+
+/**
+ * All part numbers in a pasted or dragged text (e.g. several lines marked in the manufacturer catalog): one per
+ * line, duplicates removed (compared normalised), at most 50.
+ */
+export function extractPartNos(text: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of text.split(/\r?\n|\t{2,}/)) {
+    const p = extractPartNo(line);
+    if (!p) continue;
+    const key = normalizePartNo(p);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(p);
+    if (out.length === 50) break;
+  }
+  return out;
 }

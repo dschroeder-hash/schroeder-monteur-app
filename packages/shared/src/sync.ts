@@ -85,6 +85,41 @@ export const COMMAND_PAYLOADS = {
     requiredFields: z.record(z.string(), z.union([z.string().max(200), z.number(), z.null()])).default({}),
     usedTemplateIds: z.array(uuid).max(100).default([]),
   }),
+  /** Filled-in service checklist (E-67). Whole document; the newest device time wins. */
+  SaveChecklist: z.object({
+    orderId: uuid,
+    /** App template; null when the checklist comes from BC (yellow card of the order). */
+    templateId: uuid.nullable(),
+    results: z
+      .record(
+        z.string().max(80),
+        z.object({
+          checked: z.boolean().default(false),
+          value: z.string().max(500).nullable().default(null),
+          unit: z.string().max(20).nullable().default(null),
+        }),
+      )
+      .refine((r) => Object.keys(r).length <= 300, { message: 'Zu viele Punkte' }),
+  }),
+  /**
+   * Customer signature on the workshop order (E-68): PNG as data URL (captured offline), or the reason why the
+   * customer could not sign (e.g. not present).
+   */
+  SignOrder: z
+    .object({
+      orderId: uuid,
+      signerName: z.string().trim().max(120).default(''),
+      signedAt: isoDateTime,
+      imagePng: z
+        .string()
+        .max(400_000)
+        .regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/, 'Unterschrift als PNG erwartet')
+        .nullish(),
+      absentReason: z.string().trim().max(300).nullish(),
+    })
+    .refine((v) => (!!v.imagePng && v.signerName.length > 0) || !!v.absentReason, {
+      message: 'Unterschrift mit Namen oder Grund ohne Unterschrift angeben',
+    }),
   /** Photo metadata; the binary is uploaded separately (resumable block upload). */
   AttachPhoto: z.object({
     orderId: uuid,

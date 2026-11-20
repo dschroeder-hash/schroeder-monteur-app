@@ -1,6 +1,7 @@
 /**
  * Material offline (PROMPT 5.4/5.5, DoD 12): 12 l engine oil and a filter are taken in flight mode;
- * after sync the Meister approves and the worker writes item lines to the BC service order (mock).
+ * after sync the worker hands them over on its own (no Meister in the app, E-66) and writes item lines to the BC
+ * service order (mock).
  */
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { BC_MOCK_URL } from '../playwright.config.js';
@@ -27,9 +28,9 @@ test.skip(
   'Flugmodus lässt sich in Playwright-WebKit nicht emulieren',
 );
 
-test('take oil and a part offline, sync, Meister approves, item lines arrive in BC', async ({
+test('take oil and a part offline, sync, item lines arrive in BC without approval', async ({
   page,
-  browser,
+
   request,
 }) => {
   await page.goto('/login');
@@ -67,19 +68,6 @@ test('take oil and a part offline, sync, Meister approves, item lines arrive in 
   await expect(page.getByRole('status').filter({ hasText: /ausstehend/ })).toHaveCount(0, {
     timeout: 30_000,
   });
-
-  // ---- Meister approves ----
-  const meister = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-  const m = await meister.newPage();
-  await m.goto('/login');
-  await m.click('[data-persona="meister-wild"]');
-  await m.waitForURL('**/meister');
-  await m.goto('/meister/freigaben');
-  const block = m.locator(`[data-consumptions="${orderId}"]`);
-  await expect(block).toContainText('12 L Motoröl');
-  await block.getByRole('button', { name: /Alle 2 freigeben/ }).click();
-  await expect(m.getByRole('status').filter({ hasText: 'Material freigegeben' })).toBeVisible();
-  await meister.close();
 
   // ---- Worker → BC service lines of type Item ----
   await expect

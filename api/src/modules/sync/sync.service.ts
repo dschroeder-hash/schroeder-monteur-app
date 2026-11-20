@@ -42,6 +42,12 @@ import {
   storageLocation,
   syncCommand,
   textTemplate,
+  bcChecklistLine,
+  bcContact,
+  bcRemark,
+  checklistTemplate,
+  orderChecklist,
+  orderSignature,
   timeCorrectionRequest,
   timeEntry,
   userLocation,
@@ -53,6 +59,7 @@ import { FeatureService } from '../../features/feature.service.js';
 import { TimeService } from '../time/time.service.js';
 import { MaterialService } from '../material/material.service.js';
 import { ReportService } from '../docs/report.service.js';
+import { checklistFor } from '../docs/checklist-source.js';
 import { CommService } from '../files/comm.service.js';
 import { AbsenceService } from '../absence/absence.service.js';
 
@@ -303,6 +310,23 @@ export class SyncService {
       return warnings;
     }
 
+    if (cmd.type === 'SaveChecklist')
+      return this.report.saveChecklist(
+        tx,
+        scope,
+        new Date(cmd.deviceTime),
+        payload as CommandPayload<'SaveChecklist'>,
+        (id) => this.orderAccess(tx, scope, id),
+      );
+    if (cmd.type === 'SignOrder')
+      return this.report.sign(
+        tx,
+        scope,
+        new Date(cmd.deviceTime),
+        payload as CommandPayload<'SignOrder'>,
+        (id) => this.orderAccess(tx, scope, id),
+      );
+
     if (cmd.type === 'SaveWorkReport')
       return this.report.save(
         tx,
@@ -522,6 +546,90 @@ export class SyncService {
               .where(inArray(serviceOrderItem.orderId, orderIds))
           : [];
 
+        // Remarks and contact persons for every order the Monteur can see (RLS), always complete – a handful of
+        // rows per order, and a newly assigned order needs the customer's older remarks as well.
+        const visible = await tx
+          .select({ bcNo: serviceOrder.bcNo, customerNo: serviceOrder.customerNo, id: serviceOrder.id })
+          .from(serviceOrder)
+          .where(and(isNull(serviceOrder.deletedInBcAt), sql`${serviceOrder.appStatus} <> 'ABGERECHNET'`));
+        const visibleMachines = visible.length
+          ? await tx
+              .select({ no: machine.serviceItemNo })
+              .from(serviceOrderItem)
+              .innerJoin(machine, eq(machine.id, serviceOrderItem.machineId))
+              .where(
+                inArray(
+                  serviceOrderItem.orderId,
+                  visible.map((v) => v.id),
+                ),
+              )
+          : [];
+        const refs = (scope: string, nos: string[]) =>
+          and(eq(bcRemark.scope, scope), inArray(bcRemark.refNo, nos.length ? nos : ['-']));
+        const customerNos = [...new Set(visible.map((v) => v.customerNo))];
+        const remarks = await tx
+          .select({
+            id: bcRemark.id,
+            scope: bcRemark.scope,
+            refNo: bcRemark.refNo,
+            kind: bcRemark.kind,
+            lineNo: bcRemark.lineNo,
+            date: bcRemark.date,
+            text: bcRemark.text,
+          })
+          .from(bcRemark)
+          .where(
+            or(
+              refs('CUSTOMER', customerNos),
+              refs(
+                'SERVICE_ITEM',
+                visibleMachines.map((m) => m.no),
+              ),
+              refs(
+                'ORDER',
+                visible.map((v) => v.bcNo),
+              ),
+            ),
+          );
+        const contacts = await tx
+          .select({
+            id: bcContact.id,
+            customerNo: bcContact.customerNo,
+            name: bcContact.name,
+            jobTitle: bcContact.jobTitle,
+            phone: bcContact.phone,
+            mobile: bcContact.mobile,
+            email: bcContact.email,
+          })
+          .from(bcContact)
+          .where(inArray(bcContact.customerNo, customerNos.length ? customerNos : ['-']));
+
+        // Yellow card lines of the BC service orders (OP-44) – complete for every visible order, like remarks.
+        const bcLines = visible.length
+          ? await tx
+              .select()
+              .from(bcChecklistLine)
+              .where(
+                inArray(
+                  bcChecklistLine.orderNo,
+                  visible.map((v) => v.bcNo),
+                ),
+              )
+          : [];
+        const checklistDefs = (
+          await Promise.all(
+            visible
+              .filter((v) => bcLines.some((l) => l.orderNo === v.bcNo))
+              .map(async (v) => {
+                const [o] = await tx.select().from(serviceOrder).where(eq(serviceOrder.id, v.id));
+                const def = o ? await checklistFor(tx, o) : null;
+                return def?.source === 'bc'
+                  ? { orderId: v.id, title: def.title, items: def.items, bcAnswers: def.bcAnswers }
+                  : null;
+              }),
+          )
+        ).filter((x) => x !== null);
+
         const stamps = await tx
           .select()
           .from(stampEvent)
@@ -652,6 +760,29 @@ export class SyncService {
               or(isNull(textTemplate.locationId), eq(textTemplate.locationId, locationId)),
             ),
           );
+        const checklistTemplates = await tx
+          .select()
+          .from(checklistTemplate)
+          .where(
+            and(
+              since(checklistTemplate.txId),
+              or(isNull(checklistTemplate.locationId), eq(checklistTemplate.locationId, locationId)),
+            ),
+          );
+        const checklists = await tx
+          .select()
+          .from(orderChecklist)
+          .where(and(since(orderChecklist.txId), visibleOrders));
+        // The signature image stays on the server (and in the PDF); devices only need to know that it exists.
+        const signatures = await tx
+          .select({
+            orderId: orderSignature.orderId,
+            signerName: orderSignature.signerName,
+            signedAt: orderSignature.signedAt,
+            absentReason: orderSignature.absentReason,
+          })
+          .from(orderSignature)
+          .where(and(since(orderSignature.txId), visibleOrders));
         const messages = await tx
           .select({ m: chatMessage, authorName: appUser.displayName })
           .from(chatMessage)
@@ -718,6 +849,12 @@ export class SyncService {
           partRequests,
           workReports: reports,
           templates,
+          checklistTemplates,
+          orderChecklists: checklists,
+          orderSignatures: signatures,
+          remarks,
+          contacts,
+          checklistDefs,
           chatMessages: messages.map((x) => ({ ...x.m, authorName: x.authorName })),
           chatReads: reads,
           photos: photos.map(({ blobPath: _b, ...p }) => p),

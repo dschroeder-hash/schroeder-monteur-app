@@ -772,7 +772,13 @@ export class ApprovalsService {
   }
 
   /** Meister status change incl. approval (FREIGEGEBEN → BC status Finished via transfer, E-14). */
-  async setOrderStatus(scope: AccessScope, orderId: string, status: AppStatus, note?: string) {
+  async setOrderStatus(
+    scope: AccessScope,
+    orderId: string,
+    status: AppStatus,
+    note?: string,
+    source: 'MEISTER' | 'AUTO' = 'MEISTER',
+  ) {
     return withSession(this.db, this.session(scope), async (tx) => {
       const [order] = await tx.select().from(serviceOrder).where(eq(serviceOrder.id, orderId)).for('update');
       if (!order || !scope.meisterLocationIds.includes(order.locationId))
@@ -794,7 +800,7 @@ export class ApprovalsService {
         fromStatus: order.appStatus,
         toStatus: status,
         actorId: scope.userId,
-        source: 'MEISTER',
+        source,
         note: note ?? null,
       });
       // Work report as comment lines first – same group, so BC receives them before the status (PROMPT 6.2).

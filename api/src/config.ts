@@ -49,6 +49,16 @@ const schema = z
     WEB_PUBSUB_HUB: z.string().default('werkstatt'),
     /** Azure AI Speech (dictation fallback). */
     SPEECH_REGION: z.string().default('germanywestcentral'),
+    // Photos to M-Files (E-73, OP-48). Without MFILES_BASE_URL the hand-over is off.
+    MFILES_BASE_URL: z.string().url().optional(),
+    MFILES_VAULT_GUID: z.string().optional(),
+    MFILES_USERNAME: z.string().optional(),
+    MFILES_PASSWORD: z.string().optional(),
+    MFILES_MACHINE_OBJECT_TYPE: z.coerce.number().int().optional(),
+    MFILES_MACHINE_KEY_PROPERTY: z.coerce.number().int().optional(),
+    MFILES_PHOTO_CLASS: z.coerce.number().int().optional(),
+    MFILES_MACHINE_LOOKUP_PROPERTY: z.coerce.number().int().optional(),
+    MFILES_ORDER_NO_PROPERTY: z.coerce.number().int().optional(),
     SPEECH_KEY: z.string().optional(),
     /** Set by the worker entry point: the worker does not validate user tokens. */
     COMPONENT: z.enum(['api', 'worker']).default('api'),

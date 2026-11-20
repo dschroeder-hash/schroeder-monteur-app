@@ -7,7 +7,7 @@ export interface DevPersona {
   email: string;
   roles: Role[];
   /** location code → location role */
-  locations: Array<{ code: string; role: 'MONTEUR' | 'MEISTER' | 'LAGER' }>;
+  locations: Array<{ code: string; role: 'MONTEUR' | 'MEISTER' | 'LAGER' | 'TERMINAL' }>;
   bcResourceNo?: string;
   bcEmployeeNo?: string;
   isApprentice?: boolean;
@@ -15,6 +15,14 @@ export interface DevPersona {
 
 /** Fixed test personas (dev/test only). OIDs are fixed so tokens are reproducible. */
 export const DEV_PERSONAS: DevPersona[] = [
+  {
+    key: 'werkstatt-pc-wild',
+    oid: '00000000-0000-4000-8000-000000000190',
+    name: 'Werkstatt-PC Wildeshausen',
+    email: 'werkstatt-pc.wild@example.invalid',
+    roles: [ROLES.Terminal],
+    locations: [{ code: 'WILD', role: 'TERMINAL' }],
+  },
   {
     key: 'monteur-wild',
     oid: '00000000-0000-4000-8000-000000000101',

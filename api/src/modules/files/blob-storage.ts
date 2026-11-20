@@ -17,6 +17,8 @@ export interface BlobStorage {
   size(path: string): Promise<number | null>;
   /** First bytes of the committed blob (file-type check) or null. */
   head(path: string, bytes: number): Promise<Buffer | null>;
+  /** Whole committed blob (e.g. for forwarding a photo to M-Files) or null. */
+  read(path: string): Promise<Buffer | null>;
   delete(path: string): Promise<void>;
 }
 
@@ -98,6 +100,18 @@ export class AzureBlobStorage implements BlobStorage {
     const blob = (await this.svc()).getContainerClient(this.container).getBlobClient(path);
     try {
       return await blob.downloadToBuffer(0, bytes);
+    } catch {
+      return null;
+    }
+  }
+  async read(path: string) {
+    try {
+      return await (
+        await this.svc()
+      )
+        .getContainerClient(this.container)
+        .getBlobClient(path)
+        .downloadToBuffer();
     } catch {
       return null;
     }

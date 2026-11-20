@@ -1,5 +1,14 @@
 import Dexie, { type EntityTable, type Table } from 'dexie';
-import type { AbsenceState, AbsenceType, Activity, AppStatus, HalfDay, StampKind } from '@schroeder/shared';
+import type {
+  AbsenceState,
+  AbsenceType,
+  Activity,
+  AppStatus,
+  ChecklistAnswer,
+  ChecklistItem,
+  HalfDay,
+  StampKind,
+} from '@schroeder/shared';
 
 /** A command written while (possibly) offline; sent to POST /v1/sync/push in device order (ENTSCHEIDUNGEN E-06). */
 export interface OutboxEntry {
@@ -20,6 +29,8 @@ export interface KvEntry {
 
 export interface LocalMachine {
   id: string;
+  /** BC service item number (remarks on the machine are keyed by it). */
+  serviceItemNo?: string;
   brand: string;
   model: string;
   serialNo: string;
@@ -192,6 +203,61 @@ export interface LocalWorkReport {
   pending?: boolean;
 }
 
+/** Service checklist template (E-67) and the filled-in checklist of an order. */
+export interface LocalChecklistTemplate {
+  id: string;
+  locationId: string | null;
+  title: string;
+  orderTypeCode: string | null;
+  brand: string | null;
+  items: ChecklistItem[];
+  active: boolean;
+}
+export interface LocalOrderChecklist {
+  orderId: string;
+  templateId: string | null;
+  results: Record<string, ChecklistAnswer>;
+  complete: boolean;
+  deviceTime: string | null;
+  pending?: boolean;
+}
+/** Yellow card of a BC service order (OP-44) – takes precedence over app templates. */
+export interface LocalChecklistDef {
+  orderId: string;
+  title: string;
+  items: ChecklistItem[];
+  bcAnswers: Record<string, ChecklistAnswer>;
+}
+/** Customer signature (E-68); the image stays on the device that captured it until it is sent. */
+export interface LocalOrderSignature {
+  orderId: string;
+  signerName: string;
+  signedAt: string;
+  absentReason: string | null;
+  imagePng?: string | null;
+  pending?: boolean;
+}
+
+/** Remarks from BC (customer, machine, order) and contact persons of the customer – read only (E-70). */
+export interface LocalRemark {
+  id: string;
+  scope: 'CUSTOMER' | 'SERVICE_ITEM' | 'ORDER';
+  refNo: string;
+  kind: string;
+  lineNo: number;
+  date: string | null;
+  text: string;
+}
+export interface LocalContact {
+  id: string;
+  customerNo: string;
+  name: string;
+  jobTitle: string;
+  phone: string;
+  mobile: string;
+  email: string;
+}
+
 export interface LocalTemplate {
   id: string;
   locationId: string | null;
@@ -245,6 +311,8 @@ export interface LocalPhoto {
   uploadState: 'PENDING' | 'UPLOADED' | 'FAILED';
   width: number | null;
   height: number | null;
+  /** Set once the worker has put the photo on the machine object in M-Files (E-73). */
+  mfilesObjectId?: string | null;
 }
 
 /** Photo binary waiting for (or during) the resumable upload. Removed after upload. */
@@ -282,6 +350,12 @@ export class MonteurDb extends Dexie {
   partRequests!: EntityTable<LocalPartRequest, 'id'>;
   cart!: EntityTable<CartLine, 'id'>;
   workReports!: EntityTable<LocalWorkReport, 'orderId'>;
+  checklistTemplates!: EntityTable<LocalChecklistTemplate, 'id'>;
+  orderChecklists!: EntityTable<LocalOrderChecklist, 'orderId'>;
+  orderSignatures!: EntityTable<LocalOrderSignature, 'orderId'>;
+  remarks!: EntityTable<LocalRemark, 'id'>;
+  contacts!: EntityTable<LocalContact, 'id'>;
+  checklistDefs!: EntityTable<LocalChecklistDef, 'orderId'>;
   templates!: EntityTable<LocalTemplate, 'id'>;
   chatMessages!: EntityTable<LocalChatMessage, 'id'>;
   chatReads!: Table<LocalChatRead, [string, string]>;
@@ -319,6 +393,13 @@ export class MonteurDb extends Dexie {
       photoBlobs: 'id, state, orderId',
     });
     this.version(5).stores({ absences: 'id, type, fromDate, state' });
+    this.version(6).stores({
+      checklistTemplates: 'id',
+      orderChecklists: 'orderId',
+      orderSignatures: 'orderId',
+    });
+    this.version(7).stores({ remarks: 'id, [scope+refNo]', contacts: 'id, customerNo' });
+    this.version(8).stores({ checklistDefs: 'orderId' });
   }
 
   /** Removes all cached personal data (logout). The outbox is kept only if the caller decides so. */
@@ -340,6 +421,12 @@ export class MonteurDb extends Dexie {
       this.partRequests,
       this.cart,
       this.workReports,
+      this.checklistTemplates,
+      this.orderChecklists,
+      this.orderSignatures,
+      this.remarks,
+      this.contacts,
+      this.checklistDefs,
       this.templates,
       this.chatMessages,
       this.chatReads,

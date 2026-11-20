@@ -15,8 +15,7 @@ const PAGES: Array<[string, string | null]> = [
   ['/login', null],
   ['/monteur', 'monteur-wild'],
   ['/monteur/auftrag', 'monteur-wild'],
-  ['/monteur/abwesenheit', 'monteur-wild'],
-  ['/meister/freigaben', 'meister-wild'],
+  ['/monteur/zeiten', 'monteur-wild'],
 ];
 
 test.skip(!process.env.LIGHTHOUSE, 'nur mit LIGHTHOUSE=1');

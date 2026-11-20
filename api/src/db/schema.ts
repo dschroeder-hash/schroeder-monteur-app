@@ -8,6 +8,7 @@
  *  - RLS policies are defined in the hand-written migration drizzle/0001_rls.sql
  */
 import { sql } from 'drizzle-orm';
+import type { ChecklistAnswer, ChecklistItem } from '@schroeder/shared';
 import {
   customType,
   bigint,
@@ -55,7 +56,7 @@ const qty = (name: string) => numeric(name, { precision: 14, scale: 3, mode: 'nu
 // Enums
 // ---------------------------------------------------------------------------
 
-export const locationRoleEnum = pgEnum('location_role', ['MONTEUR', 'MEISTER', 'LAGER']);
+export const locationRoleEnum = pgEnum('location_role', ['MONTEUR', 'MEISTER', 'LAGER', 'TERMINAL']);
 export const appStatusEnum = pgEnum('app_status', [
   'NEU',
   'EINGEPLANT',
@@ -132,6 +133,8 @@ export const transferTargetEnum = pgEnum('transfer_target', [
   'COMMENT',
   'ABSENCE',
   'STATUS',
+  'ATTACHMENT',
+  'CHECKLIST',
 ]);
 export const productivityCategoryEnum = pgEnum('productivity_category', [
   'KUNDENSERVICE',
@@ -784,6 +787,11 @@ export const photo = pgTable(
     /** Blocks already received by the local storage adapter (resumable upload); unused with Azure Blob. */
     uploadedAt: ts('uploaded_at'),
     deletedAt: ts('deleted_at'),
+    /** Hand-over to M-Files (machine object, E-73). */
+    mfilesObjectId: text('mfiles_object_id'),
+    mfilesAt: ts('mfiles_at'),
+    mfilesError: text('mfiles_error'),
+    mfilesAttempts: integer('mfiles_attempts').notNull().default(0),
     ...timestamps,
     ...rowVersion,
   },
@@ -1093,3 +1101,170 @@ export const VERSIONED_TABLES = [
   'notification',
   'productivity_snapshot',
 ] as const;
+
+/**
+ * Service checklists (E-67): templates from BC's checklist layout (maintained by Admin, imported as JSON), one
+ * filled-in checklist per order. Item kinds: check (OK / not OK / n. a.), value (number with unit), text.
+ */
+type ChecklistItemDef = ChecklistItem;
+type ChecklistResult = ChecklistAnswer;
+export const checklistTemplate = pgTable('checklist_template', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  locationId: uuid('location_id').references(() => location.id),
+  title: text('title').notNull(),
+  /** null = for all order types / brands. */
+  orderTypeCode: text('order_type_code'),
+  brand: text('brand'),
+  items: jsonb('items').$type<ChecklistItemDef[]>().notNull().default([]),
+  active: boolean('active').notNull().default(true),
+  ...timestamps,
+  ...rowVersion,
+});
+
+export const orderChecklist = pgTable('order_checklist', {
+  id: uuid('id').primaryKey(),
+  orderId: uuid('order_id')
+    .notNull()
+    .unique()
+    .references(() => serviceOrder.id),
+  /** App template – null when the checklist lines come from BC (source 'bc'). */
+  templateId: uuid('template_id').references(() => checklistTemplate.id),
+  source: text('source').notNull().default('app'),
+  authorId: uuid('author_id')
+    .notNull()
+    .references(() => appUser.id),
+  results: jsonb('results').$type<Record<string, ChecklistResult>>().notNull().default({}),
+  complete: boolean('complete').notNull().default(false),
+  deviceTime: ts('device_time'),
+  ...timestamps,
+  ...rowVersion,
+});
+
+/** Customer signature on the workshop order (E-68): PNG (data URL) or the reason why nobody could sign. */
+export const orderSignature = pgTable('order_signature', {
+  orderId: uuid('order_id')
+    .primaryKey()
+    .references(() => serviceOrder.id),
+  authorId: uuid('author_id')
+    .notNull()
+    .references(() => appUser.id),
+  signerName: text('signer_name').notNull().default(''),
+  signedAt: ts('signed_at').notNull(),
+  imagePng: text('image_png'),
+  absentReason: text('absent_reason'),
+  deviceTime: ts('device_time'),
+  ...timestamps,
+  ...rowVersion,
+});
+
+/** Remarks from BC shown read-only at the order (customer, machine, order). */
+export const bcRemark = pgTable(
+  'bc_remark',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bcCompanyId: uuid('bc_company_id').notNull(),
+    /** CUSTOMER (Comment Line), SERVICE_ITEM / ORDER (Service Comment Line). */
+    scope: text('scope').notNull(),
+    refNo: text('ref_no').notNull(),
+    kind: text('kind').notNull().default('General'),
+    lineNo: integer('line_no').notNull(),
+    date: text('date'),
+    text: text('text').notNull(),
+    ...bcMirror,
+    ...timestamps,
+    ...rowVersion,
+  },
+  (t) => [
+    uniqueIndex('bc_remark_uq').on(t.bcCompanyId, t.scope, t.refNo, t.kind, t.lineNo),
+    index('bc_remark_ref').on(t.scope, t.refNo),
+  ],
+);
+
+/** Contact persons of customers (BC contacts of type Person) – read-only at the order. */
+export const bcContact = pgTable(
+  'bc_contact',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bcCompanyId: uuid('bc_company_id').notNull(),
+    number: text('number').notNull(),
+    customerNo: text('customer_no').notNull(),
+    name: text('name').notNull(),
+    jobTitle: text('job_title').notNull().default(''),
+    phone: text('phone').notNull().default(''),
+    mobile: text('mobile').notNull().default(''),
+    email: text('email').notNull().default(''),
+    ...bcMirror,
+    ...timestamps,
+    ...rowVersion,
+  },
+  (t) => [
+    uniqueIndex('bc_contact_uq').on(t.bcCompanyId, t.number),
+    index('bc_contact_customer').on(t.customerNo),
+  ],
+);
+
+/** Substitute items from BC (Item Substitution) for the item lookup (E-71). */
+export const itemSubstitution = pgTable(
+  'item_substitution',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bcCompanyId: uuid('bc_company_id').notNull(),
+    itemNo: text('item_no').notNull(),
+    substituteNo: text('substitute_no').notNull(),
+    interchangeable: boolean('interchangeable').notNull().default(false),
+    description: text('description').notNull().default(''),
+    ...bcMirror,
+    ...timestamps,
+    ...rowVersion,
+  },
+  (t) => [
+    uniqueIndex('item_substitution_uq').on(t.bcCompanyId, t.itemNo, t.substituteNo),
+    index('item_substitution_sub').on(t.substituteNo),
+  ],
+);
+
+/** Service checklist lines of a BC service order (yellow card, OP-44): definition and the answer stored in BC. */
+export const bcChecklistLine = pgTable(
+  'bc_checklist_line',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bcCompanyId: uuid('bc_company_id').notNull(),
+    orderNo: text('order_no').notNull(),
+    lineNo: integer('line_no').notNull(),
+    description: text('description').notNull(),
+    lineType: text('line_type').notNull(),
+    inputEnabled: boolean('input_enabled').notNull().default(false),
+    answerType: text('answer_type').notNull().default('None'),
+    options: text('options')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    unit: text('unit').notNull().default(''),
+    unitOptions: text('unit_options')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    required: boolean('required').notNull().default(false),
+    checked: boolean('checked').notNull().default(false),
+    answer: text('answer').notNull().default(''),
+    answerUnit: text('answer_unit').notNull().default(''),
+    ...bcMirror,
+    ...timestamps,
+    ...rowVersion,
+  },
+  (t) => [uniqueIndex('bc_checklist_line_uq').on(t.bcCompanyId, t.orderNo, t.lineNo)],
+);
+
+/**
+ * Personal stamp PIN for the shared workshop PC (E-72): 4 digits, stored as scrypt hash with salt; locked for
+ * 15 minutes after 5 wrong entries.
+ */
+export const userPin = pgTable('user_pin', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => appUser.id),
+  pinHash: text('pin_hash').notNull(),
+  failedAttempts: integer('failed_attempts').notNull().default(0),
+  lockedUntil: ts('locked_until'),
+  ...timestamps,
+});

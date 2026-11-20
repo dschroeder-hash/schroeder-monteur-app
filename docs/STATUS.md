@@ -288,11 +288,28 @@ Datenschutz-Folgenabschätzung, Einrichtung von Entra ID, Azure und BC nach `BET
 Rückmeldung des Auftraggebers: Die App wird überwiegend auf dem iPad bedient; Navigation zu kompliziert, Design zu
 blass; AGCO-Katalog ließ sich nicht öffnen.
 
-| Punkt        | Umsetzung                                                                                                                                                                                      | Tests                                                       |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| Navigation   | Dunkle Seitenleiste links für alle Rollen (quer mit Text, hoch als Symbolleiste, Smartphone über „Menü“); Stempeln unten in der Leiste bzw. am unteren Rand (E-64)                             | E2E über die Seitenleiste bzw. das Menü                     |
-| Design       | Aufrechte, fette Überschriften; Symbole in Navigation und Hauptknöpfen; Auftragskarten mit Uhrzeit-Block und farbigem Status; Monteur-Startseite auf „Heute“ reduziert                         | Kontrasttest der neuen Farbpaare, axe auf allen Hauptseiten |
-| iPad         | E2E je Gerät: iPad quer/hoch mit WebKit (Safari-Technik), Smartphone mit Chromium; Plantafel per Finger (kurz halten), Hochformat-Leiste; Hinweis „Zum Home-Bildschirm“; `docs/IPAD.md` (E-65) | CI-Prüfung `e2e` nur grün, wenn alle drei Geräte grün sind  |
-| AGCO-Katalog | Knopf „AGCO-Katalog öffnen“ immer sichtbar – vorher nur bei AGCO-Maschine mit Seriennummer oder nach Eingabe eines Suchbegriffs                                                                | Startadresse, nur https                                     |
+| Punkt             | Umsetzung                                                                                                                                                                                                                                                                  | Tests                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Navigation        | Dunkle Seitenleiste links für alle Rollen (quer mit Text, hoch als Symbolleiste, Smartphone über „Menü“); Stempeln unten in der Leiste bzw. am unteren Rand (E-64)                                                                                                         | E2E über die Seitenleiste bzw. das Menü                     |
+| Design            | Aufrechte, fette Überschriften; Symbole in Navigation und Hauptknöpfen; Auftragskarten mit Uhrzeit-Block und farbigem Status; Monteur-Startseite auf „Heute“ reduziert                                                                                                     | Kontrasttest der neuen Farbpaare, axe auf allen Hauptseiten |
+| iPad              | E2E je Gerät: iPad quer/hoch mit WebKit (Safari-Technik), Smartphone mit Chromium; Plantafel per Finger (kurz halten), Hochformat-Leiste; Hinweis „Zum Home-Bildschirm“; `docs/IPAD.md` (E-65)                                                                             | CI-Prüfung `e2e` nur grün, wenn alle drei Geräte grün sind  |
+| AGCO-Katalog      | Knopf „AGCO-Katalog öffnen“ immer sichtbar – vorher nur bei AGCO-Maschine mit Seriennummer oder nach Eingabe eines Suchbegriffs                                                                                                                                            | Startadresse, nur https                                     |
+| Katalog-Übernahme | Teilenummern aus dem AGCO-Katalog per Ziehen (iPad nebeneinander), Einfügen oder Knopf „aus Zwischenablage“; mehrere Zeilen werden als Liste gegen den Artikelstamm geprüft (gefunden / nicht im Stamm → Anfrage); Fragen an AGCO zur Warenkorb-Rückgabe: `AGCO-FRAGEN.md` | Ziehen einer Liste, Einfügen einer Nummer (E2E)             |
+
+## Umbau ohne Meister und Rückmeldung Service (20./21.11.2026)
+
+| Punkt                   | Umsetzung                                                                                                                              | Tests                                |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Kein Meister in der App | Meister-Bereich, Plantafel, Freigaben, Abwesenheiten entfernt; Worker übergibt Tage, Entnahmen, Abschlüsse ohne Prüfung nach BC (E-66) | `auto-approve.test.ts`, E2E          |
+| Werkstattauftrag        | Auftrag als Werkstattauftrag: Stunden je Tag und Tätigkeit, Teile; Abschluss-Seite mit Prüfung, Checkliste, Unterschrift               | E2E `completion.spec.ts`             |
+| Kundenunterschrift      | Finger/Stift oder Grund; PDF des Werkstattauftrags als Anhang am BC-Serviceauftrag (E-68)                                              | `checklist-signature.test.ts`        |
+| Servicecheckliste       | Wie die gelbe Karte in BC; aus den BC-Zeilen des Auftrags gelesen und dorthin zurückgeschrieben (E-67, OP-44)                          | `bc-checklist.test.ts`, Shared-Tests |
+| Stempeluhr              | Viertelstunden mit 5 Min. Karenz beim Start, Abrunden beim Stopp – auch am Auftrag (E-69)                                              | `stamp-clock.test.ts`, Shared-Tests  |
+| Bemerkungen, Kontakte   | Aus BC, offline am Auftrag (E-70)                                                                                                      | `remarks-contacts.test.ts`           |
+| Artikelabfrage          | Menüpunkt „Artikel“ mit Bestand je Lager und Ersatz-/Nachfolgeartikeln (E-71)                                                          | `item-lookup.test.ts`                |
+| Werkstatt-PC            | Gerätekonto je Standort, Stempeln mit Personalnummer + PIN, Sperre nach 5 Fehlversuchen (E-72)                                         | `terminal.test.ts`, Rechtematrix     |
+| Fotos nach M-Files      | Dokument je Foto am Maschinenobjekt (E-73, Konfiguration OP-48)                                                                        | `mfiles.test.ts`                     |
+
+Fragen an IT, BC-Partner und Service: `FRAGEN-IT-BC.md`.
 
 Offen bleiben ausschließlich Punkte, die eine fachliche Entscheidung, Lizenzen, Zugänge oder Kosten brauchen (siehe `OFFENE-PUNKTE.md`).

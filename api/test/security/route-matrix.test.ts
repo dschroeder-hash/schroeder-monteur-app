@@ -7,8 +7,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildOpenApi } from '../../src/bootstrap.js';
 import { api, createTestApp, tokenFor } from '../helpers.js';
 
-type Persona = 'monteur-wild' | 'meister-wild' | 'lager-wild' | 'personal' | 'admin';
-const ALL: Persona[] = ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'];
+type Persona = 'monteur-wild' | 'meister-wild' | 'lager-wild' | 'personal' | 'admin' | 'werkstatt-pc-wild';
+const ALL: Persona[] = [
+  'monteur-wild',
+  'meister-wild',
+  'lager-wild',
+  'personal',
+  'admin',
+  'werkstatt-pc-wild',
+];
 
 /** Expected access per route. `allowed` personas must NOT get 401/403; all others MUST get 403. */
 const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: string; body?: unknown }> = {
@@ -45,6 +52,13 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
   },
   'GET /v1/admin/features': { allowed: ['admin'] },
   'PUT /v1/admin/features': { allowed: ['admin'], body: {} },
+  'GET /v1/admin/checklist-templates': { allowed: ['admin'] },
+  'PUT /v1/admin/users/{id}/pin': { allowed: ['admin'], body: {} },
+  'PUT /v1/me/pin': { allowed: ['monteur-wild'], body: {} },
+  'POST /v1/terminal/identify': { allowed: ['werkstatt-pc-wild'], body: {} },
+  'POST /v1/terminal/stamp': { allowed: ['werkstatt-pc-wild'], body: {} },
+  'POST /v1/admin/checklist-templates': { allowed: ['admin'], body: {} },
+  'PUT /v1/admin/checklist-templates/{id}': { allowed: ['admin'], body: {} },
   'POST /v1/sync/push': { allowed: ['monteur-wild'], body: {} },
   'GET /v1/sync/pull': { allowed: ['monteur-wild'] },
   'GET /v1/planning/board': { allowed: ['meister-wild'] },
@@ -103,7 +117,7 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
     sample: '00000000-0000-4000-8000-00000000dead',
     body: {},
   },
-  'GET /v1/items/search': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
+  'GET /v1/items/search': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'werkstatt-pc-wild'] },
   'GET /v1/items/resolve': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
   'GET /v1/parts/catalogs': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
   'GET /v1/parts/requests': { allowed: ['meister-wild', 'lager-wild'] },
@@ -148,22 +162,22 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
     allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
     sample: '00000000-0000-4000-8000-00000000dead',
   },
-  'GET /v1/notifications': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'] },
+  'GET /v1/notifications': { allowed: ALL },
   'POST /v1/notifications/read': {
-    allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'],
+    allowed: ALL,
     body: {},
   },
   'GET /v1/push/vapid-public-key': { public: true },
   'POST /v1/push/subscriptions': {
-    allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'],
+    allowed: ALL,
     body: {},
   },
   'DELETE /v1/push/subscriptions': {
-    allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'],
+    allowed: ALL,
     body: {},
   },
   'GET /v1/realtime/negotiate': {
-    allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'personal', 'admin'],
+    allowed: ALL,
   },
   'POST /v1/speech/transcribe': { allowed: ['monteur-wild', 'meister-wild'] },
   'POST /v1/speech/rewrite': { allowed: ['monteur-wild', 'meister-wild'], body: {} },
