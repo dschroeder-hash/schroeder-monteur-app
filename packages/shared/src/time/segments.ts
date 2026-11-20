@@ -1,4 +1,5 @@
 import type { Activity, Segment, SegmentKind, StampEvent } from './model.js';
+import { roundStampTime, type StampClockConfig } from './rounding.js';
 import { localDate } from './tz.js';
 
 const minutesBetween = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / 60_000;
@@ -30,8 +31,14 @@ interface Running {
  *  - BREAK_START interrupts the running job; BREAK_STOP resumes it as a new segment.
  *  - CLOCK_OUT ends everything.
  *  - Duplicate or meaningless events (e.g. second CLOCK_IN) are ignored, never fatal.
+ *  - With `stampClock` every event counts at its quarter hour (Stempeluhr, E-69); a direct switch uses the time
+ *    of the start event for both segments, so no gap appears between two orders.
  */
-export function deriveSegments(events: readonly StampEvent[], tz: string): Segment[] {
+export function deriveSegments(
+  events: readonly StampEvent[],
+  tz: string,
+  stampClock: StampClockConfig | null = null,
+): Segment[] {
   const out: Segment[] = [];
   type Job = Running & { kind: 'ORDER' | 'OVERHEAD' };
   type Brk = { id: string; start: string; resume: Job | null };
@@ -55,8 +62,8 @@ export function deriveSegments(events: readonly StampEvent[], tz: string): Segme
     });
   };
   const empty = { orderId: null, activity: null, overheadCode: null };
-  const ensureAttendance = (e: StampEvent) => {
-    if (!st.attendance) st.attendance = { id: e.id, start: e.deviceTime };
+  const ensureAttendance = (e: StampEvent, t: string) => {
+    if (!st.attendance) st.attendance = { id: e.id, start: t };
   };
   const stopJob = (t: string) => {
     if (st.job) close(st.job.kind, st.job, t);
@@ -67,11 +74,12 @@ export function deriveSegments(events: readonly StampEvent[], tz: string): Segme
     st.brk = null;
   };
 
+  // Order by the real time; with the stamp clock each event then counts at its quarter hour (E-69).
   for (const e of sortEvents(events)) {
-    const t = e.deviceTime;
+    const t = stampClock ? roundStampTime(e.deviceTime, e.kind, stampClock) : e.deviceTime;
     switch (e.kind) {
       case 'CLOCK_IN':
-        ensureAttendance(e);
+        ensureAttendance(e, t);
         break;
       case 'CLOCK_OUT':
         if (!st.attendance) break;
@@ -82,7 +90,7 @@ export function deriveSegments(events: readonly StampEvent[], tz: string): Segme
         break;
       case 'JOB_START':
         if (!e.orderId) break;
-        ensureAttendance(e);
+        ensureAttendance(e, t);
         stopBreak(t);
         stopJob(t);
         st.job = {
@@ -96,7 +104,7 @@ export function deriveSegments(events: readonly StampEvent[], tz: string): Segme
         break;
       case 'OVERHEAD_START':
         if (!e.overheadCode) break;
-        ensureAttendance(e);
+        ensureAttendance(e, t);
         stopBreak(t);
         stopJob(t);
         st.job = {
@@ -117,7 +125,7 @@ export function deriveSegments(events: readonly StampEvent[], tz: string): Segme
         break;
       case 'BREAK_START': {
         if (st.brk) break;
-        ensureAttendance(e);
+        ensureAttendance(e, t);
         const resume: Job | null = st.job;
         stopJob(t);
         st.brk = { id: e.id, start: t, resume };

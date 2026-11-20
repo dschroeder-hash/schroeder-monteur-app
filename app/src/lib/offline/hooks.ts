@@ -7,6 +7,8 @@ import {
   summarizeDay,
   type Segment,
   type StampEvent,
+  DEFAULT_STAMP_CLOCK,
+  type StampClockConfig,
 } from '@schroeder/shared';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState } from 'react';
@@ -40,6 +42,12 @@ export function useSegments(userId: string | undefined): Segment[] {
     useLiveQuery(async () => {
       if (!userId) return [];
       const events = await localDb.stampEvents.where('userId').equals(userId).toArray();
+      // Same stamp clock as the server (E-69): quarter hours unless the setting switches it off.
+      const settings = (await kvGet<Array<{ key: string; value: unknown }>>(localDb, 'settings')) ?? [];
+      const rounding = settings.find((x) => x.key === 'rounding')?.value as
+        { stampClock?: StampClockConfig | null } | undefined;
+      const clock =
+        rounding && 'stampClock' in rounding ? (rounding.stampClock ?? null) : DEFAULT_STAMP_CLOCK;
       return deriveSegments(
         events.map<StampEvent>((e) => ({
           id: e.id,
@@ -51,6 +59,7 @@ export function useSegments(userId: string | undefined): Segment[] {
           seq: e.seq,
         })),
         tz,
+        clock,
       );
     }, [userId, tz]) ?? []
   );

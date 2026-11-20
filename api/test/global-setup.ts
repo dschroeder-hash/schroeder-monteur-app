@@ -43,6 +43,11 @@ export default async function setup() {
   await so.connect();
   await so.query(`insert into setting (key, value) values ('completion', '{"signatureRequired": false}')`);
   await so.query('update checklist_template set active = false'); // seeded example (tests create their own)
+  // The time tests check minute-precise derivation and daily-sum billing; the stamp clock (E-69) is covered by
+  // the shared unit tests and stamp-clock.test.ts (location setting).
+  await so.query(
+    `update setting set value = value || '{"stampClock": null}'::jsonb where key = 'rounding' and location_id is null`,
+  );
   await so.end();
 
   const u = new URL(ownerUrl);

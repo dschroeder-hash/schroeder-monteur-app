@@ -1,13 +1,45 @@
 export type RoundingMode = 'commercial' | 'up' | 'down';
 export type RoundingBasis = 'segment' | 'daily_sum';
 
+/**
+ * Stamp clock (Stempeluhr) as in BC today: every stamp is set to the quarter hour. Starting (Kommen, start on an
+ * order, end of break) keeps the earlier quarter within the grace period (up to 07:35:59 → 07:30, from 07:36:00 →
+ * 07:45); stopping (Gehen, stop, start of break) always rounds down (16:29:59 → 16:15). null = to the minute.
+ */
+export interface StampClockConfig {
+  gridMinutes: number;
+  startGraceMinutes: number;
+}
+
 export interface RoundingConfig {
   gridMinutes: number;
   mode: RoundingMode;
   basis: RoundingBasis;
+  stampClock?: StampClockConfig | null;
 }
 
-export const DEFAULT_ROUNDING: RoundingConfig = { gridMinutes: 15, mode: 'commercial', basis: 'daily_sum' };
+export const DEFAULT_STAMP_CLOCK: StampClockConfig = { gridMinutes: 15, startGraceMinutes: 5 };
+export const DEFAULT_ROUNDING: RoundingConfig = {
+  gridMinutes: 15,
+  mode: 'commercial',
+  basis: 'daily_sum',
+  stampClock: DEFAULT_STAMP_CLOCK,
+};
+
+const START_KINDS = new Set(['CLOCK_IN', 'JOB_START', 'OVERHEAD_START', 'BREAK_STOP']);
+
+/**
+ * Stamp time on the quarter-hour grid (E-69). The grid is aligned to UTC; all German offsets are whole hours, so
+ * it matches the local quarter hours.
+ */
+export function roundStampTime(iso: string, kind: string, cfg: StampClockConfig): string {
+  const t = Date.parse(iso);
+  const grid = cfg.gridMinutes * 60_000;
+  if (grid <= 0) return iso;
+  const floor = Math.floor(t / grid) * grid;
+  if (!START_KINDS.has(kind)) return new Date(floor).toISOString();
+  return new Date(t - floor < cfg.startGraceMinutes * 60_000 + 60_000 ? floor : floor + grid).toISOString();
+}
 
 export function roundMinutes(minutes: number, grid: number, mode: RoundingMode): number {
   if (grid <= 1) return Math.round(minutes);
