@@ -29,6 +29,8 @@ export interface KvEntry {
 
 export interface LocalMachine {
   id: string;
+  /** BC service item number (remarks on the machine are keyed by it). */
+  serviceItemNo?: string;
   brand: string;
   model: string;
   serialNo: string;
@@ -229,6 +231,26 @@ export interface LocalOrderSignature {
   pending?: boolean;
 }
 
+/** Remarks from BC (customer, machine, order) and contact persons of the customer – read only (E-70). */
+export interface LocalRemark {
+  id: string;
+  scope: 'CUSTOMER' | 'SERVICE_ITEM' | 'ORDER';
+  refNo: string;
+  kind: string;
+  lineNo: number;
+  date: string | null;
+  text: string;
+}
+export interface LocalContact {
+  id: string;
+  customerNo: string;
+  name: string;
+  jobTitle: string;
+  phone: string;
+  mobile: string;
+  email: string;
+}
+
 export interface LocalTemplate {
   id: string;
   locationId: string | null;
@@ -322,6 +344,8 @@ export class MonteurDb extends Dexie {
   checklistTemplates!: EntityTable<LocalChecklistTemplate, 'id'>;
   orderChecklists!: EntityTable<LocalOrderChecklist, 'orderId'>;
   orderSignatures!: EntityTable<LocalOrderSignature, 'orderId'>;
+  remarks!: EntityTable<LocalRemark, 'id'>;
+  contacts!: EntityTable<LocalContact, 'id'>;
   templates!: EntityTable<LocalTemplate, 'id'>;
   chatMessages!: EntityTable<LocalChatMessage, 'id'>;
   chatReads!: Table<LocalChatRead, [string, string]>;
@@ -364,6 +388,7 @@ export class MonteurDb extends Dexie {
       orderChecklists: 'orderId',
       orderSignatures: 'orderId',
     });
+    this.version(7).stores({ remarks: 'id, [scope+refNo]', contacts: 'id, customerNo' });
   }
 
   /** Removes all cached personal data (logout). The outbox is kept only if the caller decides so. */
@@ -388,6 +413,8 @@ export class MonteurDb extends Dexie {
       this.checklistTemplates,
       this.orderChecklists,
       this.orderSignatures,
+      this.remarks,
+      this.contacts,
       this.templates,
       this.chatMessages,
       this.chatReads,

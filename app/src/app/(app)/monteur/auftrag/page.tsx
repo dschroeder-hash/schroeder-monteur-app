@@ -8,6 +8,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { OrderPhotos } from '@/components/OrderPhotos';
 import { WorkOrderSheet } from '@/components/WorkOrderSheet';
+import { OrderInfo } from '@/components/OrderInfo';
 import { Suspense } from 'react';
 
 import { toast } from '@/components/Toast';
@@ -148,6 +149,8 @@ function OrderDetail() {
           )}
         </div>
       </section>
+
+      <OrderInfo order={order} />
 
       <section aria-label="Dokumentation und Kommunikation" className="grid grid-cols-2 gap-2">
         <Link

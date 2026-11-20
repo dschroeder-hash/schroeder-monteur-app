@@ -211,6 +211,35 @@ export const serviceCommentLineSchema = z.object({
   monteurAppId: guid,
 });
 
+/** Remarks on customers (Comment Line, table 97) – read only, shown to the Monteur at the order. */
+export const customerCommentSchema = z.object({
+  ...base,
+  customerNumber: z.string(),
+  lineNumber: z.number().int(),
+  date: isoDate.or(z.literal('0001-01-01')),
+  comment: z.string(),
+});
+/** Remarks on service items / machines (Service Comment Line, Table Name "Service Item") – read only. */
+export const serviceItemCommentSchema = z.object({
+  ...base,
+  serviceItemNumber: z.string(),
+  type: z.enum(['General', 'Fault', 'Resolution', 'Accessory', 'Internal', 'Service Item Loaner']),
+  lineNumber: z.number().int(),
+  date: isoDate.or(z.literal('0001-01-01')),
+  comment: z.string(),
+});
+/** Contact persons of a customer (Contact type Person, linked through the customer's company contact). */
+export const customerContactSchema = z.object({
+  ...base,
+  number: z.string(),
+  customerNumber: z.string(),
+  name: z.string(),
+  jobTitle: z.string(),
+  phoneNumber: z.string(),
+  mobilePhoneNumber: z.string(),
+  email: z.string(),
+});
+
 /** Attachment of a service order (signed workshop order as PDF, E-68). The content is write-only. */
 export const serviceOrderAttachmentSchema = z.object({
   ...base,
@@ -421,6 +450,24 @@ export const endpoints = {
     schema: serviceCommentLineSchema,
     delta: true,
     writable: { create: serviceCommentLineCreateSchema },
+  }),
+  customerComments: def({
+    family: 'werkstatt',
+    entitySet: 'customerComments',
+    schema: customerCommentSchema,
+    delta: true,
+  }),
+  serviceItemComments: def({
+    family: 'werkstatt',
+    entitySet: 'serviceItemComments',
+    schema: serviceItemCommentSchema,
+    delta: true,
+  }),
+  customerContacts: def({
+    family: 'werkstatt',
+    entitySet: 'customerContacts',
+    schema: customerContactSchema,
+    delta: true,
   }),
   serviceOrderAttachments: def({
     family: 'werkstatt',

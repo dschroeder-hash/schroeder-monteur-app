@@ -1160,3 +1160,49 @@ export const orderSignature = pgTable('order_signature', {
   ...timestamps,
   ...rowVersion,
 });
+
+/** Remarks from BC shown read-only at the order (customer, machine, order). */
+export const bcRemark = pgTable(
+  'bc_remark',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bcCompanyId: uuid('bc_company_id').notNull(),
+    /** CUSTOMER (Comment Line), SERVICE_ITEM / ORDER (Service Comment Line). */
+    scope: text('scope').notNull(),
+    refNo: text('ref_no').notNull(),
+    kind: text('kind').notNull().default('General'),
+    lineNo: integer('line_no').notNull(),
+    date: text('date'),
+    text: text('text').notNull(),
+    ...bcMirror,
+    ...timestamps,
+    ...rowVersion,
+  },
+  (t) => [
+    uniqueIndex('bc_remark_uq').on(t.bcCompanyId, t.scope, t.refNo, t.kind, t.lineNo),
+    index('bc_remark_ref').on(t.scope, t.refNo),
+  ],
+);
+
+/** Contact persons of customers (BC contacts of type Person) – read-only at the order. */
+export const bcContact = pgTable(
+  'bc_contact',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bcCompanyId: uuid('bc_company_id').notNull(),
+    number: text('number').notNull(),
+    customerNo: text('customer_no').notNull(),
+    name: text('name').notNull(),
+    jobTitle: text('job_title').notNull().default(''),
+    phone: text('phone').notNull().default(''),
+    mobile: text('mobile').notNull().default(''),
+    email: text('email').notNull().default(''),
+    ...bcMirror,
+    ...timestamps,
+    ...rowVersion,
+  },
+  (t) => [
+    uniqueIndex('bc_contact_uq').on(t.bcCompanyId, t.number),
+    index('bc_contact_customer').on(t.customerNo),
+  ],
+);

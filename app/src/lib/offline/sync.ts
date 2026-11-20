@@ -26,6 +26,8 @@ import {
   type LocalChecklistTemplate,
   type LocalOrderChecklist,
   type LocalOrderSignature,
+  type LocalRemark,
+  type LocalContact,
   type LocalTemplate,
   type LocalWorkReport,
   type LocalConsumption,
@@ -441,6 +443,8 @@ interface PullResponse {
   checklistTemplates?: LocalChecklistTemplate[];
   orderChecklists?: Array<Omit<LocalOrderChecklist, 'pending'>>;
   orderSignatures?: Array<Omit<LocalOrderSignature, 'pending' | 'imagePng'>>;
+  remarks?: LocalRemark[];
+  contacts?: LocalContact[];
   chatMessages?: LocalChatMessage[];
   chatReads?: LocalChatRead[];
   photos?: LocalPhoto[];
@@ -471,6 +475,8 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     db.checklistTemplates,
     db.orderChecklists,
     db.orderSignatures,
+    db.remarks,
+    db.contacts,
     db.chatMessages,
     db.chatReads,
     db.photos,
@@ -619,6 +625,15 @@ async function applyCommunication(db: MonteurDb, res: PullResponse) {
       deviceTime: r.deviceTime,
       pending: false,
     });
+  }
+  // Remarks and contacts come complete with every pull (only for the Monteur's current orders).
+  if (res.remarks) {
+    await db.remarks.clear();
+    await db.remarks.bulkPut(res.remarks);
+  }
+  if (res.contacts) {
+    await db.contacts.clear();
+    await db.contacts.bulkPut(res.contacts);
   }
   if (res.full) await db.checklistTemplates.clear();
   if (res.checklistTemplates) await db.checklistTemplates.bulkPut(res.checklistTemplates);

@@ -42,6 +42,8 @@ import {
   storageLocation,
   syncCommand,
   textTemplate,
+  bcContact,
+  bcRemark,
   checklistTemplate,
   orderChecklist,
   orderSignature,
@@ -542,6 +544,64 @@ export class SyncService {
               .where(inArray(serviceOrderItem.orderId, orderIds))
           : [];
 
+        // Remarks and contact persons for every order the Monteur can see (RLS), always complete – a handful of
+        // rows per order, and a newly assigned order needs the customer's older remarks as well.
+        const visible = await tx
+          .select({ bcNo: serviceOrder.bcNo, customerNo: serviceOrder.customerNo, id: serviceOrder.id })
+          .from(serviceOrder)
+          .where(and(isNull(serviceOrder.deletedInBcAt), sql`${serviceOrder.appStatus} <> 'ABGERECHNET'`));
+        const visibleMachines = visible.length
+          ? await tx
+              .select({ no: machine.serviceItemNo })
+              .from(serviceOrderItem)
+              .innerJoin(machine, eq(machine.id, serviceOrderItem.machineId))
+              .where(
+                inArray(
+                  serviceOrderItem.orderId,
+                  visible.map((v) => v.id),
+                ),
+              )
+          : [];
+        const refs = (scope: string, nos: string[]) =>
+          and(eq(bcRemark.scope, scope), inArray(bcRemark.refNo, nos.length ? nos : ['-']));
+        const customerNos = [...new Set(visible.map((v) => v.customerNo))];
+        const remarks = await tx
+          .select({
+            id: bcRemark.id,
+            scope: bcRemark.scope,
+            refNo: bcRemark.refNo,
+            kind: bcRemark.kind,
+            lineNo: bcRemark.lineNo,
+            date: bcRemark.date,
+            text: bcRemark.text,
+          })
+          .from(bcRemark)
+          .where(
+            or(
+              refs('CUSTOMER', customerNos),
+              refs(
+                'SERVICE_ITEM',
+                visibleMachines.map((m) => m.no),
+              ),
+              refs(
+                'ORDER',
+                visible.map((v) => v.bcNo),
+              ),
+            ),
+          );
+        const contacts = await tx
+          .select({
+            id: bcContact.id,
+            customerNo: bcContact.customerNo,
+            name: bcContact.name,
+            jobTitle: bcContact.jobTitle,
+            phone: bcContact.phone,
+            mobile: bcContact.mobile,
+            email: bcContact.email,
+          })
+          .from(bcContact)
+          .where(inArray(bcContact.customerNo, customerNos.length ? customerNos : ['-']));
+
         const stamps = await tx
           .select()
           .from(stampEvent)
@@ -764,6 +824,8 @@ export class SyncService {
           checklistTemplates,
           orderChecklists: checklists,
           orderSignatures: signatures,
+          remarks,
+          contacts,
           chatMessages: messages.map((x) => ({ ...x.m, authorName: x.authorName })),
           chatReads: reads,
           photos: photos.map(({ blobPath: _b, ...p }) => p),

@@ -17,6 +17,8 @@ import type pg from 'pg';
 import type { Db } from '../db/client.js';
 import {
   assignment,
+  bcContact,
+  bcRemark,
   bcResourceMapping,
   bcSyncCursor,
   bcTransfer,
@@ -240,6 +242,42 @@ export class BcSyncService {
       (s) => bc.listModifiedSince('postedServiceInvoices', s),
       (rows) => this.applyInvoices(companyId, rows),
     );
+    // Remarks and contact persons shown at the order (read only).
+    await step(
+      'customerComments',
+      (s) => bc.listModifiedSince('customerComments', s),
+      (rows) =>
+        this.applyRemarks(
+          companyId,
+          rows.map((r) => ({ ...r, scope: 'CUSTOMER', refNo: r.customerNumber, kind: 'General' })),
+        ),
+    );
+    await step(
+      'serviceItemComments',
+      (s) => bc.listModifiedSince('serviceItemComments', s),
+      (rows) =>
+        this.applyRemarks(
+          companyId,
+          rows.map((r) => ({ ...r, scope: 'SERVICE_ITEM', refNo: r.serviceItemNumber, kind: r.type })),
+        ),
+    );
+    await step(
+      'serviceCommentLines',
+      (s) => bc.listModifiedSince('serviceCommentLines', s),
+      // own report lines (written by the app) are not shown again as remarks
+      (rows) =>
+        this.applyRemarks(
+          companyId,
+          rows
+            .filter((r) => !r.monteurAppId || r.monteurAppId === '00000000-0000-0000-0000-000000000000')
+            .map((r) => ({ ...r, scope: 'ORDER', refNo: r.documentNumber, kind: r.type })),
+        ),
+    );
+    await step(
+      'customerContacts',
+      (s) => bc.listModifiedSince('customerContacts', s),
+      (rows) => this.applyContacts(companyId, rows),
+    );
     // Material (phase 4). Posted quantities first, then inventory – keeps the "BC − pending" window small.
     await step(
       'items',
@@ -407,6 +445,62 @@ export class BcSyncService {
         .insert(orderType)
         .values(v)
         .onConflictDoUpdate({ target: [orderType.bcCompanyId, orderType.code], set: v });
+    }
+  }
+
+  private async applyRemarks(
+    companyId: string,
+    rows: Array<{
+      id: string;
+      lastModifiedDateTime: string;
+      scope: string;
+      refNo: string;
+      kind: string;
+      lineNumber: number;
+      date: string;
+      comment: string;
+    }>,
+  ) {
+    for (const r of rows) {
+      const v = {
+        bcCompanyId: companyId,
+        scope: r.scope,
+        refNo: r.refNo,
+        kind: r.kind,
+        lineNo: r.lineNumber,
+        date: r.date === '0001-01-01' ? null : r.date,
+        text: r.comment,
+        bcSystemId: r.id,
+        bcModifiedAt: new Date(r.lastModifiedDateTime),
+      };
+      await this.db
+        .insert(bcRemark)
+        .values(v)
+        .onConflictDoUpdate({
+          target: [bcRemark.bcCompanyId, bcRemark.scope, bcRemark.refNo, bcRemark.kind, bcRemark.lineNo],
+          set: v,
+        });
+    }
+  }
+
+  private async applyContacts(companyId: string, rows: EntityOf<'customerContacts'>[]) {
+    for (const r of rows) {
+      const v = {
+        bcCompanyId: companyId,
+        number: r.number,
+        customerNo: r.customerNumber,
+        name: r.name,
+        jobTitle: r.jobTitle,
+        phone: r.phoneNumber,
+        mobile: r.mobilePhoneNumber,
+        email: r.email,
+        bcSystemId: r.id,
+        bcModifiedAt: new Date(r.lastModifiedDateTime),
+      };
+      await this.db
+        .insert(bcContact)
+        .values(v)
+        .onConflictDoUpdate({ target: [bcContact.bcCompanyId, bcContact.number], set: v });
     }
   }
 
