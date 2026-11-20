@@ -51,6 +51,15 @@ export function navGroups(roles: string[], f: Features): NavGroup[] {
       ],
     });
   }
+  if (roles.includes(ROLES.Terminal)) {
+    groups.push({
+      title: 'Werkstatt-PC',
+      items: [
+        { href: '/terminal', label: 'Stempeln', icon: Clock, exact: true },
+        { href: '/monteur/artikel', label: 'Artikel', icon: Package },
+      ],
+    });
+  }
   if (roles.includes(ROLES.Lager)) {
     groups.push({
       title: 'Lager',

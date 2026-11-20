@@ -56,7 +56,7 @@ const qty = (name: string) => numeric(name, { precision: 14, scale: 3, mode: 'nu
 // Enums
 // ---------------------------------------------------------------------------
 
-export const locationRoleEnum = pgEnum('location_role', ['MONTEUR', 'MEISTER', 'LAGER']);
+export const locationRoleEnum = pgEnum('location_role', ['MONTEUR', 'MEISTER', 'LAGER', 'TERMINAL']);
 export const appStatusEnum = pgEnum('app_status', [
   'NEU',
   'EINGEPLANT',
@@ -1249,3 +1249,17 @@ export const bcChecklistLine = pgTable(
   },
   (t) => [uniqueIndex('bc_checklist_line_uq').on(t.bcCompanyId, t.orderNo, t.lineNo)],
 );
+
+/**
+ * Personal stamp PIN for the shared workshop PC (E-72): 4 digits, stored as scrypt hash with salt; locked for
+ * 15 minutes after 5 wrong entries.
+ */
+export const userPin = pgTable('user_pin', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => appUser.id),
+  pinHash: text('pin_hash').notNull(),
+  failedAttempts: integer('failed_attempts').notNull().default(0),
+  lockedUntil: ts('locked_until'),
+  ...timestamps,
+});

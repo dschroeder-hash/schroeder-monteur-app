@@ -48,6 +48,7 @@ import { NoRealtime, REALTIME, WebPubSubRealtime } from './modules/files/realtim
 import { AzureSpeech, NoRewrite, SPEECH, TEXT_REWRITE } from './modules/files/speech.js';
 import { ContainersController, MaterialController } from './modules/material/material.controller.js';
 import { SyncService } from './modules/sync/sync.service.js';
+import { PinController, TerminalController, TerminalService } from './modules/terminal/terminal.js';
 import { TimeService } from './modules/time/time.service.js';
 
 @Module({})
@@ -79,6 +80,8 @@ export class AppModule {
         TemplatesController,
         LocalBlobController,
         ReportController,
+        TerminalController,
+        PinController,
       ],
       providers: [
         { provide: APP_CONFIG, useValue: config },
@@ -96,6 +99,7 @@ export class AppModule {
         MaterialService,
         ReportService,
         CommService,
+        TerminalService,
         {
           provide: BLOB_STORAGE,
           useFactory: () =>

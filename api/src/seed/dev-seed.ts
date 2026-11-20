@@ -10,6 +10,7 @@ import { buildSeed, SEED_COMPANY, SEED_LOCATIONS } from '@schroeder/bc-mock';
 import { createDb, type Db } from '../db/client.js';
 import * as s from '../db/schema.js';
 import { DEV_PERSONAS } from './personas.js';
+import { hashPin } from '../modules/terminal/terminal.js';
 
 /** Default productivity mapping (PROMPT 5.11, configurable; OFFENE-PUNKTE OP-02). */
 export const DEFAULT_ORDER_TYPE_MAPPING = [
@@ -75,7 +76,13 @@ export async function seedDev(db: Db, now = new Date()): Promise<void> {
   for (const p of DEV_PERSONAS) {
     const [u] = await db
       .insert(s.appUser)
-      .values({ entraOid: p.oid, displayName: p.name, email: p.email, isApprentice: p.isApprentice ?? false })
+      .values({
+        entraOid: p.oid,
+        displayName: p.name,
+        email: p.email,
+        isApprentice: p.isApprentice ?? false,
+        roles: p.roles,
+      })
       .returning();
     userIds.set(p.key, u!.id);
     for (const g of p.locations)
@@ -91,6 +98,9 @@ export async function seedDev(db: Db, now = new Date()): Promise<void> {
       });
       resourceToUser.set(p.bcResourceNo, u!.id);
     }
+    // Dev/test only: stamp PIN 1234 for every Monteur persona (workshop PC, E-72).
+    if (p.roles.includes('Werkstatt.Monteur'))
+      await db.insert(s.userPin).values({ userId: u!.id, pinHash: await hashPin('1234') });
   }
 
   await db.insert(s.orderType).values(
