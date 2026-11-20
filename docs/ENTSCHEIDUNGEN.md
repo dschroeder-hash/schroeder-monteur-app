@@ -409,3 +409,30 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Entscheidung:** Auf der Abschluss-Seite prüft der Monteur den Werkstattauftrag (Stunden je Tag und Tätigkeit, Teile, Bericht, Checkliste); der Kunde unterschreibt mit Finger oder Stift, mit Namen in Druckschrift. Kann der Kunde nicht unterschreiben, wird der Grund vermerkt. „Arbeit abgeschlossen“ ist erst mit Bericht, Checkliste und Unterschrift (oder Grund) möglich (`completion.signatureRequired`, Standard an). Bei der Übergabe erzeugt der Transfer-Worker den Werkstattauftrag als PDF (pdf-lib, mit Unterschrift) und legt ihn über die neue API-Seite `serviceOrderAttachments` (AL-Erweiterung, Standard-Dokumentanhang) am Serviceauftrag ab. Das Unterschriftsbild bleibt auf dem Server und im PDF; andere Geräte erhalten nur Name und Zeitpunkt.
 **Begründung:** Nachweis der Leistung gegenüber dem Kunden ohne Papier; das PDF zeigt den Stand bei der Übergabe und ist in BC beim Auftrag abrufbar.
+
+Ergänzung zu E-67 (21.11.2026): Die Checkliste bildet die BC-„Servicecheckliste (gelbe Karte)“ ab – Überschriften, Zeilen mit dem Häkchen „Eingabe“, Antwort als Text, Zahl oder Auswahl, Einheit fest oder wählbar, Pflichtzeilen, Abschnitte nur für bestimmte Auftragsarten. Hat der BC-Serviceauftrag eigene Checklistenzeilen (`serviceChecklistLines`), gelten diese; die Antworten werden beim Abschluss **in genau diese Zeilen zurückgeschrieben** (PATCH), nicht als Kommentar. Ohne BC-Zeilen gilt die App-Vorlage (die gelbe Karte ist als Vorlage hinterlegt). Einstellung `checklist.bcLines` schaltet das Lesen aus BC ab.
+
+### E-69 Stempeluhr im Viertelstundentakt wie in BC
+
+**Entscheidung (Service, 20.11.2026):** Jede Stempelung zählt auf der Viertelstunde – Kommen, Auftrag starten und Pausenende mit 5 Minuten Karenz (bis 07:35:59 → 07:30, ab 07:36:00 → 07:45), Gehen, Stopp und Pausenbeginn immer abgerundet (16:29:59 → 16:15). Gilt auch für die Zeiten am Auftrag. Bei einem direkten Wechsel zwischen Aufträgen zählt die Startzeit für beide Abschnitte, es entsteht keine Lücke. Gleiche Regel auf dem Gerät und auf dem Server; `rounding.stampClock = null` schaltet auf minutengenau zurück.
+**Begründung:** So rechnet die Stempeluhr in BC heute; Monteure und Lohnbuchhaltung sehen dieselben Zeiten.
+
+### E-70 Bemerkungen und Kontakte aus BC am Auftrag (nur lesen)
+
+**Entscheidung:** Bemerkungen zum Debitor (Comment Line), zur Maschine (Serviceartikel-Bemerkungen) und zum Auftrag sowie die Kontaktpersonen des Debitors (Telefon, Mobil, E-Mail) kommen über drei neue API-Seiten aus BC und stehen offline am Auftrag – eingeklappt, damit die Seite kurz bleibt. Die Geräte erhalten nur Daten zu den Kunden ihrer aktuellen Aufträge.
+**Begründung:** Rückmeldung Service; der Monteur sieht heute in BC dieselben Informationen. Datensparsamkeit durch Beschränkung auf eigene Aufträge.
+
+### E-71 Artikelabfrage ohne Auftrag mit Ersatz- und Nachfolgeartikeln
+
+**Entscheidung:** Eigener Menüpunkt „Artikel“: Suche nach Nummer, Bezeichnung, EAN oder Scan im Artikelstamm des Standorts (offline), online zusätzlich Bestand anderer Standorte und Ersatzartikel aus BC (Artikelersatz, Tabelle 5715): austauschbar = „Ersatzartikel“, einseitig = „Nachfolger“ bzw. „Vorgänger“.
+**Begründung:** Rückmeldung Service. Ob „Nachfolgeartikel“ in BC anders gepflegt wird, klärt OP-47.
+
+### E-72 Werkstatt-PC: Gerätekonto, Stempeln mit Personalnummer + PIN
+
+**Entscheidung:** Der Stempel-PC eines Standorts ist dauerhaft mit einem gemeinsamen Gerätekonto angemeldet (App-Rolle `Werkstatt.Terminal`, Standortzuordnung „Werkstatt-PC“). Gestempelt wird mit Personalnummer (BC-Mitarbeiter- oder Ressourcennummer) und 4-stelliger PIN, danach ein Tipp: Kommen, Pause, Auftrag starten/beenden, Gehen. Die Stempelung läuft als der Mitarbeiter über denselben Weg wie auf dem iPad (Viertelstunden, Protokoll). Falsche PIN und unbekannte Nummer ergeben dieselbe Meldung; nach 5 Fehlversuchen ist die PIN 15 Minuten gesperrt. Die PIN legt jeder Mitarbeiter im Benutzermenü selbst fest oder der Admin setzt sie; gespeichert wird nur ein scrypt-Hash. Mitarbeiter ohne eigenes Gerät zählen am PC als Monteur ihres Standorts. Am PC steht außerdem die Artikelabfrage zur Verfügung. Bericht, Checkliste, Material und Fotos am PC folgen in einem zweiten Schritt (OP-49).
+**Begründung:** Nicht jeder Werkstattmitarbeiter hat ein iPad; eine volle Anmeldung am PC würde morgens Wartezeit verursachen (Rückmeldung Service). Die PIN entspricht dem heutigen Vorgehen in BC.
+
+### E-73 Fotos als Dokument am Maschinenobjekt in M-Files
+
+**Entscheidung:** Der Worker überträgt jedes hochgeladene Foto über die M-Files-REST-Schnittstelle: Datei hochladen, dann ein Dokument der konfigurierten Klasse mit Verweis auf das Maschinenobjekt (gefunden über die BC-Serviceartikelnummer) und der Auftragsnummer anlegen. Bestehende Objekte werden weder ausgecheckt noch geändert. Fehler (z. B. Maschine in M-Files unbekannt) stehen am Foto und werden bis zu 10-mal wiederholt; auf dem Gerät erscheint „in M-Files“. Tresor, Klasse und Eigenschafts-IDs sind Konfiguration (OP-48); ohne Konfiguration bleiben die Fotos im App-Speicher.
+**Begründung:** Heute hängen die Fotos am Maschinenobjekt in M-Files und werden in BC in der M-Files-Ansicht angesehen – der Ablageort bleibt gleich.
