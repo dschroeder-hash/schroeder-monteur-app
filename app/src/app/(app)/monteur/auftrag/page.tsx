@@ -1,54 +1,29 @@
 'use client';
 
-import {
-  ACTIVITIES,
-  ACTIVITY_SHORT_LABELS,
-  canTransition,
-  DEFAULT_STATUS_DEFINITIONS,
-  segmentMinutes,
-  type Activity,
-  type AppStatus,
-} from '@schroeder/shared';
+import { ACTIVITIES, ACTIVITY_SHORT_LABELS, segmentMinutes, type Activity } from '@schroeder/shared';
+import { CircleCheck, ClipboardCheck } from 'lucide-react';
 import { RefreshFromBc } from '@/components/RefreshFromBc';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { OrderPhotos } from '@/components/OrderPhotos';
+import { WorkOrderSheet } from '@/components/WorkOrderSheet';
 import { Suspense } from 'react';
 
-const CONSUMPTION_STATE = {
-  OPEN: 'offen',
-  SUBMITTED: 'wartet auf Freigabe',
-  APPROVED: 'freigegeben',
-  TRANSFERRED: 'in BC',
-  REJECTED: 'storniert',
-} as const;
 import { toast } from '@/components/Toast';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth/AuthProvider';
-import { fmtMinutes, fmtTime, navLinks, telLink } from '@/lib/format';
+import { fmtMinutes, navLinks, telLink } from '@/lib/format';
 import { localDb } from '@/lib/offline/db';
-import { useSegments, useStampState, useTimezone } from '@/lib/offline/hooks';
+import { useSegments, useStampState } from '@/lib/offline/hooks';
 import { useSync } from '@/lib/offline/SyncProvider';
-
-const MONTEUR_STATUSES: AppStatus[] = [
-  'UNTERWEGS',
-  'IN_ARBEIT',
-  'WARTET_TEILE',
-  'WARTET_KUNDE',
-  'FERTIG_DOKU_OFFEN',
-  'FERTIG',
-];
 
 /** Order detail (query parameter instead of a dynamic route so the page is precached and opens offline). */
 function OrderDetail() {
   const id = useSearchParams().get('id') ?? '';
   const { me } = useAuth();
   const { run, syncNow } = useSync();
-  const tz = useTimezone();
   const order = useLiveQuery(() => localDb.orders.get(id), [id]);
-  const history =
-    useLiveQuery(() => localDb.statusEvents.where('orderId').equals(id).reverse().sortBy('at'), [id]) ?? [];
   const st = useStampState(me?.id);
   const report = useLiveQuery(() => localDb.workReports.get(id), [id]);
   const unread =
@@ -60,17 +35,6 @@ function OrderDetail() {
         .filter((m) => !m.isSystem && m.authorId !== me?.id && (m.serverSeq ?? 0) > (last ?? 0))
         .count();
     }, [id, me?.id]) ?? 0;
-  const consumed = useLiveQuery(() => localDb.consumptions.where('orderId').equals(id).toArray(), [id]) ?? [];
-  const requests = useLiveQuery(() => localDb.partRequests.where('orderId').equals(id).toArray(), [id]) ?? [];
-  const itemNames =
-    useLiveQuery(async () => {
-      const ids = [
-        ...consumed.map((c) => c.itemId),
-        ...requests.map((r) => r.itemId).filter((x): x is string => !!x),
-      ];
-      const items = await localDb.items.bulkGet(ids);
-      return new Map(items.filter((x) => !!x).map((x) => [x!.id, x!.name]));
-    }, [consumed, requests]) ?? new Map<string, string>();
   const segments = useSegments(me?.id).filter((s) => s.kind === 'ORDER' && s.orderId === id);
 
   if (order === undefined)
@@ -85,7 +49,7 @@ function OrderDetail() {
     if (!st.clockedIn) toast('„Kommen“ wurde automatisch gestempelt');
     await run('StampJobStart', { orderId: id, activity });
   };
-  const setStatus = (status: AppStatus) => void run('SetOrderStatus', { orderId: id, status });
+  const done = ['FERTIG', 'FREIGEGEBEN', 'ABGERECHNET'].includes(order.appStatus);
 
   return (
     <div className="flex flex-col gap-5">
@@ -95,9 +59,11 @@ function OrderDetail() {
           {order.priority === 'High' ? 'hoch' : order.priority === 'Low' ? 'niedrig' : 'normal'}
         </p>
         <h1 className="font-headline text-2xl">{order.customerName}</h1>
-        <p className="mt-1 inline-block rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold">
-          {DEFAULT_STATUS_DEFINITIONS[order.appStatus].label}
-        </p>
+        {done && (
+          <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-success-bg px-3 py-1 font-semibold text-success">
+            <CircleCheck aria-hidden className="h-5 w-5" /> Arbeit abgeschlossen
+          </p>
+        )}
         <RefreshFromBc orderId={order.id} onRequested={() => void syncNow()} />
       </header>
 
@@ -183,17 +149,6 @@ function OrderDetail() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-2">
-        <h2 className="font-semibold">Status ändern</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {MONTEUR_STATUSES.filter((s) => canTransition(order.appStatus, s, 'MONTEUR')).map((s) => (
-            <Button key={s} variant="secondary" onClick={() => setStatus(s)}>
-              {DEFAULT_STATUS_DEFINITIONS[s].label}
-            </Button>
-          ))}
-        </div>
-      </section>
-
       <section aria-label="Dokumentation und Kommunikation" className="grid grid-cols-2 gap-2">
         <Link
           href={`/monteur/bericht?orderId=${id}`}
@@ -216,7 +171,7 @@ function OrderDetail() {
             className="inline-flex min-h-touch flex-col items-center justify-center rounded-card border-2 border-border bg-surface px-3 py-2 font-semibold"
           >
             Chat
-            <span className="text-xs font-normal">{unread ? `${unread} neu` : 'mit dem Meister'}</span>
+            <span className="text-xs font-normal">{unread ? `${unread} neu` : 'mit der Werkstatt'}</span>
           </Link>
         )}
       </section>
@@ -246,65 +201,22 @@ function OrderDetail() {
               </Link>
             )}
           </div>
-          <ul className="flex flex-col gap-1">
-            {consumed.map((c) => (
-              <li
-                key={c.id}
-                className="flex min-h-touch items-center justify-between gap-2 border-b border-border"
-              >
-                <span className={c.state === 'REJECTED' ? 'line-through opacity-60' : ''}>
-                  {c.quantity} {c.unit} {itemNames.get(c.itemId) ?? ''}{' '}
-                  <span className="text-sm text-text-muted">({CONSUMPTION_STATE[c.state]})</span>
-                </span>
-                {c.state === 'SUBMITTED' && (
-                  <button
-                    type="button"
-                    className="min-h-touch px-2 font-semibold underline"
-                    onClick={() => void run('RemoveConsumption', { consumptionId: c.id })}
-                  >
-                    Rückgängig
-                  </button>
-                )}
-              </li>
-            ))}
-            {requests.map((r) => (
-              <li key={r.id} className="min-h-touch border-b border-border py-2">
-                Bestellt: {r.quantity} × {r.itemId ? itemNames.get(r.itemId) : r.newItemText}{' '}
-                <span className="text-sm text-text-muted">
-                  (
-                  {r.state === 'GELIEFERT'
-                    ? 'geliefert'
-                    : `Lieferung ${r.expectedDelivery ? new Date(`${r.expectedDelivery}T12:00:00Z`).toLocaleDateString('de-DE') : 'offen'}`}
-                  )
-                </span>
-              </li>
-            ))}
-          </ul>
         </section>
       )}
 
-      {history.length > 0 && (
-        <section>
-          <h2 className="mb-2 font-semibold">Verlauf</h2>
-          <ol className="flex flex-col gap-1 text-sm">
-            {history.map((h) => (
-              <li key={h.id}>
-                {new Date(h.at).toLocaleDateString('de-DE')} {fmtTime(h.at, tz)} ·{' '}
-                {DEFAULT_STATUS_DEFINITIONS[h.toStatus].label}
-                <span className="text-text-muted">
-                  {' '}
-                  (
-                  {h.source === 'STEMPELUNG'
-                    ? 'automatisch'
-                    : h.source === 'BC'
-                      ? 'aus BC'
-                      : h.source.toLowerCase()}
-                  )
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
+      <WorkOrderSheet
+        order={order}
+        onUndo={(consumptionId) => void run('RemoveConsumption', { consumptionId })}
+      />
+
+      {!done && (
+        <Link
+          href={`/monteur/abschluss?orderId=${id}`}
+          className="inline-flex min-h-touch-lg items-center justify-center gap-2 rounded-card bg-primary px-5 text-lg font-bold text-on-primary hover:bg-primary-hover"
+        >
+          <ClipboardCheck aria-hidden className="h-6 w-6" />
+          Arbeit abgeschlossen …
+        </Link>
       )}
     </div>
   );

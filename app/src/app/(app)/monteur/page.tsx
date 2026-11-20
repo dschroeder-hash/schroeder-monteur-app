@@ -1,12 +1,10 @@
 'use client';
 
 import { localDate } from '@schroeder/shared';
-import { Clock, FileWarning, PackageSearch, Thermometer } from 'lucide-react';
+import { Clock, FileWarning } from 'lucide-react';
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { OrderCard } from '@/components/OrderCard';
-import { SickReportDialog } from '@/components/SickReportDialog';
-import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { fmtMinutes } from '@/lib/format';
 import { useDaySummary, useMyOrders, useTimezone } from '@/lib/offline/hooks';
@@ -66,9 +64,7 @@ export default function MonteurDashboard() {
   const others = orders
     .filter((o) => !due.includes(o) && !DONE.has(o.appStatus))
     .sort((a, b) => startOf(a).localeCompare(startOf(b)));
-  const waitingParts = orders.filter((o) => o.appStatus === 'WARTET_TEILE').length;
   const docsOpen = orders.filter((o) => o.appStatus === 'FERTIG_DOKU_OFFEN').length;
-  const [sick, setSick] = useState(false);
   const firstName = me?.displayName.split(' ')[0] ?? '';
 
   return (
@@ -87,14 +83,7 @@ export default function MonteurDashboard() {
             {greeting(now, tz)}, {firstName}
           </h1>
         </div>
-        {me?.features['absence.sick'] && (
-          <Button variant="secondary" onClick={() => setSick(true)}>
-            <Thermometer aria-hidden className="h-5 w-5" />
-            Krank melden
-          </Button>
-        )}
       </div>
-      {sick && <SickReportDialog onClose={() => setSick(false)} />}
 
       <section aria-label="Auf einen Blick" className="grid gap-3 sm:grid-cols-3">
         {me?.features.stamping && (
@@ -104,14 +93,6 @@ export default function MonteurDashboard() {
             label="Arbeitszeit heute"
             value={fmtMinutes(day.workMinutes)}
             warn={day.warnings.length > 0}
-          />
-        )}
-        {waitingParts > 0 && (
-          <Chip
-            icon={<PackageSearch aria-hidden className="h-6 w-6" />}
-            label="Wartet auf Teile"
-            value={String(waitingParts)}
-            warn
           />
         )}
         {docsOpen > 0 && (

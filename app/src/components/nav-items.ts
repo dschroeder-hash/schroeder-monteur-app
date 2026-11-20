@@ -3,18 +3,12 @@ import type { Me } from '@/lib/types';
 import {
   ArrowLeftRight,
   CalendarDays,
-  CalendarOff,
-  CalendarRange,
-  CheckCheck,
   Clock,
   Droplets,
-  FileText,
   House,
-  LayoutDashboard,
   Package,
   Settings,
   TrendingUp,
-  Users,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -50,47 +44,16 @@ export function navGroups(roles: string[], f: Features): NavGroup[] {
         ...(f.materials
           ? [{ href: '/monteur/verbrauch', label: 'Öl & Diesel', short: 'Öl/Diesel', icon: Droplets }]
           : []),
-        ...(f['absence.sick'] || f['absence.vacation']
-          ? [{ href: '/monteur/abwesenheit', label: 'Urlaub & Krank', short: 'Abwesend', icon: CalendarOff }]
-          : []),
         ...(f['productivity.self']
           ? [{ href: '/monteur/produktivitaet', label: 'Produktivität', short: 'Leistung', icon: TrendingUp }]
           : []),
       ],
     });
   }
-  if (roles.includes(ROLES.Meister)) {
-    groups.push({
-      title: 'Meister',
-      items: [
-        { href: '/meister', label: 'Übersicht', icon: LayoutDashboard, exact: true },
-        { href: '/meister/plantafel', label: 'Plantafel', icon: CalendarRange },
-        { href: '/meister/freigaben', label: 'Freigaben', icon: CheckCheck },
-        { href: '/meister/abwesenheiten', label: 'Abwesenheiten', short: 'Abwesend', icon: CalendarOff },
-        ...(f['productivity.team']
-          ? [
-              {
-                href: '/meister/produktivitaet',
-                label: 'Produktivität Team',
-                short: 'Leistung',
-                icon: TrendingUp,
-              },
-            ]
-          : []),
-        { href: '/meister/textbausteine', label: 'Textbausteine', short: 'Texte', icon: FileText },
-      ],
-    });
-  }
-  if (roles.includes(ROLES.Lager) || roles.includes(ROLES.Meister)) {
+  if (roles.includes(ROLES.Lager)) {
     groups.push({
       title: 'Lager',
       items: [{ href: '/lager', label: 'Teiledienst', icon: Package }],
-    });
-  }
-  if (roles.includes(ROLES.Personal)) {
-    groups.push({
-      title: 'Personal',
-      items: [{ href: '/personal', label: 'Abwesenheiten', short: 'Personal', icon: Users }],
     });
   }
   if (roles.includes(ROLES.Admin)) {

@@ -1,6 +1,5 @@
 'use client';
 
-import { ROLES } from '@schroeder/shared';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -12,11 +11,7 @@ function ChatRedirect() {
   const router = useRouter();
   useEffect(() => {
     if (!me) return;
-    router.replace(
-      me.roles.includes(ROLES.Meister) && !me.grants.some((g) => g.role === 'MONTEUR')
-        ? `/meister/chat?orderId=${orderId}`
-        : `/monteur/chat?orderId=${orderId}`,
-    );
+    router.replace(`/monteur/chat?orderId=${orderId}`);
   }, [me, orderId, router]);
   return <p className="text-text-muted">Wird geöffnet …</p>;
 }
