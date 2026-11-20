@@ -787,6 +787,11 @@ export const photo = pgTable(
     /** Blocks already received by the local storage adapter (resumable upload); unused with Azure Blob. */
     uploadedAt: ts('uploaded_at'),
     deletedAt: ts('deleted_at'),
+    /** Hand-over to M-Files (machine object, E-73). */
+    mfilesObjectId: text('mfiles_object_id'),
+    mfilesAt: ts('mfiles_at'),
+    mfilesError: text('mfiles_error'),
+    mfilesAttempts: integer('mfiles_attempts').notNull().default(0),
     ...timestamps,
     ...rowVersion,
   },

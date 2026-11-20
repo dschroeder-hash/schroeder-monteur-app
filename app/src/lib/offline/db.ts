@@ -311,6 +311,8 @@ export interface LocalPhoto {
   uploadState: 'PENDING' | 'UPLOADED' | 'FAILED';
   width: number | null;
   height: number | null;
+  /** Set once the worker has put the photo on the machine object in M-Files (E-73). */
+  mfilesObjectId?: string | null;
 }
 
 /** Photo binary waiting for (or during) the resumable upload. Removed after upload. */

@@ -10,6 +10,8 @@ import { AuditService } from './common/audit.service.js';
 import { AbsenceService } from './modules/absence/absence.service.js';
 import { ApprovalsService } from './modules/approvals/approvals.service.js';
 import { runAutoApprove } from './modules/approvals/auto-approve.js';
+import { MFilesClient } from './mfiles/mfiles-client.js';
+import { runMFilesPhotos } from './mfiles/mfiles-photos.js';
 import { ReportService } from './modules/docs/report.service.js';
 import { TimeService } from './modules/time/time.service.js';
 import { TransferService } from './modules/transfer/transfer.service.js';
@@ -73,9 +75,29 @@ if (config.VAPID_PUBLIC_KEY && config.VAPID_PRIVATE_KEY)
   pushSender = await webPushSender(config.VAPID_PUBLIC_KEY, config.VAPID_PRIVATE_KEY, config.VAPID_SUBJECT);
 else console.warn('[worker] VAPID keys missing – Web Push disabled (notifications stay in the app)');
 
+// Photos to M-Files (E-73) – only when configured.
+const mfiles =
+  config.MFILES_BASE_URL && config.MFILES_VAULT_GUID
+    ? new MFilesClient({
+        baseUrl: config.MFILES_BASE_URL,
+        vaultGuid: config.MFILES_VAULT_GUID,
+        username: config.MFILES_USERNAME ?? '',
+        password: config.MFILES_PASSWORD ?? '',
+        machineObjectType: config.MFILES_MACHINE_OBJECT_TYPE ?? 0,
+        machineKeyProperty: config.MFILES_MACHINE_KEY_PROPERTY ?? 0,
+        photoClass: config.MFILES_PHOTO_CLASS ?? 0,
+        machineLookupProperty: config.MFILES_MACHINE_LOOKUP_PROPERTY ?? 0,
+        orderNoProperty: config.MFILES_ORDER_NO_PROPERTY ?? null,
+      })
+    : null;
+if (!mfiles) console.warn('[worker] M-Files not configured – photos stay in the app storage');
+
 const jobs: Array<{ name: string; intervalMs: number; run: () => Promise<unknown> }> = [
   { name: 'forgotten-clock-out-reminder', intervalMs: 5 * 60_000, run: () => remindForgottenClockOut(db) },
   ...(pushSender ? [{ name: 'web-push', intervalMs: 20_000, run: () => deliverPush(db, pushSender!) }] : []),
+  ...(mfiles
+    ? [{ name: 'mfiles-photos', intervalMs: 60_000, run: () => runMFilesPhotos(db, storage, mfiles) }]
+    : []),
   { name: 'retention', intervalMs: 6 * 3_600_000, run: () => applyRetention(db, (p) => storage.delete(p)) },
   {
     name: 'auto-approve',
