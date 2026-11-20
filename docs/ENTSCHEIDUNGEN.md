@@ -27,7 +27,7 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 | E-21 | Plantafel mit dnd-kit                                                      | entschieden |
 | E-22 | Feiertage nach Bundesland des Standorts                                    | entschieden |
 | E-23 | Auftragsart-Mapping versioniert (`valid_from`)                             | entschieden |
-| E-24 | Abwesenheit nach BC: eine Zeile je Kalendertag                             | vorläufig   |
+| E-24 | ~~Abwesenheit nach BC: eine Zeile je Kalendertag~~ → E-51                  | ersetzt     |
 | E-25 | Mock-Server mit Fastify, gemeinsame Contract-Schemas                       | entschieden |
 | E-26 | NestJS 11 statt 12                                                         | entschieden |
 | E-27 | PWA-Build mit Webpack statt Turbopack                                      | entschieden |
@@ -48,6 +48,18 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 | E-42 | Eine BC-Zeile je Entnahme; reservierter Bestand wird inkrementell geführt  | entschieden |
 | E-43 | Bestandskonflikte werden angenommen und gemeldet, nie abgelehnt            | entschieden |
 | E-44 | Barcode-Leser lokal ausgeliefert und vorab gecacht                         | entschieden |
+| E-45 | Statusnachrichten im Chat per Datenbank-Trigger                            | entschieden |
+| E-46 | Lokaler Speicher emuliert das Azure-Blob-Blockprotokoll                    | entschieden |
+| E-47 | Offline-Navigation über volle Seitenaufrufe                                | entschieden |
+| E-48 | AGCO-Absprung ohne Suchparameter (Zwischenablage)                          | entschieden |
+| E-49 | Team-Kalender über Spiegeltabelle ohne Art und Kommentar                   | entschieden |
+| E-50 | BC erst nach Meister-Entscheidung – auch bei Krankmeldungen                | entschieden |
+| E-51 | Abwesenheiten in BC: löschen und neu schreiben                             | entschieden |
+| E-52 | Offene Krankmeldungen zählen bei Überschneidungen bis heute                | entschieden |
+| E-53 | Genehmigter Urlaub sperrt die Plantafel, Krankheit markiert                | entschieden |
+| E-54 | Produktivitäts-Snapshot bis zum 10. des Folgemonats, dann fest             | entschieden |
+| E-55 | Produktivität nur aus freigegebenen Tagen; Fahrzeit zählt mit              | entschieden |
+| E-56 | Mapping-Änderungen nur ab dem laufenden Monat                              | entschieden |
 
 ---
 
@@ -164,7 +176,9 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Begründung:** Ein späteres Bonussystem braucht reproduzierbare Monatswerte. Mappingänderungen wirken ab `valid_from` und verändern abgeschlossene Monate nicht.
 
-### E-24 Abwesenheit: eine BC-Zeile je Kalendertag (vorläufig)
+### E-24 Abwesenheit: eine BC-Zeile je Kalendertag (ersetzt durch E-51)
+
+**Stand Phase 6:** Umgesetzt ist ein BC-Eintrag je Abwesenheit (Zeitraum, Menge = Arbeitstage). Änderungen löschen und schreiben neu (E-51). Die ursprüngliche Überlegung:
 
 **Begründung:** Employee Absence arbeitet tagesbezogen (From/To Date, Quantity). Eine Zeile je Arbeitstag erlaubt halbe Tage, Teilstornos und saubere Idempotenz (`Monteur App Id` = Abwesenheits-ID + Datum). Wochenenden und Feiertage werden ausgelassen.
 
@@ -311,3 +325,18 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Entscheidung:** Einplanen auf einen genehmigten Urlaubstag wird abgelehnt (409). Krankmeldungen und beantragter Urlaub erzeugen nur einen Hinweis; betroffene Aufträge erscheinen unter „Neu einplanen“, berechnet aus den aktiven Abwesenheiten statt gespeichert.
 **Begründung:** PROMPT 5.9/5.10. Die Berechnung bleibt richtig, wenn das Ende einer Krankmeldung geändert oder der Auftrag umgeplant wird, und braucht keine Schreibrechte des Monteurs auf Einplanungen.
+
+### E-54 Produktivitäts-Snapshot bis zum 10. des Folgemonats, dann fest
+
+**Entscheidung:** Der Worker berechnet den Vormonat täglich bis zum 10. des Folgemonats neu und speichert ihn als `productivity_snapshot` (mit Mapping-Version und Konfigurations-Hash). Danach bleibt der Wert fest; die API liefert abgeschlossene Monate aus dem Snapshot. Nur der Worker darf Snapshots schreiben (RLS, getestet).
+**Begründung:** Späte Freigaben und Korrekturen fließen noch ein; danach ist der Monatswert reproduzierbar – Grundlage für ein späteres Bonussystem (PROMPT 5.11). Die Frist ist ein Vorschlag (OP-35).
+
+### E-55 Produktivität nur aus freigegebenen Tagen; Fahrzeit zählt als verrechnet
+
+**Entscheidung:** Zähler und Nenner berücksichtigen nur Tage, die der Meister vollständig freigegeben hat; offene Tage werden als Hinweis angezeigt. Fahrzeit auf produktiven Aufträgen zählt als verrechnete Zeit (sie wird in BC als Arbeitstyp `FAHRT` abgerechnet); der Fahrzeitanteil wird zusätzlich ausgewiesen (Fahrzeit ÷ Anwesenheit). Standortsummen werden aus den Minutensummen berechnet, nicht als Mittelwert der Quoten.
+**Begründung:** Gleiche Basis für Zähler und Nenner; Mittelwerte von Quoten verzerren bei unterschiedlicher Anwesenheit. Ob Fahrzeit produktiv zählen soll: OP-34.
+
+### E-56 Mapping-Änderungen nur ab dem laufenden Monat
+
+**Entscheidung:** Der Admin legt neue Versionen der Auftragsart-Zuordnung an (`valid_from`); ein Datum in einem abgeschlossenen Monat wird abgelehnt. Jede Änderung steht im Audit-Log. Der Admin sieht keine Produktivitätswerte einzelner Monteure.
+**Begründung:** E-23 (reproduzierbare Monatswerte) und Datenschutz (Rollenkonzept, PROMPT 4).

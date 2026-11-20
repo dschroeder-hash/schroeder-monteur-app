@@ -17,6 +17,11 @@ import { OrdersController } from './modules/orders/orders.controller.js';
 import { OrdersService } from './modules/orders/orders.service.js';
 import { SyncController } from './modules/sync/sync.controller.js';
 import { AbsenceController } from './modules/absence/absence.controller.js';
+import {
+  ProductivityAdminController,
+  ProductivityController,
+} from './modules/productivity/productivity.controller.js';
+import { ProductivityService } from './modules/productivity/productivity.service.js';
 import { AbsenceService } from './modules/absence/absence.service.js';
 import { ApprovalsController } from './modules/approvals/approvals.controller.js';
 import { ApprovalsService } from './modules/approvals/approvals.service.js';
@@ -62,6 +67,8 @@ export class AppModule {
         PlanningController,
         ApprovalsController,
         AbsenceController,
+        ProductivityController,
+        ProductivityAdminController,
         TransfersController,
         MaterialController,
         ContainersController,
@@ -84,6 +91,7 @@ export class AppModule {
         PlanningService,
         ApprovalsService,
         AbsenceService,
+        ProductivityService,
         TransferService,
         MaterialService,
         ReportService,

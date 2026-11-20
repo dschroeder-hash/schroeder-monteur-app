@@ -2,6 +2,7 @@
 
 import { FEATURE_LABELS, FEATURES, WORKS_COUNCIL_FEATURES, type Feature } from '@schroeder/shared';
 import { useState } from 'react';
+import { ProductivityAdmin } from '@/components/ProductivityAdmin';
 import { apiFetch } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 
@@ -99,6 +100,7 @@ export default function AdminPage() {
           </tbody>
         </table>
       </div>
+      <ProductivityAdmin />
     </div>
   );
 }

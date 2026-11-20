@@ -60,6 +60,9 @@ export default function MonteurDashboard() {
           tone={count('FERTIG_DOKU_OFFEN') ? 'warning' : 'default'}
         />
         <Tile label="Ungelesene Nachrichten" value={0} />
+        {me?.features['productivity.self'] && (
+          <Tile label="Meine Produktivität" value="→" href="/monteur/produktivitaet" />
+        )}
         {me?.features.stamping && (
           <Tile
             label="Arbeitszeit heute"

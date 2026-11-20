@@ -7,3 +7,4 @@ export * from './sync.js';
 export * from './material/index.js';
 export * from './report/report.js';
 export * from './absence/index.js';
+export * from './productivity/index.js';

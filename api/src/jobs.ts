@@ -1,5 +1,8 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
+import { localDate } from '@schroeder/shared';
 import type { Db } from './db/client.js';
+import { location, productivitySnapshot, userLocation } from './db/schema.js';
+import { computeMonth, shiftMonth } from './modules/productivity/productivity.calc.js';
 
 /**
  * Forgotten clock-out (PROMPT 5.1): attendance still open on a previous local day is flagged for a
@@ -39,3 +42,61 @@ export async function applyRetention(
   for (const row of photos.rows as Array<{ blob_path: string }>) await deleteBlob(row.blob_path);
   return { messages: msgs.rowCount ?? 0, photos: photos.rowCount ?? 0 };
 }
+
+/**
+ * Monthly productivity snapshots (ARCHITEKTUR 3.4, E-54): the previous month is recalculated daily until the 10th
+ * of the following month (late approvals, corrections) and then stays frozen – the reproducible basis for a later
+ * bonus system. Runs as worker (RLS: only the worker may write snapshots).
+ */
+export async function snapshotProductivity(db: Db, now = new Date()): Promise<number> {
+  const today = localDate(now, 'Europe/Berlin');
+  if (Number(today.slice(8, 10)) > SNAPSHOT_UNTIL_DAY) return 0;
+  const month = shiftMonth(today.slice(0, 7), -1);
+  return db.transaction(async (tx) => {
+    const monteure = await tx
+      .selectDistinct({
+        userId: userLocation.userId,
+        locationId: userLocation.locationId,
+        timezone: location.timezone,
+        bundesland: location.bundesland,
+      })
+      .from(userLocation)
+      .innerJoin(location, eq(location.id, userLocation.locationId))
+      .where(eq(userLocation.role, 'MONTEUR'));
+    const seen = new Set<string>();
+    let n = 0;
+    for (const m of monteure) {
+      if (seen.has(m.userId)) continue;
+      seen.add(m.userId);
+      const result = await computeMonth(
+        tx,
+        m.userId,
+        { id: m.locationId, timezone: m.timezone, bundesland: m.bundesland },
+        month,
+      );
+      if (!result.attendanceMinutes && !result.billedMinutes) continue;
+      await tx
+        .insert(productivitySnapshot)
+        .values({
+          userId: m.userId,
+          month: `${month}-01`,
+          locationId: m.locationId,
+          result,
+          mappingVersion: result.mappingVersion,
+          configHash: result.configHash,
+        })
+        .onConflictDoUpdate({
+          target: [productivitySnapshot.userId, productivitySnapshot.month],
+          set: {
+            result,
+            mappingVersion: result.mappingVersion,
+            configHash: result.configHash,
+            calculatedAt: new Date(),
+          },
+        });
+      n++;
+    }
+    return n;
+  });
+}
+export const SNAPSHOT_UNTIL_DAY = 10;

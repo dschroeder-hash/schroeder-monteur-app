@@ -4,7 +4,7 @@ import { BcSyncService } from './bc/bc-sync.service.js';
 import { BcTransferWorker } from './bc/transfer-worker.js';
 import { loadConfig } from './config.js';
 import { createDb } from './db/client.js';
-import { applyRetention, flagForgottenClockOuts } from './jobs.js';
+import { applyRetention, flagForgottenClockOuts, snapshotProductivity } from './jobs.js';
 import { resolve } from 'node:path';
 import { AzureBlobStorage, LocalBlobStorage } from './modules/files/blob-storage.js';
 import {
@@ -59,6 +59,7 @@ const jobs: Array<{ name: string; intervalMs: number; run: () => Promise<unknown
   { name: 'bc-transfer', intervalMs: 15_000, run: () => bcTransfer.runOnce() },
   { name: 'bc-sync', intervalMs: config.BC_SYNC_INTERVAL_SEC * 1000, run: () => bcSync.runAll() },
   { name: 'forgotten-clock-out', intervalMs: 15 * 60_000, run: () => flagForgottenClockOuts(db) },
+  { name: 'productivity-snapshot', intervalMs: 6 * 3_600_000, run: () => snapshotProductivity(db) },
 ];
 const timers: NodeJS.Timeout[] = [];
 const running = new Set<string>();

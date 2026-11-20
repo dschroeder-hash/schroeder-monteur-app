@@ -176,3 +176,31 @@ Tests gesamt: 514 API, 45 Fachlogik, 33 UI-Bausteine, 33 BC-Mock, 2 BC-Vertrag, 
 
 - `docs/DATENSCHUTZ.md` (Verarbeitungsübersicht inkl. Krankmeldungen) folgt mit Phase 8.
 - Krank während Urlaub und Eskalation offener Krankmeldungen: OP-32, OP-33.
+
+## Phase 7 – Produktivität ✅ (20.11.2026)
+
+**Fertig**
+
+| Bereich        | Inhalt                                                                                                                                                                                                                                                                                                                             | Tests            |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Engine         | Produktivität = produktive verrechnete Stunden ÷ Anwesenheit (ohne Pausen, Schulung, angeordnete Sonderaufgaben); Auftragsart-Mapping mit Gültigkeitsdatum; Nacharbeit nie produktiv; Altdaten-Regel „Wartung“ im Titel; Zielkorridor; Fahrzeitanteil; Dokumentationsquote bis Ende des Folgetags; Standortsumme aus Minutensummen | 19 Referenzfälle |
+| API            | Eigene Sicht (aktueller Monat, Vormonat, 12-Monats-Trend), Teamansicht des Meisters mit Standortsumme, getrennte Feature-Flags `productivity.self` und `productivity.team` (Betriebsrat), Monats-Snapshots im Worker                                                                                                               | 12               |
+| Administration | Zuordnung BC-Auftragsart → Kategorie als neue Version ab Datum (nicht rückwirkend), Zielkorridor, Altdaten-Regel – mit Audit-Log; der Admin sieht keine Einzelwerte                                                                                                                                                                | in Phase-7-Tests |
+| App            | Monteur: große Kennzahl mit Zielkorridor (Symbol + Text), gestapelter Balken nach Kategorie mit Legende und Tabelle, Trend als Balkendiagramm mit Zielband und Tabellenansicht; Meister: Tabelle je Monteur mit Mini-Balken und Summe                                                                                              | –                |
+| E2E            | Freigegebene Zeiten des Vormonats → Monteur sieht 85 % „im Zielkorridor“ → Meister sieht denselben Wert und die Standortsumme                                                                                                                                                                                                      | 1                |
+
+Tests gesamt: 556 API, 64 Fachlogik, 33 UI-Bausteine, 33 BC-Mock, 2 BC-Vertrag, 10 App, 6 E2E – alle grün.
+
+**Akzeptanz (DoD) belegt:** Die Produktivität wird gemäß Mapping korrekt berechnet – Unit-Tests mit 8 Referenzfällen (19 Prüfungen), jeder Wert im Test von Hand nachgerechnet.
+
+**Aufgefallen und behoben**
+
+- Der Admin-Test schaltete `productivity.self` für Wildeshausen ab und ließ es aus – fiel erst auf, als Phase 7 das Flag nutzte. Der Test räumt jetzt auf.
+- Diagrammbeschriftungen waren auf dem Smartphone zu klein; Bewertungsetiketten brachen in der Teamtabelle um.
+- Meister-Navigation hatte keine Links zu Abwesenheiten und Produktivität.
+- E-24 (eine BC-Zeile je Abwesenheitstag) war durch Phase 6 überholt und ist jetzt als ersetzt markiert; die Entscheidungen E-45 bis E-53 fehlten in der Übersichtstabelle.
+
+**Offen / Hinweise**
+
+- Fahrzeit produktiv, Snapshot-Frist, Einordnung „Intern sonstige“: OP-34 bis OP-36.
+- Das Bonussystem ist nicht gebaut (V1); es kann auf `productivity_snapshot` aufsetzen.

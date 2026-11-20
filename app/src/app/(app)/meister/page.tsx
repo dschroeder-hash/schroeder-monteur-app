@@ -3,6 +3,7 @@
 import { DEFAULT_STATUS_DEFINITIONS, type AppStatus } from '@schroeder/shared';
 import { OrderCard } from '@/components/OrderCard';
 import { Tile } from '@/components/ui/Tile';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { useApi } from '@/lib/useApi';
 import { useMeisterLocations } from '@/lib/meister';
 import type { OrderSummary } from '@/lib/types';
@@ -22,6 +23,7 @@ export default function MeisterDashboard() {
   const { data, error, loading } = useApi<OrderSummary[]>('/v1/orders?view=location');
   const orders = data ?? [];
   const loc = useMeisterLocations()[0]?.id;
+  const { me } = useAuth();
   const inbox = useApi<{
     days: Array<{ approvable: boolean; needsCorrection: boolean }>;
     corrections: unknown[];
@@ -62,6 +64,9 @@ export default function MeisterDashboard() {
           tone={inbox && inbox.absences.length ? 'warning' : 'default'}
         />
         <Tile label="Abwesenheitsübersicht" value="→" href="/meister/abwesenheiten" />
+        {me?.features['productivity.team'] && (
+          <Tile label="Produktivität Team" value="→" href="/meister/produktivitaet" />
+        )}
       </section>
       <section aria-label="Status" className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {STATUSES.map((s) => (
