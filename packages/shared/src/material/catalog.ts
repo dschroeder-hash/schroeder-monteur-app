@@ -50,11 +50,9 @@ export function agcoDeeplinkAdapter(template = AGCO_DEFAULT_TEMPLATE): PartsCata
 function catalogStartUrl(template: string): string | null {
   if (!template.startsWith('https://')) return null;
   if (!template.includes('{query}')) return template;
-  try {
-    return `${new URL(template.replace('{query}', '')).origin}/`;
-  } catch {
-    return null;
-  }
+  // No URL class here: this package is built without DOM/Node types.
+  const origin = /^https:\/\/[^/?#\s{}]+/i.exec(template)?.[0];
+  return origin ? `${origin.toLowerCase()}/` : null;
 }
 
 /** Canonical form for comparing part numbers ("X548.880.400" ≙ "x548 880-400"). */
