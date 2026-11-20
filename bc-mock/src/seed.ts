@@ -368,6 +368,7 @@ export function buildSeed(now = new Date()): Tables {
     serviceCommentLines: [],
     serviceOrderAttachments: [],
     customerComments: [],
+    itemSubstitutions: [],
     serviceItemComments: [],
     customerContacts: [],
     employeeAbsences: [],
@@ -556,6 +557,27 @@ export function buildSeed(now = new Date()): Tables {
       });
     }
   }
+
+  // Substitute items: the old filter is replaced by the new one (successor), two hydraulic filters are
+  // interchangeable.
+  t.itemSubstitutions.push(
+    {
+      id: stableId('sub:F931.200.020.110'),
+      lastModifiedDateTime: ts,
+      itemNumber: 'F931.200.020.110',
+      substituteNumber: 'F931.200.020.010',
+      interchangeable: false,
+      description: 'Nachfolger ab Modelljahr 2024',
+    },
+    {
+      id: stableId('sub:H931.202.050.010'),
+      lastModifiedDateTime: ts,
+      itemNumber: 'H931.202.050.010',
+      substituteNumber: 'H931.202.050.020',
+      interchangeable: true,
+      description: 'gleichwertig',
+    },
+  );
 
   // Remarks and contact persons (deterministic, without the random generator so the orders below stay unchanged).
   const CONTACT_FIRST = ['Hinrich', 'Anke', 'Jens', 'Maren', 'Gerd', 'Silke'];

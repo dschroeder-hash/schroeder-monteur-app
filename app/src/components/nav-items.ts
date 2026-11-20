@@ -38,6 +38,7 @@ export function navGroups(roles: string[], f: Features): NavGroup[] {
       items: [
         { href: '/monteur', label: 'Heute', icon: House, exact: true },
         { href: '/monteur/kalender', label: 'Kalender', icon: CalendarDays },
+        ...(f.materials ? [{ href: '/monteur/artikel', label: 'Artikel', icon: Package }] : []),
         ...(f.stamping
           ? [{ href: '/monteur/zeiten', label: 'Meine Zeiten', short: 'Zeiten', icon: Clock }]
           : []),

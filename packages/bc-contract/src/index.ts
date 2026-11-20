@@ -240,6 +240,18 @@ export const customerContactSchema = z.object({
   email: z.string(),
 });
 
+/**
+ * Substitute items (Item Substitution, table 5715, item → item). `interchangeable` = can be used both ways;
+ * one-way substitutions are shown as successor ("Nachfolgeartikel", OP-47).
+ */
+export const itemSubstitutionSchema = z.object({
+  ...base,
+  itemNumber: z.string(),
+  substituteNumber: z.string(),
+  interchangeable: z.boolean(),
+  description: z.string(),
+});
+
 /** Attachment of a service order (signed workshop order as PDF, E-68). The content is write-only. */
 export const serviceOrderAttachmentSchema = z.object({
   ...base,
@@ -450,6 +462,12 @@ export const endpoints = {
     schema: serviceCommentLineSchema,
     delta: true,
     writable: { create: serviceCommentLineCreateSchema },
+  }),
+  itemSubstitutions: def({
+    family: 'werkstatt',
+    entitySet: 'itemSubstitutions',
+    schema: itemSubstitutionSchema,
+    delta: true,
   }),
   customerComments: def({
     family: 'werkstatt',

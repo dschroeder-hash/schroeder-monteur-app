@@ -36,6 +36,7 @@ permissionset 50100 "WS WERKSTATT API"
         page "WS API Customer Comments" = X,
         page "WS API Service Item Comments" = X,
         page "WS API Customer Contacts" = X,
+        page "WS API Item Substitutions" = X,
         query "WS API Item Availability" = X,
         // read sources
         tabledata "Service Header" = RM,
@@ -57,6 +58,7 @@ permissionset 50100 "WS WERKSTATT API"
         tabledata "Document Attachment" = RIM,
         tabledata "Comment Line" = R,
         tabledata Contact = R,
+        tabledata "Item Substitution" = R,
         tabledata "Contact Business Relation" = R,
         tabledata "Tenant Media" = RIM,
         tabledata "Employee Absence" = RIMD,

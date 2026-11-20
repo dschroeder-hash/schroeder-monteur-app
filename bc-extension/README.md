@@ -42,6 +42,7 @@ test/requests.http                            Beispielaufrufe (VS Code REST Clie
 | `customerComments`        | 97 Comment Line (Customer) – Bemerkungen zum Debitor                                           | GET                                  |
 | `serviceItemComments`     | 5906 Service Comment Line (Service Item) – Bemerkungen zur Maschine                            | GET                                  |
 | `customerContacts`        | 5050 Contact (Person) + 5054 Contact Business Relation – Kontakte des Debitors                 | GET                                  |
+| `itemSubstitutions` | 5715 Item Substitution (Artikel → Artikel) – Ersatz- und Nachfolgeartikel | GET |
 | `employeeAbsences`        | 5207 Employee Absence                                                                          | POST, DELETE (Storno)                |
 | `resourceJournalLines`    | 207 Res. Journal Line                                                                          | POST                                 |
 | `itemJournalLines`        | 83 Item Journal Line                                                                           | POST                                 |

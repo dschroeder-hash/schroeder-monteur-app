@@ -19,6 +19,7 @@ import {
   assignment,
   bcContact,
   bcRemark,
+  itemSubstitution,
   bcResourceMapping,
   bcSyncCursor,
   bcTransfer,
@@ -285,6 +286,11 @@ export class BcSyncService {
       (rows) => this.applyItems(companyId, locs, rows),
     );
     await step(
+      'itemSubstitutions',
+      (s) => bc.listModifiedSince('itemSubstitutions', s),
+      (rows) => this.applySubstitutions(companyId, rows),
+    );
+    await step(
       'itemReferences',
       (s) => bc.listModifiedSince('itemReferences', s),
       (rows) => this.applyBarcodes(companyId, rows),
@@ -478,6 +484,27 @@ export class BcSyncService {
         .values(v)
         .onConflictDoUpdate({
           target: [bcRemark.bcCompanyId, bcRemark.scope, bcRemark.refNo, bcRemark.kind, bcRemark.lineNo],
+          set: v,
+        });
+    }
+  }
+
+  private async applySubstitutions(companyId: string, rows: EntityOf<'itemSubstitutions'>[]) {
+    for (const r of rows) {
+      const v = {
+        bcCompanyId: companyId,
+        itemNo: r.itemNumber,
+        substituteNo: r.substituteNumber,
+        interchangeable: r.interchangeable,
+        description: r.description,
+        bcSystemId: r.id,
+        bcModifiedAt: new Date(r.lastModifiedDateTime),
+      };
+      await this.db
+        .insert(itemSubstitution)
+        .values(v)
+        .onConflictDoUpdate({
+          target: [itemSubstitution.bcCompanyId, itemSubstitution.itemNo, itemSubstitution.substituteNo],
           set: v,
         });
     }

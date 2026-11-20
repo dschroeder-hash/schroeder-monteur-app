@@ -1206,3 +1206,23 @@ export const bcContact = pgTable(
     index('bc_contact_customer').on(t.customerNo),
   ],
 );
+
+/** Substitute items from BC (Item Substitution) for the item lookup (E-71). */
+export const itemSubstitution = pgTable(
+  'item_substitution',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bcCompanyId: uuid('bc_company_id').notNull(),
+    itemNo: text('item_no').notNull(),
+    substituteNo: text('substitute_no').notNull(),
+    interchangeable: boolean('interchangeable').notNull().default(false),
+    description: text('description').notNull().default(''),
+    ...bcMirror,
+    ...timestamps,
+    ...rowVersion,
+  },
+  (t) => [
+    uniqueIndex('item_substitution_uq').on(t.bcCompanyId, t.itemNo, t.substituteNo),
+    index('item_substitution_sub').on(t.substituteNo),
+  ],
+);
