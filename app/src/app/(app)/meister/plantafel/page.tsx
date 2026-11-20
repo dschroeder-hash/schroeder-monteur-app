@@ -6,7 +6,8 @@ import {
   rectIntersection,
   type CollisionDetection,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -100,7 +101,7 @@ function Draggable({
             ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
             : undefined
         }
-        className={`cursor-grab touch-none select-none ${isDragging ? 'opacity-70 shadow-lg' : ''}`}
+        className={`cursor-grab touch-manipulation select-none [-webkit-touch-callout:none] ${isDragging ? 'opacity-70 shadow-lg' : ''}`}
       >
         {children}
       </div>
@@ -167,7 +168,9 @@ export default function PlanningBoardPage() {
   }, [load]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    // Finger (iPad): press and hold briefly, then drag – a quick swipe still scrolls the page.
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor),
   );
 
@@ -394,42 +397,55 @@ export default function PlanningBoardPage() {
         }}
       >
         <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
-          <section aria-labelledby="offen" className="flex max-h-[75vh] flex-col gap-2 overflow-y-auto">
-            <h2 id="offen" className="font-semibold">
+          <section aria-labelledby="offen" className="flex min-w-0 flex-col gap-2">
+            <h2 id="offen" className="font-bold">
               Nicht eingeplant ({sortedUnplanned.length})
             </h2>
-            {sortedUnplanned.map((o) => (
-              <Draggable
-                key={o.id}
-                id={`order|${o.id}`}
-                label={`${o.bcNo} ${o.customerName} einplanen`}
-                actions={
-                  <button
-                    type="button"
-                    className="min-h-touch text-sm font-semibold underline"
-                    onPointerDown={(ev) => ev.stopPropagation()}
-                    onClick={() => setPlanFor(o)}
+            <p className="text-sm text-text-muted">
+              Auftrag gedrückt halten und auf Monteur und Uhrzeit ziehen.
+            </p>
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Nicht eingeplante Aufträge"
+              className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-2 lg:max-h-[75vh] lg:flex-col lg:overflow-x-visible lg:overflow-y-auto"
+            >
+              {sortedUnplanned.map((o) => (
+                <div key={o.id} className="w-64 shrink-0 lg:w-auto">
+                  <Draggable
+                    id={`order|${o.id}`}
+                    label={`${o.bcNo} ${o.customerName} einplanen`}
+                    actions={
+                      <button
+                        type="button"
+                        className="min-h-touch text-sm font-semibold underline"
+                        onPointerDown={(ev) => ev.stopPropagation()}
+                        onClick={() => setPlanFor(o)}
+                      >
+                        Einplanen ohne Ziehen …
+                      </button>
+                    }
                   >
-                    Einplanen ohne Ziehen …
-                  </button>
-                }
-              >
-                <article
-                  className={`rounded-card border bg-surface p-3 ${o.needsReplan ? 'border-danger' : 'border-border'}`}
-                >
-                  <p className="text-sm text-text-muted">
-                    {o.bcNo} · {o.orderTypeCode}
-                    {o.priority === 'High' && <span className="font-semibold text-danger"> · dringend</span>}
-                  </p>
-                  {o.needsReplan && (
-                    <p className="text-sm font-semibold text-danger">Neu einplanen (Monteur abwesend)</p>
-                  )}
-                  <p className="font-semibold">{o.customerName}</p>
-                  <p className="text-sm">{o.machine ?? o.description}</p>
-                  <p className="text-sm text-text-muted">{o.faultDescription}</p>
-                </article>
-              </Draggable>
-            ))}
+                    <article
+                      className={`rounded-card border bg-surface p-3 ${o.needsReplan ? 'border-danger' : 'border-border'}`}
+                    >
+                      <p className="text-sm text-text-muted">
+                        {o.bcNo} · {o.orderTypeCode}
+                        {o.priority === 'High' && (
+                          <span className="font-semibold text-danger"> · dringend</span>
+                        )}
+                      </p>
+                      {o.needsReplan && (
+                        <p className="text-sm font-semibold text-danger">Neu einplanen (Monteur abwesend)</p>
+                      )}
+                      <p className="font-semibold">{o.customerName}</p>
+                      <p className="text-sm">{o.machine ?? o.description}</p>
+                      <p className="text-sm text-text-muted">{o.faultDescription}</p>
+                    </article>
+                  </Draggable>
+                </div>
+              ))}
+            </div>
           </section>
 
           <div

@@ -67,6 +67,8 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 | E-61 | „Aus BC aktualisieren“ als Auftrag an den Worker                           | entschieden |
 | E-62 | Migrationen und Datenbank-Logins durch eigenen Job mit eigener Identität   | entschieden |
 | E-63 | Stammdaten per RLS schreibgeschützt; Erstanmeldung ohne Session            | entschieden |
+| E-64 | Neues Bedienkonzept: Seitenleiste links, aufrechte Überschriften, Symbole  | entschieden |
+| E-65 | iPad als Hauptgerät: Tests mit WebKit, Plantafel per Finger                | entschieden |
 
 ---
 
@@ -382,3 +384,13 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Entscheidung:** `user_location`, `app_user`, `bc_resource_mapping`, `setting` und `feature_flag` sind für alle lesbar, schreiben dürfen nur Admin und Worker. Die Erstanmeldung legt ohne Session nur Konten ohne Rollen an; der Benutzer aktualisiert danach nur seine eigene Rollen-Momentaufnahme, Status und Azubi-Kennzeichen schützt ein Trigger.
 **Begründung:** Sicherheitsbefund L2: Diese Tabellen bestimmen, was RLS erlaubt – ein Schreibfehler in der API wäre sonst eine Rechteausweitung.
+
+### E-64 Neues Bedienkonzept: Seitenleiste links, aufrechte Überschriften, Symbole
+
+**Entscheidung:** Alle Bereiche liegen in einer dunklen Seitenleiste links (iPad quer: Symbol und Text; iPad hoch: schmale Symbolleiste mit Kurztext; Smartphone: Menü-Knopf). Wer mehrere Rollen hat, sieht die Bereiche nach Rollen gruppiert. Das Stempeln sitzt im Querformat unten in der Seitenleiste, sonst als Leiste am unteren Rand der Monteur-Seiten. Überschriften und Zahlen sind aufrecht und fett statt kursiv; alle Navigationspunkte und Hauptknöpfe haben Symbole (lucide). Die Monteur-Startseite zeigt nur noch „Heute fällig“, weitere offene Aufträge und Hinweise, die Aufmerksamkeit brauchen (Arbeitszeit, Wartet auf Teile, Doku offen) – statt neun Zählerkacheln.
+**Begründung:** Rückmeldung des Auftraggebers vom 20.11.2026: Navigation zu kompliziert (Reiter unten plus Knopfreihe beim Meister, die im Hochformat abgeschnitten war), Design zu blass, zu viel auf einmal, Kursivschrift unpassend, Symbole fehlen. Das CD-Grün bleibt Akzent (aktiver Menüpunkt, Uhrzeit-Block der Auftragskarte, Hauptknöpfe), große grüne Flächen werden weiter vermieden; alle Farbpaare der Leiste sind im Kontrasttest (`packages/ui`).
+
+### E-65 iPad als Hauptgerät: Tests mit WebKit, Plantafel per Finger
+
+**Entscheidung:** Die E2E-Tests laufen in der CI je Gerät mit eigener Datenbank: iPad quer und iPad hoch mit WebKit (die Safari-Technik, die auf dem iPad jeder Browser nutzt) sowie das Smartphone mit Chromium. Die Pflichtprüfung `e2e` ist nur grün, wenn alle drei grün sind. Auf der Plantafel startet das Ziehen mit dem Finger nach kurzem Halten (200 ms), damit Wischen weiter blättert; im Hochformat liegen die nicht eingeplanten Aufträge als waagrechte Leiste über dem Raster.
+**Begründung:** Die App wird überwiegend auf dem iPad bedient. Ein nachgestelltes iPad ersetzt den Pilottest auf echten Geräten nicht, fängt aber Darstellungs- und Safari-Fehler vorher ab. Einrichtung der Geräte: `docs/IPAD.md`.

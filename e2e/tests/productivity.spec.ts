@@ -2,6 +2,7 @@
  * Productivity (PROMPT 5.11): approved times of the previous month → the Monteur sees his own figure with target
  * corridor, categories and trend; the Meister sees the same figure in the team view.
  */
+import { navigate } from './nav.js';
 import { expect, test } from '@playwright/test';
 import pg from 'pg';
 
@@ -57,7 +58,7 @@ test('own productivity with categories and trend; same figure in the Meister tea
   await page.goto('/login');
   await page.click('[data-persona="monteur-clp"]');
   await page.waitForURL('**/monteur');
-  await page.getByRole('link', { name: /Meine Produktivität/ }).click();
+  await navigate(page, 'Produktivität');
   await page.waitForURL('**/monteur/produktivitaet');
   await page.getByRole('button', { name: 'Vormonat' }).click();
   await expect(page.getByTestId('productivity')).toHaveText('85 %');
@@ -70,7 +71,7 @@ test('own productivity with categories and trend; same figure in the Meister tea
   await m.goto('/login');
   await m.click('[data-persona="meister-clp"]');
   await m.waitForURL('**/meister');
-  await m.getByRole('link', { name: /Produktivität Team/ }).click();
+  await navigate(m, 'Produktivität Team');
   await m.getByRole('button', { name: 'Vormonat' }).click();
   await expect(m.getByRole('row').filter({ hasText: 'Hendrik Wessels' })).toContainText('85 %');
   await expect(m.getByRole('row').filter({ hasText: 'gesamt' })).toContainText('85 %');

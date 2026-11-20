@@ -67,6 +67,12 @@ export interface SemanticColors {
   info: string;
   'info-bg': string;
   offline: string;
+  /** Side navigation: dark anthracite bar with green active item (strong contrast, no large green areas). */
+  'nav-bg': string;
+  'nav-text': string;
+  'nav-text-muted': string;
+  'nav-active-bg': string;
+  'nav-active-text': string;
 }
 
 export const light: SemanticColors = {
@@ -90,6 +96,11 @@ export const light: SemanticColors = {
   info: palette.blue700,
   'info-bg': palette.blue100,
   offline: palette.gray700,
+  'nav-bg': palette.gray900,
+  'nav-text': '#F2F4F3',
+  'nav-text-muted': palette.gray400,
+  'nav-active-bg': palette.green700,
+  'nav-active-text': brand.white,
 };
 
 export const dark: SemanticColors = {
@@ -113,6 +124,11 @@ export const dark: SemanticColors = {
   info: palette.blue300,
   'info-bg': '#14213D',
   offline: palette.gray400,
+  'nav-bg': '#0A0B0B',
+  'nav-text': '#F2F4F3',
+  'nav-text-muted': palette.gray400,
+  'nav-active-bg': palette.green400,
+  'nav-active-text': palette.gray950,
 };
 
 /** Pairs that must meet WCAG AA (4.5:1 for normal text). [foreground, background] */
@@ -132,6 +148,9 @@ export const CONTRAST_PAIRS: ReadonlyArray<[keyof SemanticColors, keyof Semantic
   ['danger', 'surface'],
   ['warning', 'surface'],
   ['offline', 'surface'],
+  ['nav-text', 'nav-bg'],
+  ['nav-text-muted', 'nav-bg'],
+  ['nav-active-text', 'nav-active-bg'],
 ];
 
 export const typography = {

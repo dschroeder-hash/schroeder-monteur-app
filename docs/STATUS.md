@@ -283,4 +283,16 @@ Datenschutz-Folgenabschätzung, Einrichtung von Entra ID, Azure und BC nach `BET
 | OP-40 Stammdaten     | RLS-Schreibschutz für Standortzuordnung, Benutzer, BC-Zuordnung, Einstellungen, Feature-Flags; Selbst-Reaktivierung per Trigger verhindert (E-63)                                                                                                                                                         | Monteur kann sich keine Meister-Rechte geben; Erstanmeldung funktioniert |
 | OP-41 Leserechte     | Freigaben nur noch von Kollegen am eigenen Standort sichtbar; Lager-Zugriff auf Chat/Fotos fachlich zu bestätigen                                                                                                                                                                                         | Meister eines anderen Standorts sieht nichts                             |
 
+## iPad und neues Bedienkonzept (20.11.2026)
+
+Rückmeldung des Auftraggebers: Die App wird überwiegend auf dem iPad bedient; Navigation zu kompliziert, Design zu
+blass; AGCO-Katalog ließ sich nicht öffnen.
+
+| Punkt        | Umsetzung                                                                                                                                                                                      | Tests                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Navigation   | Dunkle Seitenleiste links für alle Rollen (quer mit Text, hoch als Symbolleiste, Smartphone über „Menü“); Stempeln unten in der Leiste bzw. am unteren Rand (E-64)                             | E2E über die Seitenleiste bzw. das Menü                     |
+| Design       | Aufrechte, fette Überschriften; Symbole in Navigation und Hauptknöpfen; Auftragskarten mit Uhrzeit-Block und farbigem Status; Monteur-Startseite auf „Heute“ reduziert                         | Kontrasttest der neuen Farbpaare, axe auf allen Hauptseiten |
+| iPad         | E2E je Gerät: iPad quer/hoch mit WebKit (Safari-Technik), Smartphone mit Chromium; Plantafel per Finger (kurz halten), Hochformat-Leiste; Hinweis „Zum Home-Bildschirm“; `docs/IPAD.md` (E-65) | CI-Prüfung `e2e` nur grün, wenn alle drei Geräte grün sind  |
+| AGCO-Katalog | Knopf „AGCO-Katalog öffnen“ immer sichtbar – vorher nur bei AGCO-Maschine mit Seriennummer oder nach Eingabe eines Suchbegriffs                                                                | Startadresse, nur https                                     |
+
 Offen bleiben ausschließlich Punkte, die eine fachliche Entscheidung, Lizenzen, Zugänge oder Kosten brauchen (siehe `OFFENE-PUNKTE.md`).

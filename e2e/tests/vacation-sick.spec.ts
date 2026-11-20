@@ -3,6 +3,7 @@
  * the Monteur reports sick in 2 taps and requests vacation – both offline; after sync the Meister acknowledges and
  * approves, sets the end of the sick report; both arrive in BC as employee absences. Personal sees both.
  */
+import { navigate } from './nav.js';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { BC_MOCK_URL } from '../playwright.config.js';
 
@@ -39,7 +40,7 @@ test('sick report and vacation offline → Meister decides → employee absences
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   // ---- Vacation request (offline), remaining vacation computed on the device ----
-  await page.getByRole('link', { name: 'Abwesenheit' }).click();
+  await navigate(page, 'Urlaub & Krank');
   await page.waitForURL('**/monteur/abwesenheit');
   await expect(page.getByText(/Krank gemeldet ab/)).toBeVisible();
   await page.getByLabel('Von', { exact: true }).fill('2027-03-01');

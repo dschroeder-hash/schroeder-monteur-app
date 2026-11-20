@@ -2,6 +2,7 @@
  * DoD (PROMPT 12): the Meister plans by drag & drop and approves; the data arrives at the BC service order
  * (here: BC mock, written by the worker through the transfer queue).
  */
+import { navigate } from './nav.js';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 import { API_URL, BC_MOCK_URL } from '../playwright.config.js';
@@ -75,7 +76,7 @@ test('Meister plans by drag & drop and approves times – data arrives in BC', a
   await page.goto('/login');
   await page.click('[data-persona="meister-wild"]');
   await page.waitForURL('**/meister');
-  await page.getByRole('link', { name: 'Plantafel' }).click();
+  await navigate(page, 'Plantafel');
   await expect(page.locator('[data-drag^="order|"]').first()).toBeVisible();
   const draggedOrder = (await page.locator('[data-drag^="order|"]').first().getAttribute('data-drag'))!.split(
     '|',
@@ -99,7 +100,7 @@ test('Meister plans by drag & drop and approves times – data arrives in BC', a
   expect(draggedOrder).toBeTruthy();
 
   // ---- Approval inbox: approve the Monteur's day ----
-  await page.getByRole('link', { name: 'Freigaben' }).click();
+  await navigate(page, 'Freigaben');
   const day = page.locator(`[data-day="${me.id}|${workDate}"]`);
   await expect(day).toBeVisible();
   await day.getByRole('button', { name: 'Freigeben' }).click();

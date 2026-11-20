@@ -13,16 +13,16 @@ body {
   font-size: 1.0625rem;
   line-height: 1.5;
 }
-/* Headlines: CD typeface (italic). Body text stays upright and readable. */
+/* Headlines and figures: upright and bold (customer feedback: italic headlines looked out of place, E-64). */
 .font-headline {
-  font-family: var(--font-headline);
-  font-style: italic;
-  font-weight: 500;
+  font-family: var(--font-body);
+  font-weight: 800;
+  letter-spacing: -0.015em;
 }
 .font-emphasis {
-  font-family: var(--font-emphasis);
-  font-style: italic;
+  font-family: var(--font-body);
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 :focus-visible {
   outline: 3px solid var(--color-focus-ring);

@@ -1,5 +1,6 @@
 'use client';
 
+import { ExternalLink, ScanLine } from 'lucide-react';
 import {
   agcoDeeplinkAdapter,
   estimateDelivery,
@@ -158,6 +159,7 @@ function PartsPage() {
           inputMode="search"
         />
         <Button variant="secondary" onClick={() => setScanning(true)} aria-label="Barcode scannen">
+          <ScanLine aria-hidden className="h-5 w-5" />
           Scannen
         </Button>
       </div>
@@ -217,12 +219,13 @@ function PartsPage() {
         <div className="flex flex-wrap gap-2">
           {agco.startUrl && (
             <a
-              className="inline-flex min-h-touch items-center rounded-card bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover"
+              className="inline-flex min-h-touch items-center gap-2 rounded-card bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover"
               href={agco.startUrl}
               target="_blank"
               rel="noopener noreferrer"
               data-catalog="agco-start"
             >
+              <ExternalLink aria-hidden className="h-5 w-5" />
               AGCO-Katalog öffnen
             </a>
           )}
