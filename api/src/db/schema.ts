@@ -132,6 +132,7 @@ export const transferTargetEnum = pgEnum('transfer_target', [
   'COMMENT',
   'ABSENCE',
   'STATUS',
+  'ATTACHMENT',
 ]);
 export const productivityCategoryEnum = pgEnum('productivity_category', [
   'KUNDENSERVICE',
@@ -1093,3 +1094,69 @@ export const VERSIONED_TABLES = [
   'notification',
   'productivity_snapshot',
 ] as const;
+
+/**
+ * Service checklists (E-67): templates from BC's checklist layout (maintained by Admin, imported as JSON), one
+ * filled-in checklist per order. Item kinds: check (OK / not OK / n. a.), value (number with unit), text.
+ */
+export interface ChecklistItemDef {
+  id: string;
+  text: string;
+  kind: 'check' | 'value' | 'text';
+  unit?: string | null;
+  required?: boolean;
+  section?: string | null;
+}
+export interface ChecklistResult {
+  state: 'OK' | 'NOK' | 'NA' | null;
+  value: string | null;
+  note: string;
+}
+export const checklistTemplate = pgTable('checklist_template', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  locationId: uuid('location_id').references(() => location.id),
+  title: text('title').notNull(),
+  /** null = for all order types / brands. */
+  orderTypeCode: text('order_type_code'),
+  brand: text('brand'),
+  items: jsonb('items').$type<ChecklistItemDef[]>().notNull().default([]),
+  active: boolean('active').notNull().default(true),
+  ...timestamps,
+  ...rowVersion,
+});
+
+export const orderChecklist = pgTable('order_checklist', {
+  id: uuid('id').primaryKey(),
+  orderId: uuid('order_id')
+    .notNull()
+    .unique()
+    .references(() => serviceOrder.id),
+  templateId: uuid('template_id')
+    .notNull()
+    .references(() => checklistTemplate.id),
+  authorId: uuid('author_id')
+    .notNull()
+    .references(() => appUser.id),
+  results: jsonb('results').$type<Record<string, ChecklistResult>>().notNull().default({}),
+  complete: boolean('complete').notNull().default(false),
+  deviceTime: ts('device_time'),
+  ...timestamps,
+  ...rowVersion,
+});
+
+/** Customer signature on the workshop order (E-68): PNG (data URL) or the reason why nobody could sign. */
+export const orderSignature = pgTable('order_signature', {
+  orderId: uuid('order_id')
+    .primaryKey()
+    .references(() => serviceOrder.id),
+  authorId: uuid('author_id')
+    .notNull()
+    .references(() => appUser.id),
+  signerName: text('signer_name').notNull().default(''),
+  signedAt: ts('signed_at').notNull(),
+  imagePng: text('image_png'),
+  absentReason: text('absent_reason'),
+  deviceTime: ts('device_time'),
+  ...timestamps,
+  ...rowVersion,
+});

@@ -38,6 +38,7 @@ test/requests.http                            Beispielaufrufe (VS Code REST Clie
 | `serviceOrderAllocations` | 5950 Service Order Allocation                                       | POST                                |
 | `serviceLines`            | 5902 Service Line (Belegart Auftrag)                                | POST                                |
 | `serviceCommentLines`     | 5906 Service Comment Line (Service Header, Auftrag)                 | POST                                |
+| `serviceOrderAttachments` | 1173 Document Attachment (Service Header, Auftrag) – unterschriebener Werkstattauftrag als PDF | POST (Datei Base64 in `fileContent`) |
 | `employeeAbsences`        | 5207 Employee Absence                                               | POST, DELETE (Storno)               |
 | `resourceJournalLines`    | 207 Res. Journal Line                                               | POST                                |
 | `itemJournalLines`        | 83 Item Journal Line                                                | POST                                |

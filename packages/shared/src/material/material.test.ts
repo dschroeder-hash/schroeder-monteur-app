@@ -76,7 +76,8 @@ describe('AGCO deep link (no scraping)', () => {
     expect(extractPartNo('Bitte bestellen')).toBeNull();
   });
   it('extracts several part numbers from a list marked in the catalog', () => {
-    const list = 'Teilenummer: X548.880.400 – Keilrippenriemen\nF931.200.020.010 Filter\n\nx548.880-400 doppelt\nHinweis';
+    const list =
+      'Teilenummer: X548.880.400 – Keilrippenriemen\nF931.200.020.010 Filter\n\nx548.880-400 doppelt\nHinweis';
     expect(extractPartNos(list)).toEqual(['X548.880.400', 'F931.200.020.010']);
     expect(extractPartNos('Bitte bestellen')).toEqual([]);
     // the description after the number is not part of it; digit groups separated by spaces are

@@ -18,6 +18,7 @@ import {
   serviceOrder,
   timeEntry,
 } from '../db/schema.js';
+import { buildWorkOrderPdf } from '../modules/docs/work-order-pdf.js';
 import type { TransferPayload } from '../modules/transfer/transfer.service.js';
 import { BcContractError, BcError, type BcClient } from './bc-client.js';
 
@@ -106,6 +107,10 @@ export class BcTransferWorker {
             );
           body.employeeNumber = m.no;
         }
+        if (payload.meta?.workOrderPdfOf)
+          body.fileContent = Buffer.from(
+            await buildWorkOrderPdf(this.db, payload.meta.workOrderPdfOf),
+          ).toString('base64');
         const res = await bc.create(payload.endpoint, body);
         recordId = String((res.record as { id: string }).id);
       } else if (payload.op === 'delete') {

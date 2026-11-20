@@ -42,6 +42,9 @@ import {
   storageLocation,
   syncCommand,
   textTemplate,
+  checklistTemplate,
+  orderChecklist,
+  orderSignature,
   timeCorrectionRequest,
   timeEntry,
   userLocation,
@@ -302,6 +305,23 @@ export class SyncService {
       await this.material.removeConsumption(tx, scope, (payload as { consumptionId: string }).consumptionId);
       return warnings;
     }
+
+    if (cmd.type === 'SaveChecklist')
+      return this.report.saveChecklist(
+        tx,
+        scope,
+        new Date(cmd.deviceTime),
+        payload as CommandPayload<'SaveChecklist'>,
+        (id) => this.orderAccess(tx, scope, id),
+      );
+    if (cmd.type === 'SignOrder')
+      return this.report.sign(
+        tx,
+        scope,
+        new Date(cmd.deviceTime),
+        payload as CommandPayload<'SignOrder'>,
+        (id) => this.orderAccess(tx, scope, id),
+      );
 
     if (cmd.type === 'SaveWorkReport')
       return this.report.save(
@@ -652,6 +672,29 @@ export class SyncService {
               or(isNull(textTemplate.locationId), eq(textTemplate.locationId, locationId)),
             ),
           );
+        const checklistTemplates = await tx
+          .select()
+          .from(checklistTemplate)
+          .where(
+            and(
+              since(checklistTemplate.txId),
+              or(isNull(checklistTemplate.locationId), eq(checklistTemplate.locationId, locationId)),
+            ),
+          );
+        const checklists = await tx
+          .select()
+          .from(orderChecklist)
+          .where(and(since(orderChecklist.txId), visibleOrders));
+        // The signature image stays on the server (and in the PDF); devices only need to know that it exists.
+        const signatures = await tx
+          .select({
+            orderId: orderSignature.orderId,
+            signerName: orderSignature.signerName,
+            signedAt: orderSignature.signedAt,
+            absentReason: orderSignature.absentReason,
+          })
+          .from(orderSignature)
+          .where(and(since(orderSignature.txId), visibleOrders));
         const messages = await tx
           .select({ m: chatMessage, authorName: appUser.displayName })
           .from(chatMessage)
@@ -718,6 +761,9 @@ export class SyncService {
           partRequests,
           workReports: reports,
           templates,
+          checklistTemplates,
+          orderChecklists: checklists,
+          orderSignatures: signatures,
           chatMessages: messages.map((x) => ({ ...x.m, authorName: x.authorName })),
           chatReads: reads,
           photos: photos.map(({ blobPath: _b, ...p }) => p),

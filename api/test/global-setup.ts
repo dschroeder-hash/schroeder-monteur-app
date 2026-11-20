@@ -38,6 +38,11 @@ export default async function setup() {
   const { db, pool } = createDb(ownerUrl, 1);
   await seedDev(db, TEST_NOW);
   await pool.end();
+  // Most tests finish orders without a customer signature; checklist-signature.test.ts switches it on per location.
+  const so = new pg.Client({ connectionString: ownerUrl });
+  await so.connect();
+  await so.query(`insert into setting (key, value) values ('completion', '{"signatureRequired": false}')`);
+  await so.end();
 
   const u = new URL(ownerUrl);
   const as = (user: string) => {

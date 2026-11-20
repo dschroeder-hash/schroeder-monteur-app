@@ -211,6 +211,14 @@ export const serviceCommentLineSchema = z.object({
   monteurAppId: guid,
 });
 
+/** Attachment of a service order (signed workshop order as PDF, E-68). The content is write-only. */
+export const serviceOrderAttachmentSchema = z.object({
+  ...base,
+  documentNumber: z.string(),
+  fileName: z.string().max(250),
+  monteurAppId: guid,
+});
+
 export const employeeAbsenceSchema = z.object({
   ...base,
   entryNumber: z.number().int(),
@@ -295,6 +303,9 @@ export const serviceCommentLineCreateSchema = serviceCommentLineSchema.omit({
   ...omitServer,
   lineNumber: true,
 });
+export const serviceOrderAttachmentCreateSchema = serviceOrderAttachmentSchema
+  .omit({ ...omitServer })
+  .extend({ fileContent: z.string().min(1) });
 export const employeeAbsenceCreateSchema = employeeAbsenceSchema.omit({ ...omitServer, entryNumber: true });
 export const resourceJournalLineCreateSchema = resourceJournalLineSchema.omit({
   ...omitServer,
@@ -410,6 +421,13 @@ export const endpoints = {
     schema: serviceCommentLineSchema,
     delta: true,
     writable: { create: serviceCommentLineCreateSchema },
+  }),
+  serviceOrderAttachments: def({
+    family: 'werkstatt',
+    entitySet: 'serviceOrderAttachments',
+    schema: serviceOrderAttachmentSchema,
+    delta: false,
+    writable: { create: serviceOrderAttachmentCreateSchema },
   }),
   employeeAbsences: def({
     family: 'werkstatt',

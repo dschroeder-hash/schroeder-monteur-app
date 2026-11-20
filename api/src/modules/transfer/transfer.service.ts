@@ -12,6 +12,8 @@ export interface TransferMeta {
   approvalId?: string;
   /** Resolve `employeeNumber` from the user's BC mapping when the transfer runs (fixable by the Admin, then retry). */
   employeeOfUserId?: string;
+  /** Build the signed workshop order PDF of this order when the transfer runs (body.fileContent, E-68). */
+  workOrderPdfOf?: string;
 }
 
 /**

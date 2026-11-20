@@ -366,6 +366,7 @@ export function buildSeed(now = new Date()): Tables {
     serviceOrderAllocations: [],
     serviceLines: [],
     serviceCommentLines: [],
+    serviceOrderAttachments: [],
     employeeAbsences: [],
     resourceJournalLines: [],
     itemJournalLines: [],

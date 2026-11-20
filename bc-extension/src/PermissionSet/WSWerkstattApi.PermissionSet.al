@@ -32,6 +32,7 @@ permissionset 50100 "WS WERKSTATT API"
         page "WS API Item Journal Lines" = X,
         page "WS API Posted Service Invoices" = X,
         page "WS API Deleted Records" = X,
+        page "WS API Service Order Attachments" = X,
         query "WS API Item Availability" = X,
         // read sources
         tabledata "Service Header" = RM,
@@ -50,6 +51,8 @@ permissionset 50100 "WS WERKSTATT API"
         tabledata "Service Line" = RIM,
         tabledata "Service Order Allocation" = RIM,
         tabledata "Service Comment Line" = RIM,
+        tabledata "Document Attachment" = RIM,
+        tabledata "Tenant Media" = RIM,
         tabledata "Employee Absence" = RIMD,
         tabledata "Res. Journal Line" = RIM,
         tabledata "Item Journal Line" = RIM;
