@@ -36,7 +36,8 @@ async function dragTo(page: Page, source: string, target: string) {
   await page.mouse.up();
 }
 
-test.use({ viewport: { width: 1440, height: 1000 }, isMobile: false, hasTouch: false });
+// Desktop-sized board with mouse drag. No isMobile override: on the iPad projects WebKit hangs if it is switched off.
+test.use({ viewport: { width: 1440, height: 1000 }, hasTouch: false });
 
 test('Meister plans by drag & drop and approves times – data arrives in BC', async ({ page, request }) => {
   // A finished working day of a Monteur (stamped via the sync API, yesterday).

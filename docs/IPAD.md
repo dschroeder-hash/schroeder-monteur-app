@@ -60,5 +60,7 @@ darf **nicht** aktiv sein (sonst scheitert die Microsoft-Anmeldung).
 ## 6. Getestet
 
 Automatisch in jeder Änderung (CI): iPad Pro 11 quer und hoch mit WebKit, der Technik von Safari (`e2e`,
-Entscheidung E-65). Das ersetzt nicht den Pilotbetrieb auf echten Geräten – bitte dort besonders prüfen:
-Kamera-Scan, Ziehen auf der Plantafel, Anmeldung über die Microsoft-SSO-Erweiterung, Push nach Neustart.
+Entscheidung E-65). Ausnahme sind die Flugmodus-Szenarien: Playwright kann den Offline-Zustand in WebKit
+nicht nachbilden, ohne auch den Service Worker abzuschneiden. Sie laufen deshalb nur auf dem Smartphone-Profil
+(Chromium). Das ersetzt nicht den Pilotbetrieb auf echten Geräten – bitte dort besonders prüfen: Arbeiten im
+Flugmodus, Kamera-Scan, Ziehen auf der Plantafel, Anmeldung über die Microsoft-SSO-Erweiterung, Push nach Neustart.
