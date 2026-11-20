@@ -6,6 +6,13 @@ import { loadConfig } from './config.js';
 import { assertDbRole } from './db/role-check.js';
 import { createDb } from './db/client.js';
 import { applyRetention, flagForgottenClockOuts, snapshotProductivity } from './jobs.js';
+import { AuditService } from './common/audit.service.js';
+import { AbsenceService } from './modules/absence/absence.service.js';
+import { ApprovalsService } from './modules/approvals/approvals.service.js';
+import { runAutoApprove } from './modules/approvals/auto-approve.js';
+import { ReportService } from './modules/docs/report.service.js';
+import { TimeService } from './modules/time/time.service.js';
+import { TransferService } from './modules/transfer/transfer.service.js';
 import { resolve } from 'node:path';
 import { AzureBlobStorage, LocalBlobStorage } from './modules/files/blob-storage.js';
 import {
@@ -41,6 +48,18 @@ const clientFor = (companyId: string) => {
 const bcSync = new BcSyncService(db, clientFor, (m) => console.warn(m));
 const bcTransfer = new BcTransferWorker(db, clientFor, (m) => console.warn(m));
 
+// Automatic hand-over to BC without a Meister approval in the app (E-66).
+const transfers = new TransferService();
+const audit = new AuditService();
+const approvals = new ApprovalsService(
+  db,
+  new TimeService(),
+  transfers,
+  audit,
+  new ReportService(),
+  new AbsenceService(db, transfers, audit),
+);
+
 const storage =
   config.STORAGE_MODE === 'azure'
     ? new AzureBlobStorage(config.STORAGE_ACCOUNT_URL!, config.STORAGE_CONTAINER)
@@ -58,6 +77,7 @@ const jobs: Array<{ name: string; intervalMs: number; run: () => Promise<unknown
   { name: 'forgotten-clock-out-reminder', intervalMs: 5 * 60_000, run: () => remindForgottenClockOut(db) },
   ...(pushSender ? [{ name: 'web-push', intervalMs: 20_000, run: () => deliverPush(db, pushSender!) }] : []),
   { name: 'retention', intervalMs: 6 * 3_600_000, run: () => applyRetention(db, (p) => storage.delete(p)) },
+  { name: 'auto-approve', intervalMs: 60_000, run: () => runAutoApprove(db, approvals) },
   { name: 'bc-transfer', intervalMs: 15_000, run: () => bcTransfer.runOnce() },
   { name: 'bc-sync', intervalMs: config.BC_SYNC_INTERVAL_SEC * 1000, run: () => bcSync.runAll() },
   { name: 'bc-refresh', intervalMs: 10_000, run: () => bcSync.processRefreshRequests() },
