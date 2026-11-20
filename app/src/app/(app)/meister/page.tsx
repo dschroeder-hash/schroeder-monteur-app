@@ -17,7 +17,7 @@ const STATUSES: AppStatus[] = [
   'FERTIG',
 ];
 
-/** Meister dashboard – all orders of his location(s). Planning board and approval inbox follow in phase 3. */
+/** Meister dashboard – all orders of the Meister's location(s), inbox counters and shortcuts. */
 export default function MeisterDashboard() {
   const { data, error, loading } = useApi<OrderSummary[]>('/v1/orders?view=location');
   const orders = data ?? [];
@@ -27,6 +27,7 @@ export default function MeisterDashboard() {
     corrections: unknown[];
     orders: unknown[];
     consumptions: unknown[];
+    absences: unknown[];
   }>(loc ? `/v1/approvals/inbox?locationId=${loc}` : null).data;
   return (
     <div className="flex flex-col gap-6">
@@ -54,6 +55,13 @@ export default function MeisterDashboard() {
           value={inbox?.consumptions.length ?? '–'}
           href="/meister/freigaben"
         />
+        <Tile
+          label="Abwesenheiten zu entscheiden"
+          value={inbox?.absences.length ?? '–'}
+          href="/meister/freigaben"
+          tone={inbox && inbox.absences.length ? 'warning' : 'default'}
+        />
+        <Tile label="Abwesenheitsübersicht" value="→" href="/meister/abwesenheiten" />
       </section>
       <section aria-label="Status" className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {STATUSES.map((s) => (

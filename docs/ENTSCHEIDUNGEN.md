@@ -286,3 +286,28 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Entscheidung:** Solange das Suchformat von `parts.agcocorp.com` nicht bekannt ist, öffnet die App die Katalog-Startseite und legt Teile- bzw. Seriennummer in die Zwischenablage.
 **Begründung:** Kein Raten von URL-Formaten, kein Auslesen fremder Seiten; sobald das Format geklärt ist, genügt eine Einstellung mit `{query}` (OP-24).
+
+### E-49 Team-Kalender über Spiegeltabelle statt Sicht mit erhöhten Rechten
+
+**Entscheidung:** Kollegen lesen Abwesenheiten aus `team_absence` (nur Person, Zeitraum, halber Tag), die ein Trigger auf `absence` pflegt. Die Tabelle `absence` selbst bleibt für Monteure auf eigene Zeilen beschränkt.
+**Begründung:** Eine `SECURITY DEFINER`-Funktion oder Sicht würde RLS umgehen und hängt davon ab, wem sie gehört. Mit der Spiegeltabelle erzwingt die Datenbank, dass Art und Kommentar einer Krankmeldung nie bei Kollegen ankommen (PROMPT 5.10, 9).
+
+### E-50 BC nur nach Meister-Entscheidung – auch bei Krankmeldungen
+
+**Entscheidung:** Eine Krankmeldung des Monteurs geht erst nach „Zur Kenntnis genommen“ durch den Meister nach BC, und erst sobald ihr Ende feststeht. Ändert der Monteur das Ende, landet sie erneut in der Inbox. Erfasst Meister oder Personal die Krankmeldung, gilt sie als bestätigt.
+**Begründung:** Grundsatz „Schreiben nur nach Freigabe“ (PROMPT 2). Zugleich darf die Sitzung eines Monteurs per RLS keine BC-Übertragungen anlegen.
+
+### E-51 Änderungen an Abwesenheiten in BC: löschen und neu schreiben
+
+**Entscheidung:** Jede Änderung (Ende verschoben, Urlaub storniert) löscht die bisher geschriebenen BC-Einträge und schreibt bei Bedarf einen neuen. Der BC-Mitarbeiter wird erst beim Senden aus der Benutzerzuordnung gelesen; fehlt sie, schlägt die Übertragung mit klarer Meldung fehl und kann nach dem Pflegen erneut gesendet werden.
+**Begründung:** Mitarbeiterabwesenheiten sind in BC keine gebuchten Posten und dürfen gelöscht werden; ein PATCH bräuchte Schreibrechte auf mehr Felder. Löschen und Neuschreiben laufen in derselben Gruppe streng nacheinander, Duplikate sind ausgeschlossen (Test).
+
+### E-52 Offene Krankmeldungen zählen bei Überschneidungen nur bis heute
+
+**Entscheidung:** Für die Prüfung auf Überschneidungen gilt eine Krankmeldung ohne Ende als „bis heute“. Auf der Plantafel und im Team-Kalender gilt sie dagegen bis auf Weiteres.
+**Begründung:** Sonst wäre jeder spätere Urlaubsantrag blockiert; für die Planung ist die vorsichtige Annahme richtig.
+
+### E-53 Genehmigter Urlaub sperrt die Plantafel, Krankheit markiert nur
+
+**Entscheidung:** Einplanen auf einen genehmigten Urlaubstag wird abgelehnt (409). Krankmeldungen und beantragter Urlaub erzeugen nur einen Hinweis; betroffene Aufträge erscheinen unter „Neu einplanen“, berechnet aus den aktiven Abwesenheiten statt gespeichert.
+**Begründung:** PROMPT 5.9/5.10. Die Berechnung bleibt richtig, wenn das Ende einer Krankmeldung geändert oder der Auftrag umgeplant wird, und braucht keine Schreibrechte des Monteurs auf Einplanungen.

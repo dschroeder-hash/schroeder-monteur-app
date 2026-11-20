@@ -10,6 +10,8 @@ export interface TransferMeta {
   timeEntryIds?: string[];
   consumptionIds?: string[];
   approvalId?: string;
+  /** Resolve `employeeNumber` from the user's BC mapping when the transfer runs (fixable by the Admin, then retry). */
+  employeeOfUserId?: string;
 }
 
 /**
@@ -24,7 +26,9 @@ export type TransferPayload =
       endpoint: EndpointName;
       ref: { table: 'assignment' | 'service_order'; id: string };
       body: Record<string, unknown>;
-    };
+    }
+  /** Deletes the BC record created by an earlier transfer (`ref.id` = that transfer's id, same group). */
+  | { op: 'delete'; endpoint: EndpointName; ref: { table: 'bc_transfer'; id: string } };
 
 export interface EnqueueInput {
   id?: string;

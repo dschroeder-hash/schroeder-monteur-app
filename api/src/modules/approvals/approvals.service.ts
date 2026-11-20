@@ -48,6 +48,7 @@ import { notify } from '../notifications.js';
 import { TimeService } from '../time/time.service.js';
 import { ReportService } from '../docs/report.service.js';
 import { TransferService } from '../transfer/transfer.service.js';
+import { AbsenceService } from '../absence/absence.service.js';
 
 export interface CorrectionEvent {
   kind: StampKind;
@@ -93,6 +94,7 @@ export class ApprovalsService {
     @Inject(TransferService) private readonly transfers: TransferService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ReportService) private readonly report: ReportService,
+    @Inject(AbsenceService) private readonly absences: AbsenceService,
   ) {}
 
   private session(s: AccessScope) {
@@ -195,9 +197,8 @@ export class ApprovalsService {
         days,
         corrections: corrections.map((c) => ({ ...c.r, userName: c.userName })),
         orders: ordersToApprove,
-        // filled in phase 4 (material) and phase 6 (vacation)
         consumptions: await this.consumptionsOf(tx, locationId),
-        vacations: [],
+        absences: await this.absences.inboxItems(tx, locationId),
       };
     });
   }

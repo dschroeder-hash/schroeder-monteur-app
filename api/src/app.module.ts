@@ -16,6 +16,8 @@ import { MeController } from './modules/me/me.controller.js';
 import { OrdersController } from './modules/orders/orders.controller.js';
 import { OrdersService } from './modules/orders/orders.service.js';
 import { SyncController } from './modules/sync/sync.controller.js';
+import { AbsenceController } from './modules/absence/absence.controller.js';
+import { AbsenceService } from './modules/absence/absence.service.js';
 import { ApprovalsController } from './modules/approvals/approvals.controller.js';
 import { ApprovalsService } from './modules/approvals/approvals.service.js';
 import { PlanningController } from './modules/planning/planning.controller.js';
@@ -59,6 +61,7 @@ export class AppModule {
         SyncController,
         PlanningController,
         ApprovalsController,
+        AbsenceController,
         TransfersController,
         MaterialController,
         ContainersController,
@@ -80,6 +83,7 @@ export class AppModule {
         SyncService,
         PlanningService,
         ApprovalsService,
+        AbsenceService,
         TransferService,
         MaterialService,
         ReportService,

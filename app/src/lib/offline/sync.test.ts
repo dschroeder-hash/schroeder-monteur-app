@@ -267,11 +267,16 @@ describe('every command type can be recorded offline', () => {
       },
       SendChatMessage: { orderId: ORDER, body: 'Hallo' },
       MarkChatRead: { orderId: ORDER, upToServerSeq: 1 },
+      ReportSick: { fromDate: '2026-11-20' },
+      UpdateSickEnd: { absenceId: uuid, toDate: '2026-11-21' },
+      RequestVacation: { fromDate: '2027-03-01', toDate: '2027-03-05', halfDay: 'NONE' },
+      WithdrawVacation: { absenceId: uuid },
     };
     for (const type of COMMAND_TYPES) await recordCommand(db, ME, type, (payloads[type] ?? {}) as never);
     expect(await db.outbox.count()).toBe(COMMAND_TYPES.length);
     expect((await db.workReports.get(ORDER))?.body).toBe('Text');
     expect(await db.chatMessages.count()).toBe(1);
     expect(await db.photos.count()).toBe(1);
+    expect((await db.absences.toArray()).map((a) => a.type).sort()).toEqual(['KRANK', 'URLAUB']);
   });
 });

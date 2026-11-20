@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -27,12 +28,29 @@ import { AuditService } from '../../common/audit.service.js';
 import { notify } from '../notifications.js';
 import { TransferService } from '../transfer/transfer.service.js';
 
-export type ConflictKind = 'DOUBLE_BOOKING' | 'ABSENCE';
+export type ConflictKind = 'DOUBLE_BOOKING' | 'ABSENCE' | 'SICK' | 'VACATION';
 export interface Conflict {
   kind: ConflictKind;
   message: string;
   otherAssignmentId?: string;
+  /** Approved vacation blocks planning (PROMPT 5.10). */
+  blocking?: boolean;
 }
+type BoardAbsence = {
+  userId: string;
+  type: 'KRANK' | 'URLAUB';
+  state: string;
+  fromDate: string;
+  toDate: string | null;
+};
+
+/** Assignment lies in an active sick report or approved vacation of its Monteur → "neu einplanen" (PROMPT 5.9). */
+const inActiveAbsence = (x: string) =>
+  sql.raw(`exists (
+  select 1 from absence ab join location l on l.id = ab.location_id
+  where ab.user_id = ${x}.user_id and ab.state in ('REPORTED', 'APPROVED', 'CANCEL_REQUESTED')
+    and ab.from_date <= (${x}.planned_start at time zone l.timezone)::date
+    and (ab.to_date is null or ab.to_date >= (${x}.planned_start at time zone l.timezone)::date))`);
 
 const MAX_DURATION_MS = 16 * 3_600_000;
 
@@ -100,11 +118,12 @@ export class PlanningService {
           ),
         )
         .orderBy(asc(assignment.plannedStart));
-      // Absences are shown without reason on the board (only "abwesend") – PROMPT 5.10.
+      // The Meister may see the type (PROMPT 4); comments never reach the board.
       const absences = await tx
         .select({
           id: absence.id,
           userId: absence.userId,
+          type: absence.type,
           fromDate: absence.fromDate,
           toDate: absence.toDate,
           halfDay: absence.halfDay,
@@ -114,9 +133,9 @@ export class PlanningService {
         .where(
           and(
             eq(absence.locationId, locationId),
-            inArray(absence.state, ['REPORTED', 'APPROVED', 'REQUESTED']),
+            inArray(absence.state, ['REPORTED', 'APPROVED', 'REQUESTED', 'CANCEL_REQUESTED']),
             sql`${absence.fromDate} <= ${localDate(to, loc!.timezone)}`,
-            sql`coalesce(${absence.toDate}, ${absence.fromDate}) >= ${localDate(from, loc!.timezone)}`,
+            sql`(${absence.toDate} is null or ${absence.toDate} >= ${localDate(from, loc!.timezone)})`,
           ),
         );
       const unplanned = await tx
@@ -133,7 +152,7 @@ export class PlanningService {
           machine: sql<
             string | null
           >`(select m.model from ${serviceOrderItem} i join ${machine} m on m.id = i.machine_id where i.order_id = service_order.id order by i.line_no limit 1)`,
-          needsReplan: sql<boolean>`exists (select 1 from ${assignment} x where x.order_id = service_order.id and x.needs_replan and x.cancelled_at is null)`,
+          needsReplan: sql<boolean>`exists (select 1 from ${assignment} x where x.order_id = service_order.id and x.cancelled_at is null and (x.needs_replan or ${inActiveAbsence('x')}))`,
         })
         .from(serviceOrder)
         .where(
@@ -142,7 +161,7 @@ export class PlanningService {
             isNull(serviceOrder.deletedInBcAt),
             or(
               eq(serviceOrder.appStatus, 'NEU'),
-              sql`exists (select 1 from ${assignment} x where x.order_id = ${serviceOrder.id} and x.needs_replan and x.cancelled_at is null)`,
+              sql`exists (select 1 from ${assignment} x where x.order_id = ${serviceOrder.id} and x.cancelled_at is null and (x.needs_replan or ${inActiveAbsence('x')}))`,
             ),
           ),
         )
@@ -163,7 +182,7 @@ export class PlanningService {
           ...a,
           conflicts: this.conflictsFor(a, list, absences, loc!.timezone),
         })),
-        absences: absences.map(({ state: _s, ...a }) => a),
+        absences: absences.map(({ state, ...a }) => ({ ...a, requested: state === 'REQUESTED' })),
         unplanned,
       };
     });
@@ -172,7 +191,7 @@ export class PlanningService {
   private conflictsFor(
     a: { id: string; userId: string; plannedStart: Date; plannedEnd: Date },
     all: Array<{ id: string; userId: string; plannedStart: Date; plannedEnd: Date; bcNo: string }>,
-    absences: Array<{ userId: string; fromDate: string; toDate: string | null }>,
+    absences: BoardAbsence[],
     tz: string,
   ): Conflict[] {
     const out: Conflict[] = [];
@@ -190,9 +209,12 @@ export class PlanningService {
         });
     const d1 = localDate(a.plannedStart, tz);
     const d2 = localDate(new Date(a.plannedEnd.getTime() - 1), tz);
-    for (const ab of absences)
-      if (ab.userId === a.userId && ab.fromDate <= d2 && (ab.toDate ?? ab.fromDate) >= d1)
-        out.push({ kind: 'ABSENCE', message: 'Monteur ist abwesend' });
+    for (const ab of absences) {
+      if (ab.userId !== a.userId || ab.fromDate > d2 || (ab.toDate ?? '9999-12-31') < d1) continue;
+      if (ab.type === 'KRANK') out.push({ kind: 'SICK', message: 'Monteur krank gemeldet – neu einplanen' });
+      else if (ab.state === 'REQUESTED') out.push({ kind: 'ABSENCE', message: 'Urlaub beantragt' });
+      else out.push({ kind: 'VACATION', message: 'Monteur hat genehmigten Urlaub', blocking: true });
+    }
     return out;
   }
 
@@ -222,7 +244,13 @@ export class PlanningService {
         ),
       );
     const abs = await tx
-      .select({ userId: absence.userId, fromDate: absence.fromDate, toDate: absence.toDate })
+      .select({
+        userId: absence.userId,
+        type: absence.type,
+        state: absence.state,
+        fromDate: absence.fromDate,
+        toDate: absence.toDate,
+      })
       .from(absence)
       .where(
         and(
@@ -231,7 +259,11 @@ export class PlanningService {
           notInArray(absence.state, ['REJECTED', 'CANCELLED']),
         ),
       );
-    return this.conflictsFor(a, [...others, a as typeof a & { bcNo: string }], abs, tz);
+    const conflicts = this.conflictsFor(a, [...others, a as typeof a & { bcNo: string }], abs, tz);
+    const block = conflicts.find((c) => c.blocking);
+    // Thrown inside the transaction → nothing (assignment, BC transfer, notification) is saved.
+    if (block) throw new ConflictException(`${block.message} – bitte anderen Tag oder Monteur wählen`);
+    return conflicts;
   }
 
   private validateTimes(start: Date, end: Date) {

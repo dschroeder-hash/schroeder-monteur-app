@@ -16,6 +16,7 @@ const OFFLINE_PAGES = [
   '/monteur/verbrauch',
   '/monteur/bericht',
   '/monteur/chat',
+  '/monteur/abwesenheit',
   '/chat',
   // Header images must not break offline.
   '/icons/icon-192.png',

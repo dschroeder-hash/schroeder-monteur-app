@@ -232,6 +232,17 @@ export class BcClient {
     const row = json as Record<string, unknown>;
     return { record: this.parse(name, row), etag: row['@odata.etag'] as string | undefined };
   }
+
+  /** Deletes a record. A record that is already gone counts as deleted (idempotent retry). */
+  async delete(name: EndpointName, id: string): Promise<void> {
+    if (!endpoints[name].writable?.delete) throw new Error(`${name} cannot be deleted`);
+    try {
+      await this.request('DELETE', this.url(name, `(${id})`), undefined, { 'if-match': '*' });
+    } catch (e) {
+      if (e instanceof BcError && e.status === 404) return;
+      throw e;
+    }
+  }
 }
 
 function backoff(attempt: number, base: number): number {

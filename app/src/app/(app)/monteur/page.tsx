@@ -1,7 +1,10 @@
 'use client';
 
 import { DEFAULT_STATUS_DEFINITIONS, localDate, type AppStatus } from '@schroeder/shared';
+import { useState } from 'react';
 import { OrderCard } from '@/components/OrderCard';
+import { SickReportDialog } from '@/components/SickReportDialog';
+import { Button } from '@/components/ui/Button';
 import { Tile } from '@/components/ui/Tile';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { fmtMinutes } from '@/lib/format';
@@ -29,10 +32,19 @@ export default function MonteurDashboard() {
       (a.assignments[0]?.plannedStart ?? '').localeCompare(b.assignments[0]?.plannedStart ?? ''),
     );
   const count = (s: AppStatus) => orders.filter((o) => o.appStatus === s).length;
+  const [sick, setSick] = useState(false);
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-headline text-2xl">Meine Aufträge</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-headline text-2xl">Meine Aufträge</h1>
+        {me?.features['absence.sick'] && (
+          <Button variant="secondary" onClick={() => setSick(true)}>
+            Krank melden
+          </Button>
+        )}
+      </div>
+      {sick && <SickReportDialog onClose={() => setSick(false)} />}
       <section aria-label="Status" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {DASHBOARD_STATUSES.map((s) => (
           <Tile

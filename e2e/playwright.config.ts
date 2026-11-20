@@ -7,6 +7,17 @@ export const API_URL = 'http://localhost:4010';
 export const BC_MOCK_URL = 'http://localhost:4110';
 
 /**
+ * Start of the working day lived by offline-day.spec.ts: 06:00 UTC (07:00/08:00 in Germany) of today, or of
+ * yesterday if that is less than 9 h ago – the day is fast-forwarded and must neither cross midnight nor reach
+ * into the future (the server rejects future stamps). Used by the global setup (seed day) and the spec.
+ */
+export function deviceDayStart(now = Date.now()): Date {
+  const today = new Date(now);
+  today.setUTCHours(6, 0, 0, 0);
+  return now - today.getTime() >= 9 * 3_600_000 ? today : new Date(today.getTime() - 86_400_000);
+}
+
+/**
  * End-to-end tests against the production build of the app (service worker active) and the real API.
  * Requires: `pnpm --filter @schroeder/e2e build:app` and `pnpm --filter @schroeder/api build` beforehand.
  */

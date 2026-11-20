@@ -13,6 +13,9 @@ export const fmtDate = (date: string) =>
     month: '2-digit',
   });
 
+/** Full date with year (absences may span years): 01.03.2027 */
+export const fmtDay = (date: string) => date.split('-').reverse().join('.');
+
 /** Navigation deeplinks (PROMPT 5.2). Address only, no tracking parameters. */
 export function navLinks(a: { street: string; postCode: string; city: string } | null) {
   if (!a) return null;

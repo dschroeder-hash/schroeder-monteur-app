@@ -16,6 +16,7 @@ import {
 import {
   kvGet,
   kvSet,
+  type LocalAbsence,
   type LocalAssignment,
   type LocalChatMessage,
   type LocalChatRead,
@@ -100,6 +101,7 @@ export async function recordCommand<T extends CommandType>(
       db.workReports,
       db.chatMessages,
       db.photos,
+      db.absences,
     ],
     async () => {
       // The auto-increment key of the outbox is the device sequence (monotonic per device).
@@ -183,6 +185,31 @@ export async function recordCommand<T extends CommandType>(
           deviceTime: at.toISOString(),
           pending: true,
         });
+      }
+      if (type === 'ReportSick' || type === 'RequestVacation') {
+        const p = payload as CommandPayload<'ReportSick'> & Partial<CommandPayload<'RequestVacation'>>;
+        await db.absences.put({
+          id,
+          type: type === 'ReportSick' ? 'KRANK' : 'URLAUB',
+          state: type === 'ReportSick' ? 'REPORTED' : 'REQUESTED',
+          fromDate: p.fromDate,
+          toDate: p.toDate ?? null,
+          halfDay: p.halfDay ?? 'NONE',
+          comment: p.comment ?? null,
+          decisionReason: null,
+          decidedAt: null,
+          pending: true,
+        });
+      }
+      if (type === 'UpdateSickEnd') {
+        const p = payload as CommandPayload<'UpdateSickEnd'>;
+        await db.absences.update(p.absenceId, { toDate: p.toDate, pending: true });
+      }
+      if (type === 'WithdrawVacation') {
+        const a = await db.absences.get((payload as CommandPayload<'WithdrawVacation'>).absenceId);
+        if (a?.state === 'REQUESTED') await db.absences.update(a.id, { state: 'CANCELLED', pending: true });
+        if (a?.state === 'APPROVED')
+          await db.absences.update(a.id, { state: 'CANCEL_REQUESTED', pending: true });
       }
       if (type === 'SendChatMessage') {
         const p = payload as CommandPayload<'SendChatMessage'>;
@@ -324,6 +351,9 @@ export async function pushOutbox(
       rejected++;
       await db.outbox.update(e.seq!, { status: 'rejected', error: r.reason });
       await db.stampEvents.delete(e.id);
+      if (e.type === 'ReportSick' || e.type === 'RequestVacation') await db.absences.delete(e.id);
+      // Optimistic change of an existing absence was refused → reload the server state with the next pull.
+      if (e.type === 'UpdateSickEnd' || e.type === 'WithdrawVacation') await kvSet(db, 'cursor', null);
       await notice(db, 'error', `Nicht übernommen: ${r.reason ?? 'unbekannter Grund'}`);
       continue;
     }
@@ -365,6 +395,8 @@ interface PullResponse {
   /** Stamp events voided by a Meister correction (E-37). */
   voidedEventIds?: string[];
   correctionRequests?: CorrectionRequest[];
+  absences?: Array<Omit<LocalAbsence, 'pending'>>;
+  vacationBalances?: Array<{ year: number; entitlementDays: number; carryOverDays: number }>;
   storages?: LocalStorage[];
   items?: LocalItem[];
   stocks?: LocalStock[];
@@ -403,6 +435,7 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     db.chatMessages,
     db.chatReads,
     db.photos,
+    db.absences,
   ];
   await db.transaction('rw', tables, async () => {
     const before = new Map((await db.assignments.toArray()).map((a) => [a.id, a]));
@@ -440,6 +473,9 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     await db.overheadTypes.bulkPut(res.overheadTypes);
     await applyMaterial(db, ownerId, res);
     await applyCommunication(db, res);
+    if (res.full) await db.absences.filter((a) => !a.pending).delete();
+    if (res.absences?.length) await db.absences.bulkPut(res.absences.map((a) => ({ ...a, pending: false })));
+    if (res.vacationBalances) await kvSet(db, 'vacationBalances', res.vacationBalances);
     await kvSet(db, 'location', res.location);
     await kvSet(db, 'settings', res.settings);
     await kvSet(db, 'cursor', res.cursor);

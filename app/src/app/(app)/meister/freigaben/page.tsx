@@ -3,6 +3,7 @@
 import { ACTIVITY_LABELS, localTime, type Activity, type DaySummary } from '@schroeder/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { AbsenceInbox, type InboxAbsence } from '@/components/AbsenceInbox';
 import { apiFetch, ApiError } from '@/lib/api';
 import { fmtDate, fmtMinutes } from '@/lib/format';
 import { useMeisterLocations } from '@/lib/meister';
@@ -50,6 +51,7 @@ interface Consumption {
   deviceTime: string;
 }
 interface Inbox {
+  absences: InboxAbsence[];
   consumptions: Consumption[];
   days: InboxDay[];
   corrections: CorrectionReq[];
@@ -117,6 +119,8 @@ export default function ApprovalsPage() {
           {msg.text}
         </p>
       )}
+
+      {!!inbox?.absences.length && <AbsenceInbox items={inbox.absences} act={act} />}
 
       {!!inbox?.corrections.length && (
         <section aria-labelledby="korr" className="flex flex-col gap-2">

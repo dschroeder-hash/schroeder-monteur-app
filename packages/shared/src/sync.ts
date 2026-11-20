@@ -8,6 +8,7 @@ import { ACTIVITIES } from './time/model.js';
 
 const uuid = z.string().uuid();
 const isoDateTime = z.string().datetime({ offset: true });
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum im Format JJJJ-MM-TT');
 
 /** Stamp command payloads. The command id doubles as stamp event id. */
 const stamp = {
@@ -98,6 +99,26 @@ export const COMMAND_PAYLOADS = {
     .object({ orderId: uuid, body: z.string().max(4000).default(''), photoId: uuid.nullish() })
     .refine((v) => v.body.trim().length > 0 || !!v.photoId, { message: 'Nachricht ist leer' }),
   MarkChatRead: z.object({ orderId: uuid, upToServerSeq: z.number().int().nonnegative() }),
+  /** Sick report in 2 taps (PROMPT 5.9). No diagnosis, no certificate upload. The command id is the absence id. */
+  ReportSick: z
+    .object({ fromDate: isoDate, toDate: isoDate.nullish(), comment: z.string().max(500).nullish() })
+    .refine((v) => !v.toDate || v.toDate >= v.fromDate, { message: 'Ende liegt vor dem Beginn' }),
+  /** Set or change the expected end of a sick report ("voraussichtlich bis" / "wieder gesund"). */
+  UpdateSickEnd: z.object({ absenceId: uuid, toDate: isoDate }),
+  /** Vacation request (PROMPT 5.10). Half days only for a single day. The command id is the absence id. */
+  RequestVacation: z
+    .object({
+      fromDate: isoDate,
+      toDate: isoDate,
+      halfDay: z.enum(['NONE', 'AM', 'PM']).default('NONE'),
+      comment: z.string().max(500).nullish(),
+    })
+    .refine((v) => v.toDate >= v.fromDate, { message: 'Ende liegt vor dem Beginn' })
+    .refine((v) => v.halfDay === 'NONE' || v.fromDate === v.toDate, {
+      message: 'Halbe Tage nur für einen einzelnen Tag',
+    }),
+  /** Withdraw a request (open → cancelled) or ask to cancel approved vacation (→ Meister decides). */
+  WithdrawVacation: z.object({ absenceId: uuid }),
 } as const;
 
 export type CommandType = keyof typeof COMMAND_PAYLOADS;

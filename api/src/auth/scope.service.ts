@@ -28,6 +28,10 @@ export class ScopeService {
       user ??= (await this.db.select().from(appUser).where(eq(appUser.entraOid, p.oid)).limit(1))[0];
     }
     if (!user || !user.active) throw new UserInactiveError();
+    // Remember the Entra roles (needed e.g. to notify Personal about absences).
+    const roles = [...p.roles].sort();
+    if (roles.join(',') !== [...(user.roles ?? [])].sort().join(','))
+      await this.db.update(appUser).set({ roles }).where(eq(appUser.id, user.id));
 
     const rows = await this.db.select().from(userLocation).where(eq(userLocation.userId, user.id));
     // A location grant only counts if the matching Entra role is present.

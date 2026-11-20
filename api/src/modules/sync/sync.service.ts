@@ -17,6 +17,7 @@ import type { AccessScope } from '../../auth/auth.types.js';
 import { DB } from '../../db/db.module.js';
 import { withSession, type Db, type Tx } from '../../db/client.js';
 import {
+  absence,
   appUser,
   assignment,
   chatMessage,
@@ -43,6 +44,7 @@ import {
   timeCorrectionRequest,
   timeEntry,
   userLocation,
+  vacationBalance,
   workReport,
 } from '../../db/schema.js';
 import { notify } from '../notifications.js';
@@ -51,6 +53,7 @@ import { TimeService } from '../time/time.service.js';
 import { MaterialService } from '../material/material.service.js';
 import { ReportService } from '../docs/report.service.js';
 import { CommService } from '../files/comm.service.js';
+import { AbsenceService } from '../absence/absence.service.js';
 
 import { CommandRejected } from './command-rejected.js';
 export { CommandRejected };
@@ -80,6 +83,7 @@ export class SyncService {
     @Inject(MaterialService) private readonly material: MaterialService,
     @Inject(ReportService) private readonly report: ReportService,
     @Inject(CommService) private readonly comm: CommService,
+    @Inject(AbsenceService) private readonly absences: AbsenceService,
   ) {}
 
   private session(s: AccessScope) {
@@ -330,6 +334,34 @@ export class SyncService {
           null,
         );
       return warnings;
+    }
+
+    if (cmd.type === 'ReportSick' || cmd.type === 'UpdateSickEnd') {
+      if (!(await this.features.isEnabled('absence.sick', locationId)))
+        throw new CommandRejected('Die Krankmeldung ist für Ihren Standort nicht freigeschaltet');
+      if (cmd.type === 'ReportSick')
+        return this.absences.reportSick(
+          tx,
+          scope,
+          locationId,
+          cmd.id,
+          payload as CommandPayload<'ReportSick'>,
+        );
+      return this.absences.updateSickEndByMonteur(tx, scope, payload as CommandPayload<'UpdateSickEnd'>);
+    }
+
+    if (cmd.type === 'RequestVacation' || cmd.type === 'WithdrawVacation') {
+      if (!(await this.features.isEnabled('absence.vacation', locationId)))
+        throw new CommandRejected('Urlaubsanträge sind für Ihren Standort nicht freigeschaltet');
+      if (cmd.type === 'RequestVacation')
+        return this.absences.requestVacation(
+          tx,
+          scope,
+          locationId,
+          cmd.id,
+          payload as CommandPayload<'RequestVacation'>,
+        );
+      return this.absences.withdrawVacation(tx, scope, payload as CommandPayload<'WithdrawVacation'>);
     }
 
     if (cmd.type === 'RequestTimeCorrection') {
@@ -649,6 +681,19 @@ export class SyncService {
           .select()
           .from(timeCorrectionRequest)
           .where(and(eq(timeCorrectionRequest.userId, scope.userId), since(timeCorrectionRequest.txId)));
+        // Own absences (with type) and vacation entitlements – the remaining vacation is computed offline.
+        const absences = await tx
+          .select()
+          .from(absence)
+          .where(and(eq(absence.userId, scope.userId), since(absence.txId)));
+        const balances = await tx
+          .select({
+            year: vacationBalance.year,
+            entitlementDays: vacationBalance.entitlementDays,
+            carryOverDays: vacationBalance.carryOverDays,
+          })
+          .from(vacationBalance)
+          .where(eq(vacationBalance.userId, scope.userId));
 
         return {
           voidedEventIds: voided.map((v) => v.id),
@@ -667,6 +712,8 @@ export class SyncService {
           chatReads: reads,
           photos: photos.map(({ blobPath: _b, ...p }) => p),
           correctionRequests: corrections,
+          absences,
+          vacationBalances: balances,
           cursor: next,
           full: cursor === null,
           serverTime: new Date().toISOString(),

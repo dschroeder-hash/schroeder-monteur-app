@@ -54,7 +54,13 @@ interface Board {
   location: { id: string; name: string; timezone: string };
   monteure: Monteur[];
   assignments: BoardAssignment[];
-  absences: Array<{ userId: string; fromDate: string; toDate: string | null }>;
+  absences: Array<{
+    userId: string;
+    type: 'KRANK' | 'URLAUB';
+    requested: boolean;
+    fromDate: string;
+    toDate: string | null;
+  }>;
   unplanned: UnplannedOrder[];
 }
 
@@ -150,8 +156,13 @@ export default function PlanningBoardPage() {
     useSensor(KeyboardSensor),
   );
 
-  const absent = (userId: string, d: string) =>
-    !!board?.absences.some((a) => a.userId === userId && a.fromDate <= d && (a.toDate ?? a.fromDate) >= d);
+  /** Label of the absence on that day: "krank", "Urlaub", "Urlaub beantragt" – open-ended sick reports included. */
+  const absent = (userId: string, d: string): string | null => {
+    const a = board?.absences.find(
+      (x) => x.userId === userId && x.fromDate <= d && (x.toDate ?? '9999-12-31') >= d,
+    );
+    return !a ? null : a.type === 'KRANK' ? 'krank' : a.requested ? 'Urlaub beantragt' : 'Urlaub';
+  };
   const assignmentsIn = (userId: string, d: string, hour: number | null) =>
     (board?.assignments ?? []).filter((a) => {
       if (a.userId !== userId || localDate(new Date(a.plannedStart), tz) !== d) return false;
@@ -420,11 +431,11 @@ export default function PlanningBoardPage() {
                       <Cell
                         key={`${m.id}-${c.d}-${c.h}`}
                         id={`cell|${m.id}|${c.d}|${hh}`}
-                        absent={absent(m.id, c.d)}
+                        absent={!!absent(m.id, c.d)}
                         label={`${m.name} ${c.d} ${hh}`}
                       >
                         {absent(m.id, c.d) && (
-                          <p className="text-xs font-semibold text-text-muted">abwesend</p>
+                          <p className="text-xs font-semibold text-text-muted">{absent(m.id, c.d)}</p>
                         )}
                         {assignmentsIn(m.id, c.d, c.h).map(chip)}
                       </Cell>

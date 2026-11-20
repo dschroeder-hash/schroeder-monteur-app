@@ -4,7 +4,7 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 import pg from 'pg';
-import { API_URL } from '../playwright.config.js';
+import { API_URL, deviceDayStart } from '../playwright.config.js';
 
 const HOUR = 3_600_000;
 
@@ -20,8 +20,8 @@ async function tap(page: Page, name: string) {
 }
 
 test('complete working day in flight mode, then sync without duplicates', async ({ page, context }) => {
-  // Start the device clock 9 h in the past so the day can be "lived" with fast-forward.
-  const start = new Date(Date.now() - 9 * HOUR);
+  // Start the device clock in the past so the day can be "lived" with fast-forward.
+  const start = deviceDayStart();
   await page.clock.install({ time: start });
   await login(page, 'monteur-wild');
 

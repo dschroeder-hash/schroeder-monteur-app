@@ -10,7 +10,14 @@
  */
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
-import { assignment, bcTransfer, consumption, serviceOrder, timeEntry } from '../db/schema.js';
+import {
+  assignment,
+  bcResourceMapping,
+  bcTransfer,
+  consumption,
+  serviceOrder,
+  timeEntry,
+} from '../db/schema.js';
 import type { TransferPayload } from '../modules/transfer/transfer.service.js';
 import { BcContractError, BcError, type BcClient } from './bc-client.js';
 
@@ -82,10 +89,33 @@ export class BcTransferWorker {
     const payload = t.payload as unknown as TransferPayload;
     const bc = this.clientFor(t.bcCompanyId);
     try {
-      let recordId: string;
+      let recordId: string | null;
       if (payload.op === 'create') {
-        const res = await bc.create(payload.endpoint, { ...payload.body, monteurAppId: t.id });
+        const body: Record<string, unknown> = { ...payload.body, monteurAppId: t.id };
+        if (payload.meta?.employeeOfUserId) {
+          const [m] = await this.db
+            .select({ no: bcResourceMapping.bcEmployeeNo })
+            .from(bcResourceMapping)
+            .where(eq(bcResourceMapping.userId, payload.meta.employeeOfUserId));
+          if (!m?.no)
+            throw new BcError(
+              0,
+              'MappingMissing',
+              'Dem Benutzer ist kein BC-Mitarbeiter zugeordnet (Administration → Benutzer), danach erneut senden',
+              false,
+            );
+          body.employeeNumber = m.no;
+        }
+        const res = await bc.create(payload.endpoint, body);
         recordId = String((res.record as { id: string }).id);
+      } else if (payload.op === 'delete') {
+        const [src] = await this.db
+          .select({ id: bcTransfer.bcRecordId, state: bcTransfer.state })
+          .from(bcTransfer)
+          .where(eq(bcTransfer.id, payload.ref.id));
+        // Nothing reached BC (e.g. resolved manually by the Admin) → nothing to delete.
+        if (src?.id) await bc.delete(payload.endpoint, src.id);
+        recordId = src?.id ?? null;
       } else {
         const target = await this.resolveRef(payload.ref);
         if (!target)

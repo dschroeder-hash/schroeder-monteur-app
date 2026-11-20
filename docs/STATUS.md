@@ -144,3 +144,35 @@ Tests gesamt: 449 API, 38 Fachlogik, 33 UI-Bausteine, 33 BC-Mock, 2 BC-Vertrag, 
 
 - VAPID-Schlüssel, Speech-Schlüssel und CORS-Regel des Storage-Kontos für direkte Uploads müssen bei der Einrichtung gesetzt werden (OP-28 bis OP-30).
 - KI-Umformulierung bleibt aus, bis ein Anbieter mit Datenverarbeitung in der EU freigegeben ist (OP-31).
+
+## Phase 6 – Abwesenheiten ✅ (20.11.2026)
+
+**Fertig**
+
+| Bereich       | Inhalt                                                                                                                                                                                                                                             | Tests            |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Fachlogik     | Arbeitstage ohne Wochenende und Feiertage je Bundesland, halbe Tage, Aufteilung nach Jahren, Resturlaub (Anspruch + Übertrag − genehmigt − beantragt)                                                                                              | 7                |
+| Krankmeldung  | Monteur in 2 Taps (Startseite → „Krank melden“ → „Krankmeldung senden“), offline; Hinweis auf eAU, kein Upload, keine Diagnose; Meister und Personal sofort benachrichtigt; Meister/Personal können für einen Monteur erfassen und das Ende setzen | in Phase-6-Tests |
+| Urlaub        | Antrag ganz- oder halbtags offline, Resturlaub auf dem Gerät berechnet; Meister genehmigt oder lehnt mit Pflichtbegründung ab; Stornoantrag; Push an den Antragsteller                                                                             | in Phase-6-Tests |
+| Team-Kalender | Kollegen sehen nur „abwesend“ – ohne Art und Kommentar, per Datenbank-Spiegeltabelle und RLS abgesichert (direkter Tabellenzugriff als Kollege getestet)                                                                                           | in Phase-6-Tests |
+| Plantafel     | Aufträge eines krank gemeldeten Monteurs erscheinen unter „Neu einplanen“; genehmigter Urlaub sperrt das Einplanen (409); Zellen zeigen „krank“, „Urlaub“, „Urlaub beantragt“                                                                      | in Phase-6-Tests |
+| BC-Transfer   | Adapter Mitarbeiterabwesenheit (Ursachencodes `KRANK`/`URLAUB`), BC-Mitarbeiter wird beim Senden aus der Zuordnung gelesen; Änderung oder Storno löscht den BC-Eintrag und schreibt ggf. neu – keine Duplikate                                     | in Phase-6-Tests |
+| Personal      | Übersicht aller Standorte mit Art, Status und BC-Stand; Urlaubskonten pflegen                                                                                                                                                                      | –                |
+| E2E           | Krankmeldung und Urlaubsantrag im Flugmodus → Sync → Meister bestätigt bzw. genehmigt, setzt das Ende → beide Einträge im BC-Mock → Personal sieht beides                                                                                          | 1                |
+
+Tests gesamt: 514 API, 45 Fachlogik, 33 UI-Bausteine, 33 BC-Mock, 2 BC-Vertrag, 10 App, 5 E2E – alle grün.
+
+**Akzeptanz (DoD) belegt:** Urlaub und Krankmeldung laufen Ende-zu-Ende inklusive BC-Transfer (E2E-Test `vacation-sick.spec.ts`).
+
+**Aufgefallen und behoben**
+
+- Eine Krankmeldung ohne Enddatum hätte jeden späteren Urlaubsantrag blockiert (E2E-Test hat es gefunden) → offene Krankmeldungen zählen bei Überschneidungen nur bis heute (E-52).
+- Ein abgelehnter Offline-Antrag blieb in der App als „wird übertragen“ stehen → wird jetzt entfernt, der Grund erscheint als Hinweis.
+- Auf der Plantafel galt eine offene Krankmeldung nur für ihren ersten Tag.
+- Die E2E-Tests schlugen morgens vor 09:00 Uhr UTC fehl (Testtag über Mitternacht) → fester Tagesbeginn für den Offline-Arbeitstag.
+- Die vierte Navigationsschaltfläche „Abwesenheit“ war auf dem Smartphone abgeschnitten.
+
+**Offen / Hinweise**
+
+- `docs/DATENSCHUTZ.md` (Verarbeitungsübersicht inkl. Krankmeldungen) folgt mit Phase 8.
+- Krank während Urlaub und Eskalation offener Krankmeldungen: OP-32, OP-33.

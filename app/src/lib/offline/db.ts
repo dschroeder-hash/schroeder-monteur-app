@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable, type Table } from 'dexie';
-import type { AppStatus, StampKind, Activity } from '@schroeder/shared';
+import type { AbsenceState, AbsenceType, Activity, AppStatus, HalfDay, StampKind } from '@schroeder/shared';
 
 /** A command written while (possibly) offline; sent to POST /v1/sync/push in device order (ENTSCHEIDUNGEN E-06). */
 export interface OutboxEntry {
@@ -223,6 +223,20 @@ export interface LocalChatRead {
   readAt: string;
 }
 
+/** Own absence (PROMPT 5.9/5.10); colleagues' absences are never stored with type. */
+export interface LocalAbsence {
+  id: string;
+  type: AbsenceType;
+  state: AbsenceState;
+  fromDate: string;
+  toDate: string | null;
+  halfDay: HalfDay;
+  comment: string | null;
+  decisionReason: string | null;
+  decidedAt: string | null;
+  pending?: boolean;
+}
+
 export interface LocalPhoto {
   id: string;
   orderId: string;
@@ -273,6 +287,7 @@ export class MonteurDb extends Dexie {
   chatReads!: Table<LocalChatRead, [string, string]>;
   photos!: EntityTable<LocalPhoto, 'id'>;
   photoBlobs!: EntityTable<PhotoBlob, 'id'>;
+  absences!: EntityTable<LocalAbsence, 'id'>;
 
   constructor(name = 'schroeder-monteur') {
     super(name);
@@ -303,6 +318,7 @@ export class MonteurDb extends Dexie {
       photos: 'id, orderId',
       photoBlobs: 'id, state, orderId',
     });
+    this.version(5).stores({ absences: 'id, type, fromDate, state' });
   }
 
   /** Removes all cached personal data (logout). The outbox is kept only if the caller decides so. */
@@ -329,6 +345,7 @@ export class MonteurDb extends Dexie {
       this.chatReads,
       this.photos,
       this.photoBlobs,
+      this.absences,
     ];
     await this.transaction('rw', [...tables, this.outbox], async () => {
       await Promise.all(tables.map((t) => t.clear()));

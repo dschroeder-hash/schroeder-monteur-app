@@ -2,7 +2,7 @@ import pg from 'pg';
 import { runMigrations } from '@schroeder/api/dist/db/migrate.js';
 import { createDb } from '@schroeder/api/dist/db/client.js';
 import { seedDev } from '@schroeder/api/dist/seed/dev-seed.js';
-import { E2E_DB } from './playwright.config.js';
+import { deviceDayStart, E2E_DB } from './playwright.config.js';
 
 /** Fresh database with seed data for "today" and a non-privileged API login (RLS active). */
 export default async function setup() {
@@ -29,8 +29,19 @@ export default async function setup() {
   );
   await o.end();
   const { db, pool } = createDb(ownerUrl, 1);
-  // "Today" for the seed is the day the test device starts (its clock runs 9 h behind, see offline-day.spec.ts).
-  await seedDev(db, new Date(Date.now() - 9 * 3_600_000));
+  // "Today" for the seed is the day the test device of offline-day.spec.ts lives through.
+  const deviceStart = deviceDayStart();
+  await seedDev(db, deviceStart);
   await pool.end();
+  // Before 15:00 UTC the device day of offline-day.spec.ts is yesterday, while the other specs use the real clock.
+  // Plan the same orders for the real today as well, so "Heute fällig" is right for both.
+  if (deviceStart.toISOString().slice(0, 10) !== new Date().toISOString().slice(0, 10)) {
+    const c = new pg.Client({ connectionString: ownerUrl });
+    await c.connect();
+    await c.query(`insert into assignment (id, order_id, location_id, user_id, planned_start, planned_end)
+      select gen_random_uuid(), order_id, location_id, user_id, planned_start + interval '1 day', planned_end + interval '1 day'
+      from assignment where cancelled_at is null`);
+    await c.end();
+  }
   process.env.E2E_OWNER_DATABASE_URL = ownerUrl;
 }

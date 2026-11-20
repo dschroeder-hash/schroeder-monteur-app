@@ -328,7 +328,7 @@ export interface EndpointDef<S extends z.ZodTypeAny = z.ZodTypeAny> {
   /** Whether the entity supports delta sync via lastModifiedDateTime. */
   delta: boolean;
   /** Write operations allowed by the Monteur-App. */
-  writable?: { create?: z.ZodTypeAny; patch?: z.ZodTypeAny };
+  writable?: { create?: z.ZodTypeAny; patch?: z.ZodTypeAny; delete?: true };
 }
 
 const def = <S extends z.ZodTypeAny>(d: EndpointDef<S>) => d;
@@ -416,7 +416,8 @@ export const endpoints = {
     entitySet: 'employeeAbsences',
     schema: employeeAbsenceSchema,
     delta: true,
-    writable: { create: employeeAbsenceCreateSchema },
+    // Delete: cancelled vacation / changed sick period (Employee Absence is not a posted ledger entry).
+    writable: { create: employeeAbsenceCreateSchema, delete: true },
   }),
   resourceJournalLines: def({
     family: 'werkstatt',

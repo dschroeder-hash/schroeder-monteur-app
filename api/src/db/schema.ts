@@ -185,6 +185,11 @@ export const appUser = pgTable('app_user', {
   email: text('email').notNull(),
   isApprentice: boolean('is_apprentice').notNull().default(false),
   active: boolean('active').notNull().default(true),
+  /** Entra app roles seen at the last sign-in (e.g. to notify Personal, which has no location grant). */
+  roles: text('roles')
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
   ...timestamps,
   ...rowVersion,
 });
@@ -851,6 +856,29 @@ export const absence = pgTable(
     index('absence_user_idx').on(t.userId, t.fromDate),
     index('absence_location_idx').on(t.locationId, t.fromDate),
   ],
+);
+
+/**
+ * Team calendar (PROMPT 5.10): colleagues see that someone is absent, never why. Mirror of active absences
+ * without type and comment, maintained by a trigger on `absence` (migration 0009).
+ */
+export const teamAbsence = pgTable(
+  'team_absence',
+  {
+    absenceId: uuid('absence_id')
+      .primaryKey()
+      .references(() => absence.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUser.id),
+    locationId: uuid('location_id')
+      .notNull()
+      .references(() => location.id),
+    fromDate: date('from_date', { mode: 'string' }).notNull(),
+    toDate: date('to_date', { mode: 'string' }),
+    halfDay: halfDayEnum('half_day').notNull().default('NONE'),
+  },
+  (t) => [index('team_absence_location_idx').on(t.locationId, t.fromDate)],
 );
 
 export const vacationBalance = pgTable(
