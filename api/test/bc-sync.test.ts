@@ -101,6 +101,8 @@ describe('BC delta sync', () => {
     // change in BC without touching lastModifiedDateTime → the delta sync would not see it
     o.description = 'Direkt in BC geändert';
     const [u] = (await owner.query('select id from app_user limit 1')).rows;
+    // requests left open by other test files (the file order varies) must not count here
+    await owner.query('update bc_refresh_request set done_at = now() where done_at is null');
     await owner.query('insert into bc_refresh_request (order_id, requested_by) values ($1, $2)', [
       order.id,
       u.id,
