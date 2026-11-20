@@ -13,7 +13,9 @@ const PAGES: Record<string, string[]> = {
     '/monteur/material',
     '/monteur/verbrauch',
     '/monteur/produktivitaet',
+    '/monteur/artikel',
   ],
+  'werkstatt-pc-wild': ['/terminal'],
   'lager-wild': ['/lager'],
   admin: ['/admin', '/admin/uebertragungen'],
 };
