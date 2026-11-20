@@ -33,6 +33,7 @@ import {
   serviceOrderItem,
   setting,
   storageLocation,
+  bcRefreshRequest,
 } from '../db/schema.js';
 import type { BcClient } from './bc-client.js';
 
@@ -111,6 +112,67 @@ export class BcSyncService {
       .insert(bcSyncCursor)
       .values(values)
       .onConflictDoUpdate({ target: [bcSyncCursor.bcCompanyId, bcSyncCursor.entity], set: values });
+  }
+
+  /**
+   * "Aus BC aktualisieren" (E-61): re-reads requested orders with their service items and allocations right now,
+   * independent of the delta cursor. Requests come from the API; the worker holds the BC credentials.
+   */
+  async processRefreshRequests(limit = 20): Promise<number> {
+    const open = await this.db
+      .select({
+        id: bcRefreshRequest.id,
+        bcNo: serviceOrder.bcNo,
+        companyId: serviceOrder.bcCompanyId,
+      })
+      .from(bcRefreshRequest)
+      .innerJoin(serviceOrder, eq(serviceOrder.id, bcRefreshRequest.orderId))
+      .where(isNull(bcRefreshRequest.doneAt))
+      .orderBy(bcRefreshRequest.requestedAt)
+      .limit(limit);
+    if (!open.length) return 0;
+    const locs = await this.db.select().from(location).where(eq(location.active, true));
+    let done = 0;
+    for (const r of open) {
+      const bc = this.clientFor(r.companyId);
+      const no = `'${r.bcNo.replace(/'/g, "''")}'`;
+      let error: string | null = null;
+      try {
+        const orders = await bc.list('serviceOrders', { filter: `number eq ${no}` });
+        if (!orders.length) error = 'Auftrag in BC nicht gefunden';
+        else {
+          const companyLocs = locs.filter((l) => l.bcCompanyId === r.companyId);
+          await this.applyOrders(r.companyId, companyLocs, orders);
+          await this.applyOrderItems(
+            r.companyId,
+            await bc.list('serviceOrderItems', { filter: `documentNumber eq ${no}` }),
+          );
+          await this.applyAllocations(
+            r.companyId,
+            companyLocs,
+            await bc.list('serviceOrderAllocations', { filter: `documentNumber eq ${no}` }),
+          );
+        }
+      } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+        this.log(`[bc-refresh] ${r.bcNo} failed: ${error}`);
+      }
+      // All open requests of the same order are answered by this read.
+      await this.db
+        .update(bcRefreshRequest)
+        .set({ doneAt: new Date(), error })
+        .where(
+          and(
+            isNull(bcRefreshRequest.doneAt),
+            inArray(
+              bcRefreshRequest.id,
+              open.filter((o) => o.bcNo === r.bcNo).map((o) => o.id),
+            ),
+          ),
+        );
+      done++;
+    }
+    return done;
   }
 
   async syncCompany(companyId: string, locs: Loc[]): Promise<SyncStats> {

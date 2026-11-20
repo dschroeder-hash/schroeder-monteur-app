@@ -71,6 +71,20 @@
       "when": 1795157188353,
       "tag": "0009_phase6_absences",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795161908230,
+      "tag": "0010_push_subscription_per_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795164514596,
+      "tag": "0011_bc_refresh_request",
+      "breakpoints": true
     }
   ]
 }

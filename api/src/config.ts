@@ -11,7 +11,21 @@ const schema = z
     /** Application ID URI or client id of the API app registration. */
     ENTRA_API_AUDIENCE: z.string().optional(),
     DEV_AUTH_SECRET: z.string().min(32).optional(),
+    /** Delegated scope the app requests (api://…/access_as_user). */
+    ENTRA_REQUIRED_SCOPE: z.string().default('access_as_user'),
+    /** Comma-separated client ids allowed to call the API (azp); empty = any client of the tenant with the scope. */
+    ENTRA_ALLOWED_CLIENT_IDS: z.string().optional(),
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
+    /** Reverse proxies in front of the API (Front Door + Container Apps ingress = 2) – for client IPs in rate limits. */
+    /** Database connections per API instance (pool). Under load more instances scale out (Container Apps rule). */
+    DB_POOL_MAX: z.coerce.number().int().min(2).max(100).default(20),
+    TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+    /** Azure Front Door profile id; when set, requests without the matching X-Azure-FDID header are refused. */
+    FRONT_DOOR_ID: z.string().uuid().optional(),
+    /** Requests per minute per signed-in user (anonymous: per IP, a quarter of it). 0 = off. */
+    RATE_LIMIT_PER_MIN: z.coerce.number().int().min(0).default(600),
+    /** Set by Azure Container Apps – used to refuse dev auth in any Azure deployment. */
+    CONTAINER_APP_NAME: z.string().optional(),
     BC_MODE: z.enum(['mock', 'sandbox', 'production']).default('mock'),
     BC_API_BASE_URL: z.string().url().default('http://localhost:4100/api'),
     BC_TOKEN_URL: z.string().url().default('http://localhost:4100/oauth2/token'),
@@ -42,6 +56,13 @@ const schema = z
   .superRefine((c, ctx) => {
     if (c.APP_ENV === 'prod' && c.AUTH_MODE === 'dev')
       ctx.addIssue({ code: 'custom', message: 'AUTH_MODE=dev is not allowed in prod', path: ['AUTH_MODE'] });
+    // Test environments in Azure are internet-facing too: dev tokens there would let anyone become Admin.
+    if (c.CONTAINER_APP_NAME && c.AUTH_MODE === 'dev')
+      ctx.addIssue({
+        code: 'custom',
+        message: 'AUTH_MODE=dev is not allowed in Azure deployments',
+        path: ['AUTH_MODE'],
+      });
     if (c.APP_ENV === 'prod' && c.STORAGE_MODE === 'local')
       ctx.addIssue({
         code: 'custom',

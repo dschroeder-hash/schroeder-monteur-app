@@ -9,6 +9,7 @@ import {
   type Activity,
   type AppStatus,
 } from '@schroeder/shared';
+import { RefreshFromBc } from '@/components/RefreshFromBc';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -43,7 +44,7 @@ const MONTEUR_STATUSES: AppStatus[] = [
 function OrderDetail() {
   const id = useSearchParams().get('id') ?? '';
   const { me } = useAuth();
-  const { run } = useSync();
+  const { run, syncNow } = useSync();
   const tz = useTimezone();
   const order = useLiveQuery(() => localDb.orders.get(id), [id]);
   const history =
@@ -97,6 +98,7 @@ function OrderDetail() {
         <p className="mt-1 inline-block rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold">
           {DEFAULT_STATUS_DEFINITIONS[order.appStatus].label}
         </p>
+        <RefreshFromBc orderId={order.id} onRequested={() => void syncNow()} />
       </header>
 
       {me?.features.stamping && (

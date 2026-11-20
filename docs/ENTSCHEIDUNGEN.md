@@ -60,6 +60,11 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 | E-54 | Produktivitäts-Snapshot bis zum 10. des Folgemonats, dann fest             | entschieden |
 | E-55 | Produktivität nur aus freigegebenen Tagen; Fahrzeit zählt mit              | entschieden |
 | E-56 | Mapping-Änderungen nur ab dem laufenden Monat                              | entschieden |
+| E-57 | Eine Managed Identity je Komponente, Datenbank per Entra-Token             | entschieden |
+| E-58 | Service Worker speichert keine fremden Antworten; Abmeldung leert alles    | entschieden |
+| E-59 | Feature-Flags vor der Transaktion lesen; Überlast als 503                  | entschieden |
+| E-60 | Lasttest als eigener Lauf (`test:load`) mit frischer Datenbank             | entschieden |
+| E-61 | „Aus BC aktualisieren“ als Auftrag an den Worker                           | entschieden |
 
 ---
 
@@ -340,3 +345,28 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Entscheidung:** Der Admin legt neue Versionen der Auftragsart-Zuordnung an (`valid_from`); ein Datum in einem abgeschlossenen Monat wird abgelehnt. Jede Änderung steht im Audit-Log. Der Admin sieht keine Produktivitätswerte einzelner Monteure.
 **Begründung:** E-23 (reproduzierbare Monatswerte) und Datenschutz (Rollenkonzept, PROMPT 4).
+
+### E-57 Eine Managed Identity je Komponente, Datenbank per Entra-Token
+
+**Entscheidung:** API, Worker und Web-App haben je eine eigene Identität. Die API-Identität ist in PostgreSQL nur Mitglied von `monteur_app`, die des Workers von `monteur_worker`; die Web-App darf nur Images ziehen. API und Worker melden sich mit einem Entra-Token an (kein Passwort) und prüfen beim Start ihre Rolle – in Azure brechen sie ab, wenn RLS umgangen würde.
+**Begründung:** Sicherheitsbefund H1: Mit einer gemeinsamen Identität wäre die Rollentrennung der RLS hinfällig, und ein Fehler in der Web-App hätte Zugriff auf alle Geheimnisse.
+
+### E-58 Service Worker speichert keine fremden Antworten; Abmeldung leert alles
+
+**Entscheidung:** Antworten anderer Herkunft (API, Fotos) werden nie zwischengespeichert; die API sendet `no-store`. Die Abmeldung löscht IndexedDB, Laufzeit-Caches und das Push-Abo.
+**Begründung:** Sicherheitsbefund H2/M1: Auf geteilten Tablets hätte der nächste Benutzer offline Daten des vorherigen gesehen bzw. dessen Push-Nachrichten erhalten. Offline-Daten liegen ausschließlich in der IndexedDB des angemeldeten Benutzers (E-30).
+
+### E-59 Feature-Flags vor der Transaktion lesen; Überlast als 503
+
+**Entscheidung:** Der Sync liest alle Flags einmal vor der ersten Transaktion; der Flag-Cache lädt einmal für alle Wartenden; der Datenbank-Pool wartet höchstens 10 s auf eine Verbindung, danach antwortet die API mit 503 und `Retry-After`.
+**Begründung:** Im Lasttest blockierte eine Flag-Abfrage in einer offenen Transaktion den Pool vollständig (alle Verbindungen warteten auf eine weitere). Eine klare 503 ist für die App wiederholbar, ein hängender Request nicht.
+
+### E-60 Lasttest als eigener Lauf mit frischer Datenbank
+
+**Entscheidung:** `pnpm --filter @schroeder/api test:load` läuft in der CI als eigener Schritt; Umfang per `LOAD_DEVICES`/`LOAD_COMMANDS` skalierbar.
+**Begründung:** Der Lasttest legt viele Benutzer an und leert die BC-Warteschlange; im gemeinsamen Testlauf hätte er – je nach Reihenfolge – den Zustand anderer Tests verändert.
+
+### E-61 „Aus BC aktualisieren“ als Auftrag an den Worker
+
+**Entscheidung:** Ein Klick auf „Aus BC aktualisieren“ legt eine Anfrage an (`bc_refresh_request`, RLS: nur wer den Auftrag sieht); der Worker liest Auftrag, Serviceartikel und Zuordnungen innerhalb von ca. 10 s direkt aus BC – unabhängig vom Delta-Cursor.
+**Begründung:** Nur der Worker hält die BC-Zugangsdaten (E-57); die API braucht keine. BC-Webhooks bleiben die spätere Ergänzung, wenn sie gegen die echte Sandbox getestet werden können (`SETUP-BC.md` Abschnitt 6).

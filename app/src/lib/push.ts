@@ -17,6 +17,28 @@ const toUint8 = (b64: string) => {
   return Uint8Array.from(raw, (c) => c.charCodeAt(0));
 };
 
+/** Removes this browser's push subscription (logout on a shared device). Never throws. */
+export async function disablePush(): Promise<void> {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    if (!sub) return;
+    await apiFetch('/v1/push/subscriptions', {
+      method: 'DELETE',
+      body: JSON.stringify({ endpoint: sub.endpoint }),
+    }).catch(() => undefined);
+    await sub.unsubscribe();
+  } catch {
+    // offline or unsupported – the worker drops stale duplicates of this endpoint before delivery
+  }
+}
+
+/** Deletes runtime caches (not the precached app shell) – nothing of the previous user may remain. */
+export async function clearRuntimeCaches(): Promise<void> {
+  if (!('caches' in window)) return;
+  for (const key of await caches.keys()) if (!key.includes('precache')) await caches.delete(key);
+}
+
 export async function enablePush(): Promise<'unsupported' | 'denied' | 'off' | 'on'> {
   const { publicKey } = await apiFetch<{ publicKey: string | null }>('/v1/push/vapid-public-key');
   if (!publicKey) return 'unsupported';

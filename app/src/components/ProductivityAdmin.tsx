@@ -85,7 +85,12 @@ export function ProductivityAdmin() {
           {msg.text}
         </p>
       )}
-      <div className="overflow-x-auto rounded-card border border-border bg-surface">
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Zuordnung der Auftragsarten (seitlich scrollbar)"
+        className="overflow-x-auto rounded-card border border-border bg-surface"
+      >
         <table className="w-full min-w-[40rem] text-left">
           <thead className="bg-surface-muted">
             <tr>

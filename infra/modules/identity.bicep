@@ -1,9 +1,10 @@
-param prefix string
+@description('Full name of the user-assigned identity, e.g. schr-monteur-prod-id-api.')
+param name string
 param location string
 param tags object
 
 resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: '${prefix}-id'
+  name: name
   location: location
   tags: tags
 }

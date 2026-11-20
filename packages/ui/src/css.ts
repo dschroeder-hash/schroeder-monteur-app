@@ -17,14 +17,17 @@ export function buildThemeCss(): string {
   font-style: italic;
   font-weight: 500;
   font-display: swap;
-  src: url('/fonts/delta-jaeger-medium-italic.woff2') format('woff2');
+  /* Webfont licence open (OFFENE-PUNKTE OP-04): installed fonts only. Once licensed, add
+     url('/fonts/delta-jaeger-medium-italic.woff2') format('woff2') – a missing file costs a 404 on every page. */
+  src: local('Delta Jaeger Medium Italic'), local('DeltaJaeger-MediumItalic');
 }
 @font-face {
   font-family: 'Helvetica Neue Heavy';
   font-style: italic;
   font-weight: 800;
   font-display: swap;
-  src: url('/fonts/helvetica-neue-heavy-italic.woff2') format('woff2');
+  /* Once licensed, add url('/fonts/helvetica-neue-heavy-italic.woff2') format('woff2'). */
+  src: local('Helvetica Neue Heavy Italic'), local('HelveticaNeue-HeavyItalic');
 }
 
 :root {

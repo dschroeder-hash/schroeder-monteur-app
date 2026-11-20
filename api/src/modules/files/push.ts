@@ -36,6 +36,9 @@ export async function webPushSender(
   };
 }
 
+/** Notification kinds whose text must not appear on a lock screen. */
+export const SENSITIVE_KINDS = new Set(['SICK_REPORT', 'VACATION_REQUEST', 'VACATION_DECISION']);
+
 export async function deliverPush(db: Db, sender: PushSender): Promise<{ sent: number; gone: number }> {
   const due = await db
     .select()
@@ -43,6 +46,11 @@ export async function deliverPush(db: Db, sender: PushSender): Promise<{ sent: n
     .where(and(isNull(notification.pushedAt), gte(notification.createdAt, sql`now() - interval '1 hour'`)))
     .limit(200);
   if (!due.length) return { sent: 0, gone: 0 };
+  // Shared device: the same browser endpoint subscribed by several users → only the newest subscription stays.
+  await db.execute(sql`
+    delete from push_subscription p using push_subscription q
+    where p.endpoint = q.endpoint and p.id <> q.id
+      and (p.updated_at, p.id) < (q.updated_at, q.id)`);
   const subs = await db
     .select()
     .from(pushSubscription)
@@ -50,7 +58,17 @@ export async function deliverPush(db: Db, sender: PushSender): Promise<{ sent: n
   let sent = 0;
   let gone = 0;
   for (const n of due) {
-    const payload = JSON.stringify({ title: n.title, body: n.body, link: n.link, tag: n.kind });
+    // Absences are health-adjacent: lock screens only show a neutral hint, details stay in the app (DATENSCHUTZ.md).
+    const payload = JSON.stringify(
+      SENSITIVE_KINDS.has(n.kind)
+        ? {
+            title: 'Schröder Werkstatt',
+            body: 'Neue Mitteilung zu Abwesenheiten – bitte in der App ansehen.',
+            link: n.link,
+            tag: n.kind,
+          }
+        : { title: n.title, body: n.body, link: n.link, tag: n.kind },
+    );
     for (const s of subs.filter((x) => x.userId === n.userId)) {
       try {
         const r = await sender.send(s, payload);

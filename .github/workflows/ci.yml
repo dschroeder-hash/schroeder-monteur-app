@@ -48,6 +48,8 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      # Load and sync test with its own fresh test database (many devices, duplicate sends, BC queue).
+      - run: pnpm --filter @schroeder/api test:load
       - run: pnpm build
 
   e2e:

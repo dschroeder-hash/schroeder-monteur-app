@@ -181,7 +181,12 @@ export function AbsenceOverview({
       </div>
       {error && <p className="text-danger">{error}</p>}
 
-      <div className="overflow-x-auto rounded-card border border-border">
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Abwesenheiten (seitlich scrollbar)"
+        className="overflow-x-auto rounded-card border border-border"
+      >
         <table className="w-full min-w-[40rem] text-left">
           <thead className="bg-surface-muted">
             <tr>

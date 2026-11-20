@@ -13,7 +13,8 @@ resource wps 'Microsoft.SignalRService/webPubSub@2024-03-01' = {
     capacity: 1
   }
   properties: {
-    disableLocalAuth: false
+    // Managed identity only – no access keys (the API uses WEB_PUBSUB_ENDPOINT + its identity).
+    disableLocalAuth: true
     publicNetworkAccess: 'Enabled'
   }
 }
@@ -26,6 +27,21 @@ resource hub 'Microsoft.SignalRService/webPubSub/hubs@2024-03-01' = {
     anonymousConnectPolicy: 'Deny'
   }
 }
+
+@description('Principals that publish messages and issue client tokens (api, worker).')
+param ownerPrincipalIds array = []
+
+// Web PubSub Service Owner
+var ownerRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '12cf5a90-567b-43ae-8102-96cf46c7d9b4')
+resource owner 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for p in ownerPrincipalIds: {
+  name: guid(wps.id, p, ownerRoleId)
+  scope: wps
+  properties: {
+    principalId: p
+    roleDefinitionId: ownerRoleId
+    principalType: 'ServicePrincipal'
+  }
+}]
 
 output hostName string = wps.properties.hostName
 output id string = wps.id

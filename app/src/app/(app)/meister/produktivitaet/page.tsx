@@ -113,7 +113,12 @@ export default function TeamProductivityPage() {
         Tage; die Standortsumme wird aus den Stunden berechnet, nicht als Mittelwert.
       </p>
       <CategoryLegend />
-      <div className="overflow-x-auto rounded-card border border-border bg-surface">
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Produktivität je Monteur (seitlich scrollbar)"
+        className="overflow-x-auto rounded-card border border-border bg-surface"
+      >
         <table className="w-full min-w-[56rem] text-left">
           <thead className="bg-surface-muted">
             <tr>

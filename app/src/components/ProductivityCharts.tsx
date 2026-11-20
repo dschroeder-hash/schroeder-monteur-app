@@ -62,7 +62,7 @@ export function StackedHours({
 }) {
   const [hover, setHover] = useState<ProductivityCategory | null>(null);
   const total = PRODUCTIVITY_CATEGORIES.reduce((s, c) => s + values[c], 0);
-  if (!total) return <p className="text-sm text-text-muted">Keine verrechneten Stunden.</p>;
+  if (!total) return <p className="text-sm">Keine verrechneten Stunden.</p>;
   const parts = PRODUCTIVITY_CATEGORIES.filter((c) => values[c] > 0);
   return (
     <div className="relative">

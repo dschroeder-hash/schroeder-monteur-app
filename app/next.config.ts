@@ -35,7 +35,35 @@ const withSerwist = withSerwistInit({
   reloadOnOnline: false,
 });
 
+// Content Security Policy (ASVS 14.4.3). Inline scripts stay allowed: the theme bootstrap and Next's flight data are
+// inline and the app shell is static/precached (no per-request nonce). The value lies in the strict lists of where
+// the app may connect to, load from and be framed by. 'wasm-unsafe-eval' is needed by the barcode reader (zxing).
+const apiOrigin = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_API_URL ?? '').origin;
+  } catch {
+    return '';
+  }
+})();
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  `img-src 'self' data: blob: https://*.blob.core.windows.net ${apiOrigin}`,
+  "font-src 'self'",
+  `connect-src 'self' ${apiOrigin} https://login.microsoftonline.com https://*.blob.core.windows.net wss://*.webpubsub.azure.com https://*.webpubsub.azure.com`,
+  'frame-src https://login.microsoftonline.com',
+  "media-src 'self' blob: mediastream:",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 const securityHeaders = [
+  { key: 'Content-Security-Policy', value: csp },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },

@@ -34,6 +34,17 @@ export class TokenVerifier {
           algorithms: ['RS256'],
         }));
         if (payload.tid !== this.config.ENTRA_TENANT_ID) throw new InvalidTokenError('foreign tenant');
+        // Delegated user tokens of our own app only (ASVS 3.5.3): no app-only tokens, the API scope must be present,
+        // and – if configured – only the known client applications.
+        if (payload.idtyp === 'app') throw new InvalidTokenError('app-only token');
+        const scopes = typeof payload.scp === 'string' ? payload.scp.split(' ') : [];
+        if (!scopes.includes(this.config.ENTRA_REQUIRED_SCOPE)) throw new InvalidTokenError('missing scope');
+        const clients =
+          this.config.ENTRA_ALLOWED_CLIENT_IDS?.split(',')
+            .map((x) => x.trim())
+            .filter(Boolean) ?? [];
+        if (clients.length && !clients.includes(String(payload.azp ?? '')))
+          throw new InvalidTokenError('unknown client');
       } else {
         ({ payload } = await jwtVerify(token, this.devKey!, {
           issuer: DEV_ISSUER,

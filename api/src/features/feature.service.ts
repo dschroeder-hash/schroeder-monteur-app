@@ -25,12 +25,22 @@ export class FeatureService {
     this.cache = undefined;
   }
 
+  private loading?: Promise<Map<string, boolean>>;
+
+  /** Cached flags; concurrent callers share one reload (one connection, not one per request). */
   private async flags(): Promise<Map<string, boolean>> {
     if (this.cache && Date.now() - this.cache.at < CACHE_MS) return this.cache.map;
-    const rows = await this.db.select().from(featureFlag);
-    const map = new Map(rows.map((r) => [`${r.locationId ?? GLOBAL}:${r.feature}`, r.enabled]));
-    this.cache = { at: Date.now(), map };
-    return map;
+    this.loading ??= (async () => {
+      try {
+        const rows = await this.db.select().from(featureFlag);
+        const map = new Map(rows.map((r) => [`${r.locationId ?? GLOBAL}:${r.feature}`, r.enabled]));
+        this.cache = { at: Date.now(), map };
+        return map;
+      } finally {
+        this.loading = undefined;
+      }
+    })();
+    return this.loading;
   }
 
   async isEnabled(feature: Feature, locationId: string | null): Promise<boolean> {

@@ -989,17 +989,22 @@ export const auditLog = pgTable(
   (t) => [index('audit_log_entity_idx').on(t.entity, t.entityId)],
 );
 
-export const pushSubscription = pgTable('push_subscription', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => appUser.id),
-  endpoint: text('endpoint').notNull().unique(),
-  p256dh: text('p256dh').notNull(),
-  auth: text('auth').notNull(),
-  userAgent: text('user_agent'),
-  ...timestamps,
-});
+export const pushSubscription = pgTable(
+  'push_subscription',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUser.id),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    userAgent: text('user_agent'),
+    ...timestamps,
+  },
+  // One row per user and browser; on a shared device the newest sign-in wins (worker, deliverPush).
+  (t) => [uniqueIndex('push_subscription_user_endpoint_uq').on(t.userId, t.endpoint)],
+);
 
 export const notification = pgTable(
   'notification',
@@ -1038,6 +1043,24 @@ export const productivitySnapshot = pgTable(
     ...rowVersion,
   },
   (t) => [primaryKey({ columns: [t.userId, t.month] })],
+);
+
+/** "Aus BC aktualisieren": a user asks for one order to be re-read from BC now; the worker processes it (E-61). */
+export const bcRefreshRequest = pgTable(
+  'bc_refresh_request',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => serviceOrder.id),
+    requestedBy: uuid('requested_by')
+      .notNull()
+      .references(() => appUser.id),
+    requestedAt: ts('requested_at').notNull().defaultNow(),
+    doneAt: ts('done_at'),
+    error: text('error'),
+  },
+  (t) => [index('bc_refresh_request_open_idx').on(t.doneAt, t.requestedAt)],
 );
 
 /** Tables that get the row_version trigger (delta pull). */

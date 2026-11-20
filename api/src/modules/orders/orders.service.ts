@@ -4,7 +4,7 @@ import type { AppStatus } from '@schroeder/shared';
 import type { AccessScope } from '../../auth/auth.types.js';
 import { DB } from '../../db/db.module.js';
 import { withSession, type Db } from '../../db/client.js';
-import { assignment, machine, serviceOrder, serviceOrderItem } from '../../db/schema.js';
+import { assignment, bcRefreshRequest, machine, serviceOrder, serviceOrderItem } from '../../db/schema.js';
 
 export interface OrderListQuery {
   view: 'mine' | 'location';
@@ -73,6 +73,30 @@ export class OrdersService {
         machines: items.filter((i) => i.orderId === o.id).map((i) => i.machine),
         assignments: assigns.filter((a) => a.orderId === o.id),
       }));
+    });
+  }
+
+  /** "Aus BC aktualisieren": queues a re-read of this order by the worker (E-61). Idempotent while one is open. */
+  async requestRefresh(scope: AccessScope, id: string) {
+    return withSession(this.db, { userId: scope.userId, roles: scope.roles }, async (tx) => {
+      const [o] = await tx.select({ id: serviceOrder.id }).from(serviceOrder).where(eq(serviceOrder.id, id));
+      if (!o) throw new NotFoundException('Auftrag nicht gefunden');
+      const [open] = await tx
+        .select({ requestedAt: bcRefreshRequest.requestedAt })
+        .from(bcRefreshRequest)
+        .where(
+          and(
+            eq(bcRefreshRequest.orderId, id),
+            eq(bcRefreshRequest.requestedBy, scope.userId),
+            isNull(bcRefreshRequest.doneAt),
+          ),
+        );
+      if (open) return { requestedAt: open.requestedAt, alreadyRequested: true };
+      const [r] = await tx
+        .insert(bcRefreshRequest)
+        .values({ orderId: id, requestedBy: scope.userId })
+        .returning({ requestedAt: bcRefreshRequest.requestedAt });
+      return { requestedAt: r!.requestedAt, alreadyRequested: false };
     });
   }
 

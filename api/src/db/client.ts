@@ -12,8 +12,28 @@ export interface DbSession {
   roles: readonly string[];
 }
 
+/**
+ * DATABASE_AUTH=entra (Azure): no password in DATABASE_URL – each new connection gets a fresh Entra access token of
+ * the container's managed identity (password auth is disabled on the server, E-57). Tokens are cached until shortly
+ * before they expire.
+ */
+let cachedToken: { value: string; expires: number } | undefined;
+async function entraPassword(): Promise<string> {
+  if (cachedToken && cachedToken.expires - Date.now() > 5 * 60_000) return cachedToken.value;
+  const { DefaultAzureCredential } = await import('@azure/identity');
+  const t = await new DefaultAzureCredential().getToken('https://ossrdbms-aad.database.windows.net/.default');
+  cachedToken = { value: t.token, expires: t.expiresOnTimestamp };
+  return t.token;
+}
+
 export function createDb(url: string, max = 10): { db: Db; pool: pg.Pool } {
-  const pool = new pg.Pool({ connectionString: url, max });
+  const pool = new pg.Pool({
+    connectionString: url,
+    max,
+    // Never wait forever for a connection: a jam becomes a (retryable) error instead of a hanging request.
+    connectionTimeoutMillis: 10_000,
+    ...(process.env.DATABASE_AUTH === 'entra' ? { password: entraPassword } : {}),
+  });
   // An idle client dropped by the server (failover, restart) must not crash the process; the pool reconnects.
   pool.on('error', (err) => console.warn(`[db] idle client error: ${err.message}`));
   return { db: drizzle(pool, { schema }), pool };

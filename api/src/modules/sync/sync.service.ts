@@ -6,6 +6,7 @@ import {
   COMMAND_PAYLOADS,
   STAMP_COMMAND_KIND,
   type AppStatus,
+  type Feature,
   type CommandPayload,
   type CommandResult,
   type CommandType,
@@ -104,7 +105,10 @@ export class SyncService {
     const locationId = this.homeLocation(scope);
     const clockSkewMs = Date.now() - Date.parse(req.deviceNow);
     const skewFlagged = Math.abs(clockSkewMs) > CLOCK_SKEW_THRESHOLD_MS;
-    const stampingEnabled = await this.features.isEnabled('stamping', locationId);
+    // All flags are read BEFORE any transaction: a flag lookup inside a transaction needs a second pool connection,
+    // and under load (all connections held by waiting transactions) that deadlocks the pool (found in the load test).
+    const flags = await this.features.effective([locationId]);
+    const stampingEnabled = flags.stamping;
     const results: CommandResult[] = [];
 
     // Device order is authoritative (chat order, stamp order).
@@ -130,6 +134,7 @@ export class SyncService {
             stampingEnabled,
             clockSkewMs,
             skewFlagged,
+            flags,
           });
           return { id: cmd.id, result: 'applied' as const, ...(warnings.length ? { warnings } : {}) };
         });
@@ -171,7 +176,12 @@ export class SyncService {
     scope: AccessScope,
     locationId: string,
     cmd: SyncCommand,
-    ctx: { stampingEnabled: boolean; clockSkewMs: number; skewFlagged: boolean },
+    ctx: {
+      stampingEnabled: boolean;
+      clockSkewMs: number;
+      skewFlagged: boolean;
+      flags: Record<Feature, boolean>;
+    },
   ): Promise<string[]> {
     const schema = COMMAND_PAYLOADS[cmd.type as CommandType];
     const parsed = schema.safeParse(cmd.payload ?? {});
@@ -266,7 +276,7 @@ export class SyncService {
     if (cmd.type === 'ConsumeItem' || cmd.type === 'RemoveConsumption' || cmd.type === 'RequestPart') {
       const p = payload as Record<string, unknown>;
       const feature = cmd.type === 'ConsumeItem' && p.containerId ? 'consumables' : 'materials';
-      if (!(await this.features.isEnabled(feature, locationId)))
+      if (!ctx.flags[feature])
         throw new CommandRejected('Dieses Modul ist für Ihren Standort nicht freigeschaltet');
       const access = (orderId: string) => this.orderAccess(tx, scope, orderId);
       if (cmd.type === 'ConsumeItem')
@@ -303,7 +313,7 @@ export class SyncService {
       );
 
     if (cmd.type === 'AttachPhoto') {
-      if (!(await this.features.isEnabled('photos', locationId)))
+      if (!ctx.flags['photos'])
         throw new CommandRejected('Fotos sind für Ihren Standort nicht freigeschaltet');
       await this.comm.attachPhoto(tx, scope, cmd.id, payload as CommandPayload<'AttachPhoto'>, (id) =>
         this.orderAccess(tx, scope, id),
@@ -312,7 +322,7 @@ export class SyncService {
     }
 
     if (cmd.type === 'SendChatMessage' || cmd.type === 'MarkChatRead') {
-      if (!(await this.features.isEnabled('chat', locationId)))
+      if (!ctx.flags['chat'])
         throw new CommandRejected('Der Chat ist für Ihren Standort nicht freigeschaltet');
       const p = payload as {
         orderId: string;
@@ -337,7 +347,7 @@ export class SyncService {
     }
 
     if (cmd.type === 'ReportSick' || cmd.type === 'UpdateSickEnd') {
-      if (!(await this.features.isEnabled('absence.sick', locationId)))
+      if (!ctx.flags['absence.sick'])
         throw new CommandRejected('Die Krankmeldung ist für Ihren Standort nicht freigeschaltet');
       if (cmd.type === 'ReportSick')
         return this.absences.reportSick(
@@ -351,7 +361,7 @@ export class SyncService {
     }
 
     if (cmd.type === 'RequestVacation' || cmd.type === 'WithdrawVacation') {
-      if (!(await this.features.isEnabled('absence.vacation', locationId)))
+      if (!ctx.flags['absence.vacation'])
         throw new CommandRejected('Urlaubsanträge sind für Ihren Standort nicht freigeschaltet');
       if (cmd.type === 'RequestVacation')
         return this.absences.requestVacation(

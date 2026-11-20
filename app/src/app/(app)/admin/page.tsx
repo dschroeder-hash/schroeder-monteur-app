@@ -2,7 +2,9 @@
 
 import { FEATURE_LABELS, FEATURES, WORKS_COUNCIL_FEATURES, type Feature } from '@schroeder/shared';
 import { useState } from 'react';
+import { ContainersEditor } from '@/components/ContainersEditor';
 import { ProductivityAdmin } from '@/components/ProductivityAdmin';
+import { TemplatesEditor } from '@/components/TemplatesEditor';
 import { apiFetch } from '@/lib/api';
 import { useApi } from '@/lib/useApi';
 
@@ -57,7 +59,12 @@ export default function AdminPage() {
       <p className="text-text-muted">
         Mit ⚖ markierte Module benötigen die Zustimmung des Betriebsrats (§ 87 Abs. 1 Nr. 6 BetrVG).
       </p>
-      <div className="overflow-x-auto rounded-card border border-border bg-surface">
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Module je Standort (seitlich scrollbar)"
+        className="overflow-x-auto rounded-card border border-border bg-surface"
+      >
         <table className="w-full text-left">
           <thead>
             <tr className="border-b border-border">
@@ -101,6 +108,8 @@ export default function AdminPage() {
         </table>
       </div>
       <ProductivityAdmin />
+      <ContainersEditor />
+      {locs.data && <TemplatesEditor locations={locs.data} allowGlobal />}
     </div>
   );
 }

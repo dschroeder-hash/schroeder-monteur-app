@@ -1,5 +1,6 @@
 'use client';
 
+import { createDoubleTapGuard } from './doubleTap';
 import { ROLES, type CommandPayload, type CommandType } from '@schroeder/shared';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { apiFetch } from '../api';
@@ -56,14 +57,19 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     };
   }, [enabled, doSync]);
 
+  const guard = useMemo(() => createDoubleTapGuard(), []);
   const run = useCallback(
     async <T extends CommandType>(type: T, payload: CommandPayload<T>) => {
       if (!ownerId) throw new Error('Nicht angemeldet');
+      // Double tap on a stamp button → one booking only.
+      const dup = guard.check(type, payload);
+      if (dup) return dup;
       const id = await recordCommand(localDb, ownerId, type, payload);
+      guard.remember(type, payload, id);
       schedule();
       return id;
     },
-    [ownerId, schedule],
+    [ownerId, schedule, guard],
   );
 
   const value = useMemo(() => ({ run, syncNow: doSync }), [run, doSync]);

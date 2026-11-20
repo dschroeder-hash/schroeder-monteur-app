@@ -11,6 +11,7 @@ const ITEMS = [
   { href: '/meister/freigaben', label: 'Freigaben' },
   { href: '/meister/abwesenheiten', label: 'Abwesenheiten' },
   { href: '/meister/produktivitaet', label: 'Produktivität' },
+  { href: '/meister/textbausteine', label: 'Textbausteine' },
   { href: '/lager', label: 'Teiledienst' },
 ];
 

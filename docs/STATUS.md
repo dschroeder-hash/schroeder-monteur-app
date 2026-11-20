@@ -204,3 +204,71 @@ Tests gesamt: 556 API, 64 Fachlogik, 33 UI-Bausteine, 33 BC-Mock, 2 BC-Vertrag, 
 
 - Fahrzeit produktiv, Snapshot-Frist, Einordnung „Intern sonstige“: OP-34 bis OP-36.
 - Das Bonussystem ist nicht gebaut (V1); es kann auf `productivity_snapshot` aufsetzen.
+
+## Phase 8 – Härtung ✅ (20.11.2026)
+
+**Sicherheit (OWASP ASVS L2, Details `SICHERHEIT.md`)** – unabhängige Prüfung, 2 hohe, 6 mittlere, 9 niedrige Befunde.
+Behoben u. a.: getrennte Identitäten je Komponente mit Rollenprüfung beim Start (H1), kein Zwischenspeichern von
+API-Antworten im Service Worker und vollständiges Aufräumen bei der Abmeldung (H2), Push auf geteilten Geräten und
+neutrale Sperrbildschirm-Texte zu Abwesenheiten (M1/M2), nur Front-Door-Verkehr (M3), Bicep-Variablen passend zum Code
+und kein Entwicklungs-Login in Azure (M4), Vier-Augen-Prinzip (M5), serverseitige Foto-Prüfung (M6), Token-Scope/Client
+(L1), BC-Paging nur zum BC-Host (L4), Schwärzung für den Admin (L5), Ratenbegrenzung, Sicherheitsheader, CSP für die App.
+Offen und dokumentiert: L2, L3, private Endpunkte (OP-40 bis OP-42). `pnpm audit --prod`: keine Schwachstellen.
+
+**Barrierefreiheit:** axe-core über alle Hauptseiten jeder Rolle, hell und dunkel: **0 Befunde**. Behoben: Tabellen mit
+seitlichem Scrollen waren per Tastatur nicht erreichbar, verschachtelte Bedienelemente auf der Plantafel, Kontrast in der
+Summenzeile.
+
+**Lighthouse (mobil, angemeldet gemessen)**
+
+| Seite                | Performance | Barrierefreiheit | Best Practices |
+| -------------------- | ----------- | ---------------- | -------------- |
+| /login               | 95          | 100              | 96             |
+| /monteur             | 100         | 100              | 96             |
+| /monteur/auftrag     | 94          | 100              | 96             |
+| /monteur/abwesenheit | 98          | 100              | 96             |
+| /meister/freigaben   | 98          | 100              | 96             |
+
+Behoben: Layoutverschiebung (CLS 0,22 → 0) auf der Anmeldeseite, 404 der nicht lizenzierten Schriftdatei auf jeder
+Seite. Lighthouse 12 hat keine eigene PWA-Kategorie mehr; Offline-Fähigkeit belegen die E2E-Tests.
+
+**Last- und Sync-Test** (`pnpm --filter @schroeder/api test:load`, eigener CI-Schritt)
+
+| Szenario (eine API-Instanz)                                           | Ergebnis                                                                  |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| 30 Geräte × 40 Befehle, jedes Paket doppelt und gleichzeitig gesendet | 1.200 Befehle genau einmal übernommen, p95 1,6 s, ~200 Befehle/s          |
+| 150 Geräte × 60 Befehle                                               | 9.000 Befehle genau einmal, p95 ~12 s (Skalierung über weitere Instanzen) |
+| 150 gleichzeitige Erst-Abrufe                                         | bei Überlast 503 + Retry-After, nach Wiederholung alle erfolgreich        |
+| 500 BC-Übertragungen, zwei Worker parallel                            | ~100/s, jede genau einmal in BC                                           |
+
+**Im Lasttest gefunden und behoben:** Feature-Flag-Abfragen innerhalb offener Transaktionen konnten den Datenbank-Pool
+vollständig blockieren – Anfragen hingen unbegrenzt (E-59).
+
+**Weitere Härtung und Nachträge**
+
+- Doppeltipp-Schutz der Stempel-Knöpfe (gleiche Buchung innerhalb 1,5 s zählt einmal).
+- „Aus BC aktualisieren“ am Auftrag (Monteur, Meister): der Worker liest den Auftrag sofort neu (E-61).
+- Pflege von Textbausteinen (Meister: eigener Standort, Admin: alle) und Gebinden (Admin).
+- Löschfristen: Krankmeldungen 12 Monate nach Ende, Kommentare, Benachrichtigungen.
+
+**Dokumentation:** `BETRIEB.md` (Betriebshandbuch), `DATENSCHUTZ.md` (Verarbeitungsübersicht für den DSB),
+`SICHERHEIT.md` (Prüfbericht), Installations-, Update- und Fehlerhilfe der BC-Extension in `bc-extension/README.md`.
+
+Tests gesamt: 578 API (+ Lasttest), 64 Fachlogik, 33 UI-Bausteine, 33 BC-Mock, 2 BC-Vertrag, 11 App,
+16 E2E (inkl. 10 Barrierefreiheits-Prüfungen) – alle grün.
+
+## Definition of Done (V1) – Abgleich
+
+| Kriterium (PROMPT 12)                                                                                                                    | Stand | Nachweis                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------- |
+| Kompletter Arbeitstag offline (Stempeln, 3 Aufträge, Teile, Öl, Diesel, Fotos, Schnelldoku, Chat), danach vollständig und ohne Duplikate | ✅    | E2E `offline-day`, `material-offline`, `docs-chat`; Lasttest mit doppelt gesendeten Paketen |
+| Meister plant per Drag & Drop, gibt frei, Daten korrekt am BC-Serviceauftrag (Mock)                                                      | ✅    | E2E `meister-planning`, `material-offline`, `docs-chat`                                     |
+| … und dokumentierter Test gegen die BC-Sandbox                                                                                           | ⏳    | Abnahme-Checkliste `SETUP-BC.md` Abschnitt 9 – braucht Sandbox-Zugang (OP-21)               |
+| Monteure sehen nachweislich nur eigene Daten                                                                                             | ✅    | Rechtematrix aller Routen × 5 Rollen, RLS-Tests (direkter Tabellenzugriff), Phase-6-Tests   |
+| Urlaub und Krankmeldung Ende-zu-Ende inkl. BC-Transfer                                                                                   | ✅    | E2E `vacation-sick`                                                                         |
+| Produktivität gemäß Mapping korrekt (Unit-Tests mit Referenzfällen)                                                                      | ✅    | 8 Referenzfälle / 19 Prüfungen, E2E `productivity`                                          |
+| Lighthouse PWA/Performance/Accessibility ≥ 90 mobil, CI-Design umgesetzt                                                                 | ✅    | Tabelle oben; Schriften der CD bis zur Lizenzklärung als installierte Schrift (OP-04)       |
+| Doku vollständig: Architektur, Entscheidungen, Setup BC, Datenschutz, Betrieb                                                            | ✅    | `docs/`                                                                                     |
+
+Für den Go-live außerdem nötig (nicht Software, sondern Organisation): Zustimmung des Betriebsrats je Modul,
+Datenschutz-Folgenabschätzung, Einrichtung von Entra ID, Azure und BC nach `BETRIEB.md` / `SETUP-BC.md`.

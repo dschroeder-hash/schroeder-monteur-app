@@ -28,6 +28,18 @@ const listQuery = z.object({
 const resolveBody = z.object({ reason: z.string().trim().min(5, 'Begründung ist Pflicht').max(500) });
 
 /** Admin view "Fehlgeschlagene Übertragungen" with resend (PROMPT 6.2). */
+/**
+ * The Admin repairs transfers but must not learn health-adjacent data: for absences only dates, quantity and the
+ * employee are shown, never the cause (KRANK/URLAUB) or the description (DATENSCHUTZ.md).
+ */
+function redact<T extends { subjectType: string; payload: unknown }>(t: T): T {
+  if (t.subjectType !== 'absence') return t;
+  const p = t.payload as { op: string; body?: Record<string, unknown> };
+  if (!p.body) return t;
+  const { causeOfAbsenceCode: _c, description: _d, ...body } = p.body;
+  return { ...t, payload: { ...p, body: { ...body, causeOfAbsenceCode: '***', description: '***' } } };
+}
+
 @ApiTags('Administration')
 @ApiBearerAuth()
 @Roles(ROLES.Admin)
@@ -56,7 +68,7 @@ export class TransfersController {
         )
         .orderBy(desc(bcTransfer.updatedAt))
         .limit(500)
-        .then((rows) => rows.map((r) => ({ ...r.t, locationName: r.locationName }))),
+        .then((rows) => rows.map((r) => ({ ...redact(r.t), locationName: r.locationName }))),
     );
   }
 

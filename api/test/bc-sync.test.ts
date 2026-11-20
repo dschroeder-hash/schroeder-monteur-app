@@ -95,6 +95,27 @@ describe('BC delta sync', () => {
     expect(r.rows[0].description).toBe('Kunde ruft zurück – Termin verschoben');
   });
 
+  it('"Aus BC aktualisieren": a requested order is re-read immediately, independent of the delta cursor', async () => {
+    const o = state.tables.serviceOrders[6]!;
+    const [order] = (await owner.query('select id from service_order where bc_no = $1', [o.number])).rows;
+    // change in BC without touching lastModifiedDateTime → the delta sync would not see it
+    o.description = 'Direkt in BC geändert';
+    const [u] = (await owner.query('select id from app_user limit 1')).rows;
+    await owner.query('insert into bc_refresh_request (order_id, requested_by) values ($1, $2)', [
+      order.id,
+      u.id,
+    ]);
+    expect(await sync.processRefreshRequests()).toBe(1);
+    const r = await owner.query('select description from service_order where id = $1', [order.id]);
+    expect(r.rows[0].description).toBe('Direkt in BC geändert');
+    const [req] = (
+      await owner.query('select done_at, error from bc_refresh_request where order_id = $1', [order.id])
+    ).rows;
+    expect(req.done_at).not.toBeNull();
+    expect(req.error).toBeNull();
+    expect(await sync.processRefreshRequests()).toBe(0);
+  });
+
   it('a status change in BC overrides the app status and is logged', async () => {
     const o = state.tables.serviceOrders.find(
       (x) => x.status === 'Pending' && x.responsibilityCenter === 'ALZ',

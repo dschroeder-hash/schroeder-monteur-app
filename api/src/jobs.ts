@@ -26,7 +26,13 @@ export async function flagForgottenClockOuts(db: Db): Promise<number> {
 export async function applyRetention(
   db: Db,
   deleteBlob: (path: string) => Promise<void>,
-): Promise<{ messages: number; photos: number }> {
+): Promise<{
+  messages: number;
+  photos: number;
+  sickReports: number;
+  absenceComments: number;
+  notifications: number;
+}> {
   const months = sql`coalesce((select (value->>'chatPhotosMonthsAfterBilled')::int from setting where key = 'retention' and location_id is null limit 1), 24)`;
   const msgs = await db.execute(sql`
     update chat_message m set deleted_at = now(), body = ''
@@ -40,7 +46,25 @@ export async function applyRetention(
       and o.billed_at < now() - make_interval(months => ${months})
     returning p.blob_path`);
   for (const row of photos.rows as Array<{ blob_path: string }>) await deleteBlob(row.blob_path);
-  return { messages: msgs.rowCount ?? 0, photos: photos.rowCount ?? 0 };
+  // Sick reports are deleted 12 months after their end (OP-18) – the official record is the employee absence in BC.
+  // Vacation stays (balance, history) but loses its free-text comment. Notifications go after 180 days.
+  const oldSick = sql`select id from absence where type = 'KRANK' and coalesce(to_date, from_date) < (now() - interval '12 months')::date
+    and state in ('REPORTED', 'CANCELLED')`;
+  await db.execute(sql`delete from team_absence where absence_id in (${oldSick})`);
+  const sick = await db.execute(sql`delete from absence where id in (${oldSick})`);
+  const comments = await db.execute(sql`
+    update absence set comment = null
+    where comment is not null and coalesce(to_date, from_date) < (now() - interval '12 months')::date`);
+  const notes = await db.execute(
+    sql`delete from notification where created_at < now() - interval '180 days'`,
+  );
+  return {
+    messages: msgs.rowCount ?? 0,
+    photos: photos.rowCount ?? 0,
+    sickReports: sick.rowCount ?? 0,
+    absenceComments: comments.rowCount ?? 0,
+    notifications: notes.rowCount ?? 0,
+  };
 }
 
 /**

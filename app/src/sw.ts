@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist } from 'serwist';
+import { NetworkOnly, Serwist } from 'serwist';
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -25,7 +25,9 @@ const serwist = new Serwist({
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
-  runtimeCaching: defaultCache,
+  // Never cache cross-origin responses: the API (authenticated, personal data) and photo URLs live on other
+  // origins; Serwist's default list would keep them for an hour regardless of the signed-in user.
+  runtimeCaching: [{ matcher: ({ sameOrigin }) => !sameOrigin, handler: new NetworkOnly() }, ...defaultCache],
   fallbacks: { entries: [{ url: '/offline', matcher: ({ request }) => request.destination === 'document' }] },
 });
 

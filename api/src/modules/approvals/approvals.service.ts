@@ -103,6 +103,9 @@ export class ApprovalsService {
 
   /** Location of a Monteur that the Meister is responsible for – otherwise 404 (no information leak). */
   private async monteurLocation(tx: Tx, scope: AccessScope, userId: string) {
+    // Four-eyes principle: a Meister who also works as Monteur never approves or corrects own times (ASVS 1.11.1).
+    if (userId === scope.userId)
+      throw new ForbiddenException('Eigene Einträge gibt ein anderer Meister frei (Vier-Augen-Prinzip)');
     const rows = await tx
       .select({ locationId: userLocation.locationId })
       .from(userLocation)
@@ -520,6 +523,8 @@ export class ApprovalsService {
         .from(timeCorrectionRequest)
         .where(eq(timeCorrectionRequest.id, id))
         .for('update');
+      if (req?.userId === scope.userId)
+        throw new ForbiddenException('Eigene Einträge gibt ein anderer Meister frei (Vier-Augen-Prinzip)');
       if (!req || !scope.meisterLocationIds.includes(req.locationId))
         throw new NotFoundException('Korrekturantrag nicht gefunden');
       if (req.state !== 'OFFEN') throw new ConflictException('Antrag wurde bereits entschieden');
@@ -611,6 +616,8 @@ export class ApprovalsService {
         .for('update', { of: consumption });
       if (rows.length !== ids.length || rows.some((r) => !scope.meisterLocationIds.includes(r.c.locationId)))
         throw new NotFoundException('Entnahme nicht gefunden');
+      if (rows.some((r) => r.c.userId === scope.userId))
+        throw new ForbiddenException('Eigene Einträge gibt ein anderer Meister frei (Vier-Augen-Prinzip)');
       if (rows.some((r) => r.c.state !== 'SUBMITTED'))
         throw new ConflictException('Entnahme ist bereits entschieden');
       const [ap] = await tx
@@ -695,6 +702,8 @@ export class ApprovalsService {
   async rejectConsumption(scope: AccessScope, id: string, reason: string) {
     return withSession(this.db, this.session(scope), async (tx) => {
       const [c] = await tx.select().from(consumption).where(eq(consumption.id, id)).for('update');
+      if (c?.userId === scope.userId)
+        throw new ForbiddenException('Eigene Einträge gibt ein anderer Meister frei (Vier-Augen-Prinzip)');
       if (!c || !scope.meisterLocationIds.includes(c.locationId))
         throw new NotFoundException('Entnahme nicht gefunden');
       if (c.state !== 'SUBMITTED') throw new ConflictException('Entnahme ist bereits entschieden');

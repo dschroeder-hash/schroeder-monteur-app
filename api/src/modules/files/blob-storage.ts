@@ -5,7 +5,7 @@
  *  - LocalBlobStorage: dev/test – the API itself implements the same protocol under /v1/blob/:token
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, open, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join, normalize } from 'node:path';
 
 export interface BlobStorage {
@@ -15,8 +15,16 @@ export interface BlobStorage {
   readUrl(path: string): Promise<string>;
   /** Size of the committed blob or null if it does not exist (yet). */
   size(path: string): Promise<number | null>;
+  /** First bytes of the committed blob (file-type check) or null. */
+  head(path: string, bytes: number): Promise<Buffer | null>;
   delete(path: string): Promise<void>;
 }
+
+/** Max. photo size after compression on the device (2,000 px JPEG ≈ 1–2 MB). */
+export const MAX_PHOTO_BYTES = 25_000_000;
+/** JPEG start of image marker – photos are always re-encoded as JPEG on the device. */
+export const isJpeg = (b: Buffer | null) =>
+  !!b && b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
 
 export const SAS_MINUTES = 10;
 
@@ -63,6 +71,8 @@ export class AzureBlobStorage implements BlobStorage {
         startsOn: new Date(now - 2 * 60_000),
         expiresOn: new Date(now + SAS_MINUTES * 60_000),
         protocol: SASProtocol.Https,
+        // Read links always deliver an inline JPEG – never HTML/SVG from the storage origin.
+        ...(permissions === 'r' ? { contentType: 'image/jpeg', contentDisposition: 'inline' } : {}),
       },
       this.key.value,
       accountName,
@@ -80,6 +90,14 @@ export class AzureBlobStorage implements BlobStorage {
     const blob = (await this.svc()).getContainerClient(this.container).getBlobClient(path);
     try {
       return (await blob.getProperties()).contentLength ?? null;
+    } catch {
+      return null;
+    }
+  }
+  async head(path: string, bytes: number) {
+    const blob = (await this.svc()).getContainerClient(this.container).getBlobClient(path);
+    try {
+      return await blob.downloadToBuffer(0, bytes);
     } catch {
       return null;
     }
@@ -133,6 +151,20 @@ export class LocalBlobStorage implements BlobStorage {
   async size(path: string) {
     try {
       return (await stat(this.file(path))).size;
+    } catch {
+      return null;
+    }
+  }
+  async head(path: string, bytes: number) {
+    try {
+      const h = await open(this.file(path), 'r');
+      try {
+        const buf = Buffer.alloc(bytes);
+        const { bytesRead } = await h.read(buf, 0, bytes, 0);
+        return buf.subarray(0, bytesRead);
+      } finally {
+        await h.close();
+      }
     } catch {
       return null;
     }

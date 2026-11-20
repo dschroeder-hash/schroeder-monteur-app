@@ -84,7 +84,12 @@ function Balances() {
           {msg}
         </p>
       )}
-      <div className="overflow-x-auto rounded-card border border-border">
+      <div
+        tabIndex={0}
+        role="region"
+        aria-label="Urlaubskonten (seitlich scrollbar)"
+        className="overflow-x-auto rounded-card border border-border"
+      >
         <table className="w-full min-w-[44rem] text-left">
           <thead className="bg-surface-muted">
             <tr>

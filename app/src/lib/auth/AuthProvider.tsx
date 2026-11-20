@@ -1,5 +1,6 @@
 'use client';
 
+import { clearRuntimeCaches, disablePush } from '../push';
 import { InteractionRequiredAuthError, PublicClientApplication, type AccountInfo } from '@azure/msal-browser';
 import {
   createContext,
@@ -147,6 +148,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     )
       return;
     // Personal data cache is removed on logout (E-30); the outbox stays bound to its owner.
+    await disablePush();
+    await clearRuntimeCaches();
     await localDb.clearCache(true);
     setMe(null);
     setStatus('signed-out');

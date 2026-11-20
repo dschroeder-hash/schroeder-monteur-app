@@ -263,7 +263,7 @@ export class MaterialService {
       const norm = normalizePartNo(t);
       conds.push(
         or(
-          ilike(item.name, `%${t}%`),
+          ilike(item.name, `%${t.replace(/[\\%_]/g, (c) => `\\${c}`)}%`),
           sql`regexp_replace(upper(${item.number}), '[^A-Z0-9]', '', 'g') like ${`${norm}%`}`,
           eq(item.gtin, t),
         )!,

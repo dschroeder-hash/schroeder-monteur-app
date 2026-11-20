@@ -175,7 +175,8 @@ describe('work report and status coupling', () => {
 
 describe('photos: resumable block upload to private storage', () => {
   const photoId = randomUUID();
-  const block1 = Buffer.alloc(1024, 1);
+  // JPEG start-of-image marker – the server checks the file type of the stored blob
+  const block1 = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(1021, 1)]);
   const block2 = Buffer.alloc(700, 2);
   let order2: string;
 

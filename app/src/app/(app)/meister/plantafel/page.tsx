@@ -74,23 +74,37 @@ const dropWherePointerIs: CollisionDetection = (args) => {
   return hits.length ? hits : rectIntersection(args);
 };
 
-function Draggable({ id, children, label }: { id: string; children: ReactNode; label: string }) {
+function Draggable({
+  id,
+  children,
+  label,
+  actions,
+}: {
+  id: string;
+  children: ReactNode;
+  label: string;
+  /** Buttons rendered next to (not inside) the draggable element – no nested interactive controls. */
+  actions?: ReactNode;
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id });
   return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      aria-label={label}
-      data-drag={id}
-      style={
-        transform
-          ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
-          : undefined
-      }
-      className={`cursor-grab touch-none select-none ${isDragging ? 'opacity-70 shadow-lg' : ''}`}
-    >
-      {children}
+    <div>
+      <div
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
+        aria-label={label}
+        data-drag={id}
+        style={
+          transform
+            ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
+            : undefined
+        }
+        className={`cursor-grab touch-none select-none ${isDragging ? 'opacity-70 shadow-lg' : ''}`}
+      >
+        {children}
+      </div>
+      {actions}
     </div>
   );
 }
@@ -111,6 +125,7 @@ function Cell({
     <div
       ref={setNodeRef}
       data-cell={id}
+      role="group"
       aria-label={label}
       className={`min-h-16 border-b border-l border-border p-1 ${absent ? 'bg-[repeating-linear-gradient(45deg,transparent,transparent_6px,var(--color-surface-muted)_6px,var(--color-surface-muted)_12px)]' : 'bg-surface'} ${isOver ? 'outline outline-3 outline-primary' : ''}`}
     >
@@ -233,22 +248,14 @@ export default function PlanningBoardPage() {
   const cols =
     view === 'tag' ? HOURS.map((h) => ({ d: day, h })) : days.map((d) => ({ d, h: null as number | null }));
   const chip = (a: BoardAssignment) => (
-    <Draggable key={a.id} id={`assign|${a.id}`} label={`${a.bcNo} ${a.customerName} verschieben`}>
-      <div
-        className={`mb-1 overflow-hidden break-words rounded-md border-l-4 bg-surface-muted px-2 py-1 text-xs [hyphens:auto] ${a.conflicts.length ? 'border-l-danger' : 'border-l-accent'}`}
-      >
-        <p className="font-semibold tabular-nums">
-          {localTime(new Date(a.plannedStart), tz)}–{localTime(new Date(a.plannedEnd), tz)} {a.bcNo}
-        </p>
-        <p className="truncate">{a.customerName}</p>
-        {a.conflicts.map((c) => (
-          <p key={c.message} className="font-semibold text-danger">
-            ⚠ {c.message}
-          </p>
-        ))}
+    <Draggable
+      key={a.id}
+      id={`assign|${a.id}`}
+      label={`${a.bcNo} ${a.customerName} verschieben`}
+      actions={
         <button
           type="button"
-          className="mt-1 underline"
+          className="mb-1 min-h-touch text-xs font-semibold underline"
           onPointerDown={(ev) => ev.stopPropagation()}
           onClick={() =>
             void save(
@@ -262,6 +269,20 @@ export default function PlanningBoardPage() {
         >
           Entfernen
         </button>
+      }
+    >
+      <div
+        className={`mb-1 overflow-hidden break-words rounded-md border-l-4 bg-surface-muted px-2 py-1 text-xs [hyphens:auto] ${a.conflicts.length ? 'border-l-danger' : 'border-l-accent'}`}
+      >
+        <p className="font-semibold tabular-nums">
+          {localTime(new Date(a.plannedStart), tz)}–{localTime(new Date(a.plannedEnd), tz)} {a.bcNo}
+        </p>
+        <p className="truncate">{a.customerName}</p>
+        {a.conflicts.map((c) => (
+          <p key={c.message} className="font-semibold text-danger">
+            ⚠ {c.message}
+          </p>
+        ))}
       </div>
     </Draggable>
   );
@@ -378,7 +399,21 @@ export default function PlanningBoardPage() {
               Nicht eingeplant ({sortedUnplanned.length})
             </h2>
             {sortedUnplanned.map((o) => (
-              <Draggable key={o.id} id={`order|${o.id}`} label={`${o.bcNo} ${o.customerName} einplanen`}>
+              <Draggable
+                key={o.id}
+                id={`order|${o.id}`}
+                label={`${o.bcNo} ${o.customerName} einplanen`}
+                actions={
+                  <button
+                    type="button"
+                    className="min-h-touch text-sm font-semibold underline"
+                    onPointerDown={(ev) => ev.stopPropagation()}
+                    onClick={() => setPlanFor(o)}
+                  >
+                    Einplanen ohne Ziehen …
+                  </button>
+                }
+              >
                 <article
                   className={`rounded-card border bg-surface p-3 ${o.needsReplan ? 'border-danger' : 'border-border'}`}
                 >
@@ -392,20 +427,17 @@ export default function PlanningBoardPage() {
                   <p className="font-semibold">{o.customerName}</p>
                   <p className="text-sm">{o.machine ?? o.description}</p>
                   <p className="text-sm text-text-muted">{o.faultDescription}</p>
-                  <button
-                    type="button"
-                    className="mt-1 text-sm font-semibold underline"
-                    onPointerDown={(ev) => ev.stopPropagation()}
-                    onClick={() => setPlanFor(o)}
-                  >
-                    Einplanen ohne Ziehen …
-                  </button>
                 </article>
               </Draggable>
             ))}
           </section>
 
-          <div className="overflow-x-auto rounded-card border border-border">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Plantafel (seitlich scrollbar)"
+            className="overflow-x-auto rounded-card border border-border"
+          >
             <div
               className="grid min-w-[56rem]"
               style={{ gridTemplateColumns: `11rem repeat(${cols.length}, minmax(5.5rem, 1fr))` }}

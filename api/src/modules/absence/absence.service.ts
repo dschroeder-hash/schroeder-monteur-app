@@ -189,6 +189,8 @@ export class AbsenceService {
     userId: string,
     p: { fromDate: string; toDate?: string | null; comment?: string | null },
   ) {
+    if (userId === scope.userId)
+      throw new ForbiddenException('Ihre eigene Krankmeldung erfassen Sie unter „Abwesenheit“');
     return withSession(this.db, this.session(scope), async (tx) => {
       const locationId = await this.monteurLocationFor(tx, scope, userId);
       const id = randomUUID();
@@ -231,6 +233,10 @@ export class AbsenceService {
     return withSession(this.db, this.session(scope), async (tx) => {
       const [a] = await tx.select().from(absence).where(eq(absence.id, id)).for('update');
       if (!a || !this.canManage(scope, a)) throw new NotFoundException('Abwesenheit nicht gefunden');
+      if (a.userId === scope.userId)
+        throw new ForbiddenException(
+          'Das Ende Ihrer eigenen Krankmeldung tragen Sie unter „Abwesenheit“ ein',
+        );
       if (a.type !== 'KRANK' || a.state !== 'REPORTED')
         throw new ConflictException('Keine aktive Krankmeldung');
       await this.changeSickEnd(tx, a, toDate, !!a.decidedAt);
@@ -710,6 +716,11 @@ export class AbsenceService {
     const [a] = await tx.select().from(absence).where(eq(absence.id, id)).for('update');
     if (!a || !scope.meisterLocationIds.includes(a.locationId))
       throw new NotFoundException('Abwesenheit nicht gefunden');
+    // Four-eyes principle: own absences are decided by another Meister.
+    if (a.userId === scope.userId)
+      throw new ForbiddenException(
+        'Eigene Abwesenheiten entscheidet ein anderer Meister (Vier-Augen-Prinzip)',
+      );
     return a;
   }
 

@@ -37,7 +37,7 @@ import {
 } from '../../db/schema.js';
 import { FeatureService } from '../../features/feature.service.js';
 import { BLOB_STORAGE } from './files.tokens.js';
-import type { BlobStorage } from './blob-storage.js';
+import { isJpeg, MAX_PHOTO_BYTES, type BlobStorage } from './blob-storage.js';
 import { CommService } from './comm.service.js';
 import { REALTIME, type Realtime } from './realtime.js';
 import { SPEECH, TEXT_REWRITE, type SpeechToText, type TextRewrite } from './speech.js';
@@ -80,6 +80,11 @@ export class PhotosController {
       if (!p || p.uploadedBy !== s.userId) throw new NotFoundException('Foto nicht gefunden');
       const size = await this.storage.size(p.blobPath);
       if (size === null || size === 0) throw new BadRequestException('Upload unvollständig');
+      // The client only reports metadata – size and file type are checked on the stored blob (ASVS 12.1/12.2).
+      if (size > MAX_PHOTO_BYTES || !isJpeg(await this.storage.head(p.blobPath, 3))) {
+        await this.storage.delete(p.blobPath);
+        throw new BadRequestException('Datei ist kein gültiges Foto (JPEG, max. 25 MB)');
+      }
       await tx
         .update(photo)
         .set({ uploadState: 'UPLOADED', uploadedAt: new Date(), sizeBytes: size })
@@ -294,9 +299,20 @@ export class NotificationsController {
         auth: b.keys.auth,
         userAgent: String(req.headers['user-agent'] ?? '').slice(0, 300),
       };
-      // An endpoint belongs to one browser; re-subscribing on a shared device moves it to the current user.
-      await tx.delete(pushSubscription).where(eq(pushSubscription.endpoint, b.endpoint));
-      await tx.insert(pushSubscription).values(values);
+      // One row per user and browser. Rows of other users with the same endpoint (shared device) are removed by
+      // the worker before delivery – the newest subscription wins (RLS forbids touching them here).
+      await tx
+        .insert(pushSubscription)
+        .values(values)
+        .onConflictDoUpdate({
+          target: [pushSubscription.userId, pushSubscription.endpoint],
+          set: {
+            p256dh: values.p256dh,
+            auth: values.auth,
+            userAgent: values.userAgent,
+            updatedAt: new Date(),
+          },
+        });
       return { ok: true };
     });
   }

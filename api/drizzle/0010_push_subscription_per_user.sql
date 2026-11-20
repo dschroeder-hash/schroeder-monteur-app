@@ -1,0 +1,2 @@
+ALTER TABLE "push_subscription" DROP CONSTRAINT "push_subscription_endpoint_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "push_subscription_user_endpoint_uq" ON "push_subscription" USING btree ("user_id","endpoint");

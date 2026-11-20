@@ -1,5 +1,6 @@
 'use client';
 
+import { RefreshFromBc } from '@/components/RefreshFromBc';
 import { DEFAULT_STATUS_DEFINITIONS, REQUIRED_FIELD_DEFS, type AppStatus } from '@schroeder/shared';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -62,6 +63,7 @@ function MeisterOrder() {
         <p className="mt-1 inline-block rounded-full bg-surface-muted px-3 py-1 text-sm font-semibold">
           {DEFAULT_STATUS_DEFINITIONS[o.appStatus].label}
         </p>
+        <RefreshFromBc orderId={o.id} onRequested={() => void order.reload()} />
       </header>
       {msg && <p role="status">{msg}</p>}
       <section aria-labelledby="bericht" className="rounded-card border border-border bg-surface p-4">

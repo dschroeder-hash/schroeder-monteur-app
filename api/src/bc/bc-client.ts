@@ -180,6 +180,9 @@ export class BcClient {
       const page = json as { value: Record<string, unknown>[]; '@odata.nextLink'?: string };
       out.push(...page.value.map((r) => this.parse(name, r)));
       const link = page['@odata.nextLink'];
+      // Paging links must stay on the BC host – the bearer token is never sent anywhere else (ASVS 13.2.x).
+      if (link && new URL(link, this.o.apiBaseUrl).origin !== new URL(this.o.apiBaseUrl).origin)
+        throw new BcContractError(`${name}: nextLink points to a foreign host`);
       next = link ? new URL(link, this.o.apiBaseUrl).toString() : undefined;
     }
     return out;
