@@ -1,0 +1,14 @@
+# GitHub Codespaces / VS Code Dev Container: Node 22 + PostgreSQL 16 for the demo (scripts/demo.sh).
+services:
+  dev:
+    image: mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    # shares the network with the database → PostgreSQL is reachable on localhost:5432
+    network_mode: service:db
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: postgres

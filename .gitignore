@@ -15,3 +15,4 @@ test-results
 export/
 public/zxing/
 var/
+.demo-logs/

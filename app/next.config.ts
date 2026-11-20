@@ -78,6 +78,16 @@ const config: NextConfig = {
   poweredByHeader: false,
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
   transpilePackages: ['@schroeder/shared', '@schroeder/ui'],
+  // Demo/preview: with API_PROXY_TARGET the app forwards API calls over its own address (one origin, one port).
+  // Production uses its own API address (NEXT_PUBLIC_API_URL) and never sets this.
+  async rewrites() {
+    const target = process.env.API_PROXY_TARGET;
+    if (!target) return [];
+    return ['/v1/:path*', '/dev/:path*', '/health/:path*'].map((source) => ({
+      source,
+      destination: `${target}${source.replace('/:path*', '')}/:path*`,
+    }));
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
