@@ -77,7 +77,11 @@ const jobs: Array<{ name: string; intervalMs: number; run: () => Promise<unknown
   { name: 'forgotten-clock-out-reminder', intervalMs: 5 * 60_000, run: () => remindForgottenClockOut(db) },
   ...(pushSender ? [{ name: 'web-push', intervalMs: 20_000, run: () => deliverPush(db, pushSender!) }] : []),
   { name: 'retention', intervalMs: 6 * 3_600_000, run: () => applyRetention(db, (p) => storage.delete(p)) },
-  { name: 'auto-approve', intervalMs: 60_000, run: () => runAutoApprove(db, approvals) },
+  {
+    name: 'auto-approve',
+    intervalMs: Number(process.env.AUTO_APPROVE_INTERVAL_SEC ?? 60) * 1000,
+    run: () => runAutoApprove(db, approvals),
+  },
   { name: 'bc-transfer', intervalMs: 15_000, run: () => bcTransfer.runOnce() },
   { name: 'bc-sync', intervalMs: config.BC_SYNC_INTERVAL_SEC * 1000, run: () => bcSync.runAll() },
   { name: 'bc-refresh', intervalMs: 10_000, run: () => bcSync.processRefreshRequests() },

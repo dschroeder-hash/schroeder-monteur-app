@@ -79,6 +79,7 @@ export default defineConfig({
         BC_API_BASE_URL: `${BC_MOCK_URL}/api`,
         BC_TOKEN_URL: `${BC_MOCK_URL}/oauth2/token`,
         BC_SYNC_INTERVAL_SEC: '600',
+        AUTO_APPROVE_INTERVAL_SEC: '3',
         WORKER_HEALTH_PORT: '4012',
         DATABASE_URL: `postgres://monteur_worker_e2e:e2e@${host}/${E2E_DB}`,
       },

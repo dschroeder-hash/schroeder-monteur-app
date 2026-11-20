@@ -12,19 +12,9 @@ const PAGES: Record<string, string[]> = {
     '/monteur/zeiten',
     '/monteur/material',
     '/monteur/verbrauch',
-    '/monteur/abwesenheit',
     '/monteur/produktivitaet',
   ],
-  'meister-wild': [
-    '/meister',
-    '/meister/plantafel',
-    '/meister/freigaben',
-    '/meister/abwesenheiten',
-    '/meister/produktivitaet',
-    '/meister/textbausteine',
-  ],
   'lager-wild': ['/lager'],
-  personal: ['/personal'],
   admin: ['/admin', '/admin/uebertragungen'],
 };
 

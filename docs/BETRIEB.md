@@ -90,6 +90,16 @@ Fachliche Einstellungen (Tabelle `setting`, je Standort überschreibbar) pflegt 
 Arbeitstypen, Buch.-Blätter, Pflichtfelder Arbeitsbericht, Löschfristen, Abwesenheitsziel (`absence.bcTarget`,
 Ursachencodes), Produktivität (Zielkorridor, Altdaten-Regel).
 
+Übergabe ohne Meister (E-66 bis E-68):
+
+| Einstellung (`setting`)        | Standard                            | Bedeutung                                                                                                     |
+| ------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `approval.mode`                | `auto`                              | `auto`: Stunden, Entnahmen und abgeschlossene Aufträge gehen ohne Prüfung nach BC. `meister`: keine Übergabe. |
+| `approval.graceMinutes`        | `30`                                | Karenzzeit nach der letzten Buchung bzw. Entnahme, in der der Monteur noch korrigieren kann.                  |
+| `completion.signatureRequired` | `true` (je Standort überschreibbar) | „Arbeit abgeschlossen“ nur mit Kundenunterschrift oder vermerktem Grund.                                      |
+
+Servicechecklisten: Admin → „Servicechecklisten“ (JSON nach der BC-Vorlage, OP-44).
+
 ## 4. Hintergrundjobs (Worker)
 
 | Job                            | Intervall | Aufgabe                                                                                                                                                                                                                                                                                                     |
@@ -100,6 +110,7 @@ Ursachencodes), Produktivität (Zielkorridor, Altdaten-Regel).
 | `forgotten-clock-out`          | 15 min    | Markiert vergessene „Gehen“-Buchungen zur Korrektur.                                                                                                                                                                                                                                                        |
 | `forgotten-clock-out-reminder` | 5 min     | Erinnerung 19:00 Uhr Standortzeit (OP-17).                                                                                                                                                                                                                                                                  |
 | `retention`                    | 6 h       | Löschfristen: Chat/Fotos 24 Monate nach Abrechnung, Krankmeldungen und Kommentare 12 Monate nach Ende, Benachrichtigungen 180 Tage, Sync-Protokoll 90 Tage; Zeitdaten, Audit-Log, Freigaben, Produktivität und Urlaub nach 6 Jahren (`retention.timeDataYears`); lange inaktive Konten werden anonymisiert. |
+| `auto-approve`                 | 60 s      | Übergabe ohne Meister (E-66): Korrekturanträge, abgeschlossene Tage, Entnahmen, abgeschlossene Aufträge (Bericht, Checkliste, PDF mit Unterschrift, Status). Fehler einzelner Einträge (z. B. fehlende BC-Ressource) stehen im Log und werden beim nächsten Lauf wiederholt.                                |
 | `productivity-snapshot`        | 6 h       | Vormonat bis zum 10. neu berechnen, danach fest (E-54).                                                                                                                                                                                                                                                     |
 
 `GET /health/ready` des Workers (Port `WORKER_HEALTH_PORT`, Standard 4001) liefert je Job den Zeitpunkt des letzten
