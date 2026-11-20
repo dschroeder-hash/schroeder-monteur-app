@@ -17,6 +17,7 @@ import type pg from 'pg';
 import type { Db } from '../db/client.js';
 import {
   assignment,
+  bcChecklistLine,
   bcContact,
   bcRemark,
   itemSubstitution,
@@ -286,6 +287,11 @@ export class BcSyncService {
       (rows) => this.applyItems(companyId, locs, rows),
     );
     await step(
+      'serviceChecklistLines',
+      (s) => bc.listModifiedSince('serviceChecklistLines', s),
+      (rows) => this.applyChecklistLines(companyId, rows),
+    );
+    await step(
       'itemSubstitutions',
       (s) => bc.listModifiedSince('itemSubstitutions', s),
       (rows) => this.applySubstitutions(companyId, rows),
@@ -487,6 +493,56 @@ export class BcSyncService {
           set: v,
         });
     }
+  }
+
+  /** Yellow card lines: many rows per order, therefore written in batches. */
+  private async applyChecklistLines(companyId: string, rows: EntityOf<'serviceChecklistLines'>[]) {
+    const list = (x: string) =>
+      x
+        .split(';')
+        .map((v) => v.trim())
+        .filter(Boolean);
+    const values = rows.map((r) => ({
+      bcCompanyId: companyId,
+      orderNo: r.documentNumber,
+      lineNo: r.lineNumber,
+      description: r.description,
+      lineType: r.lineType,
+      inputEnabled: r.inputEnabled,
+      answerType: r.answerType,
+      options: list(r.options),
+      unit: r.unit,
+      unitOptions: list(r.unitOptions),
+      required: r.required,
+      checked: r.checked,
+      answer: r.answer,
+      answerUnit: r.answerUnit,
+      bcSystemId: r.id,
+      bcModifiedAt: new Date(r.lastModifiedDateTime),
+    }));
+    const ex = (c: string) => sql.raw(`excluded.${c}`);
+    for (let i = 0; i < values.length; i += 500)
+      await this.db
+        .insert(bcChecklistLine)
+        .values(values.slice(i, i + 500))
+        .onConflictDoUpdate({
+          target: [bcChecklistLine.bcCompanyId, bcChecklistLine.orderNo, bcChecklistLine.lineNo],
+          set: {
+            description: ex('description'),
+            lineType: ex('line_type'),
+            inputEnabled: ex('input_enabled'),
+            answerType: ex('answer_type'),
+            options: ex('options'),
+            unit: ex('unit'),
+            unitOptions: ex('unit_options'),
+            required: ex('required'),
+            checked: ex('checked'),
+            answer: ex('answer'),
+            answerUnit: ex('answer_unit'),
+            bcSystemId: ex('bc_system_id'),
+            bcModifiedAt: ex('bc_modified_at'),
+          },
+        });
   }
 
   private async applySubstitutions(companyId: string, rows: EntityOf<'itemSubstitutions'>[]) {

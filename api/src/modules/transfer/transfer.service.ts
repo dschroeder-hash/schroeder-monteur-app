@@ -26,7 +26,7 @@ export type TransferPayload =
   | {
       op: 'patch';
       endpoint: EndpointName;
-      ref: { table: 'assignment' | 'service_order'; id: string };
+      ref: { table: 'assignment' | 'service_order' | 'bc_checklist_line'; id: string };
       body: Record<string, unknown>;
     }
   /** Deletes the BC record created by an earlier transfer (`ref.id` = that transfer's id, same group). */

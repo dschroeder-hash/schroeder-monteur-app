@@ -23,15 +23,18 @@ export function ChecklistForm({
   const [results, setResults] = useState(initial);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const first = useRef(true);
+  // Only a change of the answers saves – never a re-render (the save itself updates the page).
+  const save = useRef(onSave);
+  save.current = onSave;
   useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => onSave(results), 600);
+    timer.current = setTimeout(() => save.current(results), 600);
     return () => clearTimeout(timer.current);
-  }, [results, onSave]);
+  }, [results]);
   const set = (id: string, patch: Partial<ChecklistAnswer>) =>
     setResults((r) => ({ ...r, [id]: { ...EMPTY, ...r[id], ...patch } }));
 

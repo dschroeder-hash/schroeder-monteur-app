@@ -1,4 +1,4 @@
-import type { ChecklistItem } from '@schroeder/shared';
+import type { ChecklistItem } from './checklist.js';
 
 /**
  * "Servicecheckliste (gelbe Karte)" as in BC (screenshots from the service office, 20.11.2026). The field types

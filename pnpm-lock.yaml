@@ -214,6 +214,9 @@ importers:
       '@schroeder/bc-contract':
         specifier: workspace:*
         version: link:../packages/bc-contract
+      '@schroeder/shared':
+        specifier: workspace:*
+        version: link:../packages/shared
       fastify:
         specifier: ^5.6.2
         version: 5.12.8

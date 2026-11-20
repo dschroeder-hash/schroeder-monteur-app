@@ -1,7 +1,11 @@
-import { YELLOW_CARD } from './yellow-card.js';
 import { fileURLToPath } from 'node:url';
 import { sql } from 'drizzle-orm';
-import { appStatusFromBc, DEFAULT_CONSUMABLE_CATEGORIES, type BcServiceStatus } from '@schroeder/shared';
+import {
+  appStatusFromBc,
+  DEFAULT_CONSUMABLE_CATEGORIES,
+  YELLOW_CARD,
+  type BcServiceStatus,
+} from '@schroeder/shared';
 import { buildSeed, SEED_COMPANY, SEED_LOCATIONS } from '@schroeder/bc-mock';
 import { createDb, type Db } from '../db/client.js';
 import * as s from '../db/schema.js';

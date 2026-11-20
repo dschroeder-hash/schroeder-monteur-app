@@ -1,0 +1,72 @@
+// VORLAGE – nicht Teil des Builds (Dateiendung .txt). Die Servicecheckliste („gelbe Karte“) ist eine
+// kundenspezifische Erweiterung; Tabellen- und Feldnamen sind unbekannt (OFFENE-PUNKTE OP-44).
+// Der BC-Partner ersetzt die Platzhalter <<…>>, benennt die Datei in .Page.al um und legt sie unter src/Page ab.
+// Vertrag (Feldnamen/Typen) siehe packages/bc-contract/src/index.ts → serviceChecklistLineSchema.
+// Die Monteur-App liest alle Zeilen (GET, Delta über lastModifiedDateTime) und schreibt nur
+// checked / answer / answerUnit zurück (PATCH, If-Match).
+
+page 50122 "WS API Service Checklist Lines"
+{
+    PageType = API;
+    APIPublisher = 'schroeder';
+    APIGroup = 'werkstatt';
+    APIVersion = 'v1.0';
+    EntityName = 'serviceChecklistLine';
+    EntitySetName = 'serviceChecklistLines';
+    SourceTable = <<Checklistenzeilen-Tabelle>>;
+    // nur Zeilen von Serviceaufträgen
+    SourceTableView = where(<<Belegart-Feld>> = const(<<Auftrag>>));
+    ODataKeyFields = SystemId;
+    DelayedInsert = true;
+    InsertAllowed = false;
+    ModifyAllowed = true;
+    DeleteAllowed = false;
+    Extensible = false;
+
+    layout
+    {
+        area(Content)
+        {
+            repeater(Records)
+            {
+                field(id; Rec.SystemId) { Editable = false; }
+                field(documentNumber; Rec.<<Belegnr.>>) { Editable = false; }
+                field(lineNumber; Rec.<<Zeilennr.>>) { Editable = false; }
+                field(description; Rec.<<Beschreibung>>) { Editable = false; }
+                // 'Heading' für fette Überschriften, sonst 'Line'
+                field(lineType; LineType) { Editable = false; }
+                // Spalte „Eingabe“ bearbeitbar?
+                field(inputEnabled; Rec.<<Eingabe bearbeitbar>>) { Editable = false; }
+                // 'None' | 'Text' | 'Number' | 'Option' – je Zeile individuell programmiert
+                field(answerType; AnswerType) { Editable = false; }
+                // Auswahlwerte, mit ';' getrennt (z. B. Motoröle)
+                field(options; Options) { Editable = false; }
+                field(unit; Rec.<<Einheit>>) { Editable = false; }
+                // auswählbare Einheiten, mit ';' getrennt (z. B. 'Liter;St.')
+                field(unitOptions; UnitOptions) { Editable = false; }
+                field(required; Required) { Editable = false; }
+                field(checked; Rec.<<Eingabe>>) { }
+                field(answer; Rec.<<Antwort>>) { }
+                field(answerUnit; Rec.<<gewählte Einheit>>) { }
+                field(lastModifiedDateTime; Rec.SystemModifiedAt) { Editable = false; }
+            }
+        }
+    }
+
+    var
+        LineType: Text[10];
+        AnswerType: Text[10];
+        Options: Text[2048];
+        UnitOptions: Text[250];
+        Required: Boolean;
+
+    trigger OnAfterGetRecord()
+    begin
+        // <<Zuordnung aus den Zeilendaten der Erweiterung>>
+        LineType := 'Line';
+        AnswerType := 'None';
+        Options := '';
+        UnitOptions := '';
+        Required := false;
+    end;
+}

@@ -28,6 +28,7 @@ import {
   type LocalOrderSignature,
   type LocalRemark,
   type LocalContact,
+  type LocalChecklistDef,
   type LocalTemplate,
   type LocalWorkReport,
   type LocalConsumption,
@@ -107,6 +108,7 @@ export async function recordCommand<T extends CommandType>(
       db.items,
       db.workReports,
       db.checklistTemplates,
+      db.checklistDefs,
       db.orderChecklists,
       db.orderSignatures,
       db.chatMessages,
@@ -198,10 +200,12 @@ export async function recordCommand<T extends CommandType>(
       }
       if (type === 'SaveChecklist') {
         const p = payload as CommandPayload<'SaveChecklist'>;
-        const tpl = await db.checklistTemplates.get(p.templateId);
+        const tpl = p.templateId
+          ? await db.checklistTemplates.get(p.templateId)
+          : await db.checklistDefs.get(p.orderId);
         await db.orderChecklists.put({
           orderId: p.orderId,
-          templateId: p.templateId,
+          templateId: p.templateId ?? null,
           results: p.results as Record<string, ChecklistAnswer>,
           complete: tpl
             ? checklistMissing(tpl.items, p.results as Record<string, ChecklistAnswer>).length === 0
@@ -445,6 +449,7 @@ interface PullResponse {
   orderSignatures?: Array<Omit<LocalOrderSignature, 'pending' | 'imagePng'>>;
   remarks?: LocalRemark[];
   contacts?: LocalContact[];
+  checklistDefs?: LocalChecklistDef[];
   chatMessages?: LocalChatMessage[];
   chatReads?: LocalChatRead[];
   photos?: LocalPhoto[];
@@ -477,6 +482,7 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     db.orderSignatures,
     db.remarks,
     db.contacts,
+    db.checklistDefs,
     db.chatMessages,
     db.chatReads,
     db.photos,
@@ -630,6 +636,10 @@ async function applyCommunication(db: MonteurDb, res: PullResponse) {
   if (res.remarks) {
     await db.remarks.clear();
     await db.remarks.bulkPut(res.remarks);
+  }
+  if (res.checklistDefs) {
+    await db.checklistDefs.clear();
+    await db.checklistDefs.bulkPut(res.checklistDefs);
   }
   if (res.contacts) {
     await db.contacts.clear();

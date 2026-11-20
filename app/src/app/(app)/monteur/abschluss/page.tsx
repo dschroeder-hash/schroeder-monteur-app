@@ -60,6 +60,7 @@ function Completion() {
   const templates =
     useLiveQuery(() => localDb.checklistTemplates.filter((t) => t.active).toArray(), []) ?? [];
   const checklist = useLiveQuery(() => localDb.orderChecklists.get(orderId), [orderId]);
+  const bcDef = useLiveQuery(() => localDb.checklistDefs.get(orderId), [orderId]);
   const signature = useLiveQuery(() => localDb.orderSignatures.get(orderId), [orderId]);
   const loaded = useLiveQuery(async () => true, []);
   const [png, setPng] = useState<string | null>(null);
@@ -67,13 +68,19 @@ function Completion() {
   const [absent, setAbsent] = useState(false);
   const [reason, setReason] = useState('');
 
-  const tpl = order
+  // The yellow card of the BC order wins; otherwise the most specific app template (E-67, OP-44).
+  const appTpl = order
     ? pickChecklistTemplate(templates, {
         locationId: order.locationId,
         orderTypeCode: order.orderTypeCode,
         brand: order.items[0]?.machine?.brand ?? null,
       })
     : null;
+  const tpl = bcDef
+    ? { id: null, title: bcDef.title, items: bcDef.items, initial: bcDef.bcAnswers }
+    : appTpl
+      ? { id: appTpl.id, title: appTpl.title, items: appTpl.items, initial: {} }
+      : null;
   const saveChecklist = useCallback(
     (results: Record<string, ChecklistAnswer>) => {
       if (tpl) void run('SaveChecklist', { orderId, templateId: tpl.id, results });
@@ -85,7 +92,10 @@ function Completion() {
   const reportDone = !!report?.complete || (!!report?.body.trim() && report.pending === true);
   const items = tpl ? checklistItemsFor(tpl.items, order.orderTypeCode) : [];
   const openItems = tpl
-    ? checklistMissing(items, checklist?.templateId === tpl.id ? checklist.results : {})
+    ? checklistMissing(items, {
+        ...tpl.initial,
+        ...(checklist?.templateId === tpl.id ? checklist.results : {}),
+      })
     : [];
   const checklistDone = !tpl || openItems.length === 0;
   const signed = !!signature;
@@ -132,9 +142,9 @@ function Completion() {
       {tpl && (
         <Step n={2} title={`Checkliste: ${tpl.title}`} done={checklistDone}>
           <ChecklistForm
-            key={tpl.id}
+            key={tpl.id ?? 'bc'}
             items={items}
-            initial={checklist?.templateId === tpl.id ? checklist.results : {}}
+            initial={{ ...tpl.initial, ...(checklist?.templateId === tpl.id ? checklist.results : {}) }}
             onSave={saveChecklist}
           />
           {!checklistDone && (

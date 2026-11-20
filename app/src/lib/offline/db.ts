@@ -215,11 +215,18 @@ export interface LocalChecklistTemplate {
 }
 export interface LocalOrderChecklist {
   orderId: string;
-  templateId: string;
+  templateId: string | null;
   results: Record<string, ChecklistAnswer>;
   complete: boolean;
   deviceTime: string | null;
   pending?: boolean;
+}
+/** Yellow card of a BC service order (OP-44) – takes precedence over app templates. */
+export interface LocalChecklistDef {
+  orderId: string;
+  title: string;
+  items: ChecklistItem[];
+  bcAnswers: Record<string, ChecklistAnswer>;
 }
 /** Customer signature (E-68); the image stays on the device that captured it until it is sent. */
 export interface LocalOrderSignature {
@@ -346,6 +353,7 @@ export class MonteurDb extends Dexie {
   orderSignatures!: EntityTable<LocalOrderSignature, 'orderId'>;
   remarks!: EntityTable<LocalRemark, 'id'>;
   contacts!: EntityTable<LocalContact, 'id'>;
+  checklistDefs!: EntityTable<LocalChecklistDef, 'orderId'>;
   templates!: EntityTable<LocalTemplate, 'id'>;
   chatMessages!: EntityTable<LocalChatMessage, 'id'>;
   chatReads!: Table<LocalChatRead, [string, string]>;
@@ -389,6 +397,7 @@ export class MonteurDb extends Dexie {
       orderSignatures: 'orderId',
     });
     this.version(7).stores({ remarks: 'id, [scope+refNo]', contacts: 'id, customerNo' });
+    this.version(8).stores({ checklistDefs: 'orderId' });
   }
 
   /** Removes all cached personal data (logout). The outbox is kept only if the caller decides so. */
@@ -415,6 +424,7 @@ export class MonteurDb extends Dexie {
       this.orderSignatures,
       this.remarks,
       this.contacts,
+      this.checklistDefs,
       this.templates,
       this.chatMessages,
       this.chatReads,

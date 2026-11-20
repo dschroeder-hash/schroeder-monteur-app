@@ -1,10 +1,10 @@
-import { and, asc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, eq, ne } from 'drizzle-orm';
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from 'pdf-lib';
 import { ACTIVITY_LABELS, REQUIRED_FIELD_DEFS, checklistLines, type Activity } from '@schroeder/shared';
 import type { Db } from '../../db/client.js';
+import { checklistFor } from './checklist-source.js';
 import {
   appUser,
-  checklistTemplate,
   consumption,
   item,
   location,
@@ -153,12 +153,7 @@ export async function buildWorkOrderPdf(db: Db, orderId: string): Promise<Uint8A
     .orderBy(asc(consumption.deviceTime));
   const [report] = await db.select().from(workReport).where(eq(workReport.orderId, orderId));
   const [cl] = await db.select().from(orderChecklist).where(eq(orderChecklist.orderId, orderId));
-  const [tpl] = cl
-    ? await db
-        .select()
-        .from(checklistTemplate)
-        .where(inArray(checklistTemplate.id, [cl.templateId]))
-    : [];
+  const def = cl ? await checklistFor(db, order) : null;
   const [sig] = await db.select().from(orderSignature).where(eq(orderSignature.orderId, orderId));
 
   const doc = await PDFDocument.create();
@@ -225,9 +220,9 @@ export async function buildWorkOrderPdf(db: Db, orderId: string): Promise<Uint8A
         `${REQUIRED_FIELD_DEFS[k]?.label ?? k}: ${typeof v === 'number' ? v.toLocaleString('de-DE') : v}${REQUIRED_FIELD_DEFS[k]?.unit ? ` ${REQUIRED_FIELD_DEFS[k]!.unit}` : ''}`,
       );
 
-  if (cl && tpl) {
-    w.heading(`Checkliste: ${tpl.title}`);
-    for (const line of checklistLines(tpl.items, cl.results)) w.text(line);
+  if (cl && def) {
+    w.heading(def.title);
+    for (const line of checklistLines(def.items, { ...def.bcAnswers, ...cl.results })) w.text(line);
   }
 
   w.heading('Bestätigung des Kunden');

@@ -88,7 +88,8 @@ export const COMMAND_PAYLOADS = {
   /** Filled-in service checklist (E-67). Whole document; the newest device time wins. */
   SaveChecklist: z.object({
     orderId: uuid,
-    templateId: uuid,
+    /** App template; null when the checklist comes from BC (yellow card of the order). */
+    templateId: uuid.nullable(),
     results: z
       .record(
         z.string().max(80),

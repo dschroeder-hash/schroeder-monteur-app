@@ -42,6 +42,7 @@ import {
   storageLocation,
   syncCommand,
   textTemplate,
+  bcChecklistLine,
   bcContact,
   bcRemark,
   checklistTemplate,
@@ -58,6 +59,7 @@ import { FeatureService } from '../../features/feature.service.js';
 import { TimeService } from '../time/time.service.js';
 import { MaterialService } from '../material/material.service.js';
 import { ReportService } from '../docs/report.service.js';
+import { checklistFor } from '../docs/checklist-source.js';
 import { CommService } from '../files/comm.service.js';
 import { AbsenceService } from '../absence/absence.service.js';
 
@@ -602,6 +604,32 @@ export class SyncService {
           .from(bcContact)
           .where(inArray(bcContact.customerNo, customerNos.length ? customerNos : ['-']));
 
+        // Yellow card lines of the BC service orders (OP-44) – complete for every visible order, like remarks.
+        const bcLines = visible.length
+          ? await tx
+              .select()
+              .from(bcChecklistLine)
+              .where(
+                inArray(
+                  bcChecklistLine.orderNo,
+                  visible.map((v) => v.bcNo),
+                ),
+              )
+          : [];
+        const checklistDefs = (
+          await Promise.all(
+            visible
+              .filter((v) => bcLines.some((l) => l.orderNo === v.bcNo))
+              .map(async (v) => {
+                const [o] = await tx.select().from(serviceOrder).where(eq(serviceOrder.id, v.id));
+                const def = o ? await checklistFor(tx, o) : null;
+                return def?.source === 'bc'
+                  ? { orderId: v.id, title: def.title, items: def.items, bcAnswers: def.bcAnswers }
+                  : null;
+              }),
+          )
+        ).filter((x) => x !== null);
+
         const stamps = await tx
           .select()
           .from(stampEvent)
@@ -826,6 +854,7 @@ export class SyncService {
           orderSignatures: signatures,
           remarks,
           contacts,
+          checklistDefs,
           chatMessages: messages.map((x) => ({ ...x.m, authorName: x.authorName })),
           chatReads: reads,
           photos: photos.map(({ blobPath: _b, ...p }) => p),

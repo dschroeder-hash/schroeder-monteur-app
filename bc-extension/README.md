@@ -23,31 +23,32 @@ test/requests.http                            Beispielaufrufe (VS Code REST Clie
 
 ## Endpunkte
 
-| Entity Set                | Quelle                                                                                         | Schreiben                            |
-| ------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `serviceOrders`           | 5900 Service Header (Belegart Auftrag)                                                         | PATCH nur `status` (mit `If-Match`)  |
-| `serviceOrderItems`       | 5901 Service Item Line                                                                         | –                                    |
-| `serviceItems`            | 5940 Service Item                                                                              | –                                    |
-| `resources`               | 156 Resource                                                                                   | –                                    |
-| `serviceOrderTypes`       | 5903 Service Order Type                                                                        | –                                    |
-| `responsibilityCenters`   | 5714 Responsibility Center                                                                     | –                                    |
-| `causesOfAbsence`         | 5206 Cause of Absence                                                                          | –                                    |
-| `workTypes`               | 200 Work Type                                                                                  | –                                    |
-| `itemReferences`          | 5777 Item Reference                                                                            | –                                    |
-| `itemAvailabilities`      | Query über 32 Item Ledger Entry (Summe Menge je Artikel × Lagerort)                            | –                                    |
-| `serviceOrderAllocations` | 5950 Service Order Allocation                                                                  | POST                                 |
-| `serviceLines`            | 5902 Service Line (Belegart Auftrag)                                                           | POST                                 |
-| `serviceCommentLines`     | 5906 Service Comment Line (Service Header, Auftrag)                                            | POST                                 |
-| `serviceOrderAttachments` | 1173 Document Attachment (Service Header, Auftrag) – unterschriebener Werkstattauftrag als PDF | POST (Datei Base64 in `fileContent`) |
-| `customerComments`        | 97 Comment Line (Customer) – Bemerkungen zum Debitor                                           | GET                                  |
-| `serviceItemComments`     | 5906 Service Comment Line (Service Item) – Bemerkungen zur Maschine                            | GET                                  |
-| `customerContacts`        | 5050 Contact (Person) + 5054 Contact Business Relation – Kontakte des Debitors                 | GET                                  |
-| `itemSubstitutions` | 5715 Item Substitution (Artikel → Artikel) – Ersatz- und Nachfolgeartikel | GET |
-| `employeeAbsences`        | 5207 Employee Absence                                                                          | POST, DELETE (Storno)                |
-| `resourceJournalLines`    | 207 Res. Journal Line                                                                          | POST                                 |
-| `itemJournalLines`        | 83 Item Journal Line                                                                           | POST                                 |
-| `postedServiceInvoices`   | 5992 Service Invoice Header                                                                    | –                                    |
-| `deletedRecords`          | 50100 WS Deleted Record                                                                        | –                                    |
+| Entity Set                | Quelle                                                                                                                                 | Schreiben                                      |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `serviceOrders`           | 5900 Service Header (Belegart Auftrag)                                                                                                 | PATCH nur `status` (mit `If-Match`)            |
+| `serviceOrderItems`       | 5901 Service Item Line                                                                                                                 | –                                              |
+| `serviceItems`            | 5940 Service Item                                                                                                                      | –                                              |
+| `resources`               | 156 Resource                                                                                                                           | –                                              |
+| `serviceOrderTypes`       | 5903 Service Order Type                                                                                                                | –                                              |
+| `responsibilityCenters`   | 5714 Responsibility Center                                                                                                             | –                                              |
+| `causesOfAbsence`         | 5206 Cause of Absence                                                                                                                  | –                                              |
+| `workTypes`               | 200 Work Type                                                                                                                          | –                                              |
+| `itemReferences`          | 5777 Item Reference                                                                                                                    | –                                              |
+| `itemAvailabilities`      | Query über 32 Item Ledger Entry (Summe Menge je Artikel × Lagerort)                                                                    | –                                              |
+| `serviceOrderAllocations` | 5950 Service Order Allocation                                                                                                          | POST                                           |
+| `serviceLines`            | 5902 Service Line (Belegart Auftrag)                                                                                                   | POST                                           |
+| `serviceCommentLines`     | 5906 Service Comment Line (Service Header, Auftrag)                                                                                    | POST                                           |
+| `serviceOrderAttachments` | 1173 Document Attachment (Service Header, Auftrag) – unterschriebener Werkstattauftrag als PDF                                         | POST (Datei Base64 in `fileContent`)           |
+| `customerComments`        | 97 Comment Line (Customer) – Bemerkungen zum Debitor                                                                                   | GET                                            |
+| `serviceItemComments`     | 5906 Service Comment Line (Service Item) – Bemerkungen zur Maschine                                                                    | GET                                            |
+| `customerContacts`        | 5050 Contact (Person) + 5054 Contact Business Relation – Kontakte des Debitors                                                         | GET                                            |
+| `itemSubstitutions`       | 5715 Item Substitution (Artikel → Artikel) – Ersatz- und Nachfolgeartikel                                                              | GET                                            |
+| `serviceChecklistLines`   | Servicecheckliste (gelbe Karte) – **kundenspezifische Tabelle**, Vorlage in `templates/WSApiServiceChecklistLines.Page.al.txt` (OP-44) | GET, PATCH (`checked`, `answer`, `answerUnit`) |
+| `employeeAbsences`        | 5207 Employee Absence                                                                                                                  | POST, DELETE (Storno)                          |
+| `resourceJournalLines`    | 207 Res. Journal Line                                                                                                                  | POST                                           |
+| `itemJournalLines`        | 83 Item Journal Line                                                                                                                   | POST                                           |
+| `postedServiceInvoices`   | 5992 Service Invoice Header                                                                                                            | –                                              |
+| `deletedRecords`          | 50100 WS Deleted Record                                                                                                                | –                                              |
 
 ### Idempotenz
 

@@ -252,6 +252,32 @@ export const itemSubstitutionSchema = z.object({
   description: z.string(),
 });
 
+/**
+ * Lines of the service checklist of a service order ("Servicecheckliste (gelbe Karte)", OP-44): definition and
+ * answer per line. The app reads them and writes back checkbox, answer and unit. Lists are separated by ';'.
+ */
+export const serviceChecklistLineSchema = z.object({
+  ...base,
+  documentNumber: z.string(),
+  lineNumber: z.number().int(),
+  description: z.string(),
+  lineType: z.enum(['Heading', 'Line']),
+  inputEnabled: z.boolean(),
+  answerType: z.enum(['None', 'Text', 'Number', 'Option']),
+  options: z.string(),
+  unit: z.string(),
+  unitOptions: z.string(),
+  required: z.boolean(),
+  checked: z.boolean(),
+  answer: z.string(),
+  answerUnit: z.string(),
+});
+export const serviceChecklistLinePatchSchema = z.object({
+  checked: z.boolean(),
+  answer: z.string().max(250),
+  answerUnit: z.string().max(20),
+});
+
 /** Attachment of a service order (signed workshop order as PDF, E-68). The content is write-only. */
 export const serviceOrderAttachmentSchema = z.object({
   ...base,
@@ -462,6 +488,13 @@ export const endpoints = {
     schema: serviceCommentLineSchema,
     delta: true,
     writable: { create: serviceCommentLineCreateSchema },
+  }),
+  serviceChecklistLines: def({
+    family: 'werkstatt',
+    entitySet: 'serviceChecklistLines',
+    schema: serviceChecklistLineSchema,
+    delta: true,
+    writable: { patch: serviceChecklistLinePatchSchema },
   }),
   itemSubstitutions: def({
     family: 'werkstatt',

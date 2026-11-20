@@ -3,6 +3,7 @@
  * All names, customers and numbers are fictitious test data (no real customer data).
  */
 import { EMPTY_GUID, type EndpointName } from '@schroeder/bc-contract';
+import { YELLOW_CARD } from '@schroeder/shared';
 import { rng, stableId } from './ids.js';
 
 export interface SeedLocation {
@@ -369,6 +370,7 @@ export function buildSeed(now = new Date()): Tables {
     serviceOrderAttachments: [],
     customerComments: [],
     itemSubstitutions: [],
+    serviceChecklistLines: [],
     serviceItemComments: [],
     customerContacts: [],
     employeeAbsences: [],
@@ -689,6 +691,31 @@ export function buildSeed(now = new Date()): Tables {
     }
   }
 
+  // Service checklist (yellow card) per open order, like the BC checklist extension creates it (OP-44).
+  for (const so of t.serviceOrders) {
+    if (so.status === 'Finished') continue;
+    YELLOW_CARD.forEach((item, i) =>
+      t.serviceChecklistLines.push({
+        id: stableId(`cl:${String(so.number)}:${i}`),
+        lastModifiedDateTime: ts,
+        documentNumber: so.number,
+        lineNumber: (i + 1) * 10000,
+        description: item.text,
+        lineType: item.kind === 'heading' ? 'Heading' : 'Line',
+        inputEnabled: !!item.checkbox,
+        answerType: ({ none: 'None', text: 'Text', number: 'Number', option: 'Option' } as const)[
+          item.answer ?? 'none'
+        ],
+        options: (item.options ?? []).join(';'),
+        unit: item.unit ?? '',
+        unitOptions: (item.unitOptions ?? []).join(';'),
+        required: !!item.required,
+        checked: false,
+        answer: '',
+        answerUnit: '',
+      }),
+    );
+  }
   return t;
 }
 

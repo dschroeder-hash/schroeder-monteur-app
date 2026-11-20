@@ -8,7 +8,6 @@ import {
   checklistItemsFor,
   checklistMissing,
   localDate,
-  pickChecklistTemplate,
   reportCompleteness,
   wrapForBc,
   type CommandPayload,
@@ -17,18 +16,16 @@ import type { AccessScope } from '../../auth/auth.types.js';
 import type { Tx } from '../../db/client.js';
 import {
   auditLog,
-  checklistTemplate,
   location,
-  machine,
   orderChecklist,
   orderSignature,
   orderStatusEvent,
-  serviceOrderItem,
   serviceOrder,
   setting,
   textTemplate,
   workReport,
 } from '../../db/schema.js';
+import { checklistFor } from './checklist-source.js';
 import { CommandRejected } from '../sync/command-rejected.js';
 import type { TransferService } from '../transfer/transfer.service.js';
 
@@ -72,13 +69,14 @@ export class ReportService {
       await this.requiredFields(tx, order.locationId, order.orderTypeCode),
     );
     const missing = [...report.missing];
-    const tpl = await this.checklistTemplateFor(tx, order);
-    if (tpl) {
+    const def = await checklistFor(tx, order);
+    if (def) {
       const [c] = await tx.select().from(orderChecklist).where(eq(orderChecklist.orderId, orderId));
-      const open = checklistMissing(
-        checklistItemsFor(tpl.items, order.orderTypeCode),
-        c?.templateId === tpl.id ? c.results : {},
-      );
+      const own = c && c.source === def.source && c.templateId === def.templateId ? c.results : {};
+      const open = checklistMissing(checklistItemsFor(def.items, order.orderTypeCode), {
+        ...def.bcAnswers,
+        ...own,
+      });
       if (open.length) missing.push(`Checkliste (${open.length} offen)`);
     }
     if (await this.signatureRequired(tx, order.locationId)) {
@@ -86,22 +84,6 @@ export class ReportService {
       if (!sig) missing.push('Unterschrift des Kunden');
     }
     return { complete: missing.length === 0, missing };
-  }
-
-  /** Active checklist template for an order (most specific wins), or null if none applies. */
-  async checklistTemplateFor(tx: Tx, order: { id: string; locationId: string; orderTypeCode: string }) {
-    const [m] = await tx
-      .select({ brand: machine.brand })
-      .from(serviceOrderItem)
-      .innerJoin(machine, eq(machine.id, serviceOrderItem.machineId))
-      .where(eq(serviceOrderItem.orderId, order.id))
-      .limit(1);
-    const templates = await tx.select().from(checklistTemplate).where(eq(checklistTemplate.active, true));
-    return pickChecklistTemplate(templates, {
-      locationId: order.locationId,
-      orderTypeCode: order.orderTypeCode,
-      brand: m?.brand ?? null,
-    });
   }
 
   private async signatureRequired(tx: Tx, locationId: string): Promise<boolean> {
@@ -153,8 +135,9 @@ export class ReportService {
     access: OrderAccess,
   ): Promise<string[]> {
     const order = await this.editableOrder(p.orderId, access, tx);
-    const [tpl] = await tx.select().from(checklistTemplate).where(eq(checklistTemplate.id, p.templateId));
-    if (!tpl) throw new CommandRejected('Checklisten-Vorlage nicht gefunden');
+    const def = await checklistFor(tx, order);
+    if (!def || def.templateId !== p.templateId)
+      throw new CommandRejected('Die Checkliste dieses Auftrags hat sich geändert – bitte neu laden');
     const [existing] = await tx
       .select()
       .from(orderChecklist)
@@ -164,14 +147,17 @@ export class ReportService {
       return [
         'Auf einem anderen Gerät wurde die Checkliste später geändert – diese Fassung wurde verworfen.',
       ];
-    const known = new Set(tpl.items.map((i) => i.id));
+    const known = new Set(def.items.filter((i) => i.kind === 'line').map((i) => i.id));
     const results = Object.fromEntries(Object.entries(p.results).filter(([k]) => known.has(k)));
     const values = {
       orderId: p.orderId,
-      templateId: p.templateId,
+      templateId: def.templateId,
+      source: def.source,
       authorId: scope.userId,
       results,
-      complete: checklistMissing(checklistItemsFor(tpl.items, order.orderTypeCode), results).length === 0,
+      complete:
+        checklistMissing(checklistItemsFor(def.items, order.orderTypeCode), { ...def.bcAnswers, ...results })
+          .length === 0,
       deviceTime,
     };
     if (existing) await tx.update(orderChecklist).set(values).where(eq(orderChecklist.id, existing.id));
@@ -322,10 +308,31 @@ export class ReportService {
     }
 
     const [cl] = await tx.select().from(orderChecklist).where(eq(orderChecklist.orderId, orderId));
-    if (cl) {
-      const [tpl] = await tx.select().from(checklistTemplate).where(eq(checklistTemplate.id, cl.templateId));
+    const def = cl ? await checklistFor(tx, order) : null;
+    if (cl && def?.source === 'bc') {
+      // Yellow card in BC (OP-44): every answered line goes back into the BC checklist itself.
+      for (const [lineId, a] of Object.entries(cl.results)) {
+        const ref = def.lineIds[lineId];
+        if (!ref) continue;
+        await transfers.enqueue(tx, {
+          locationId: order.locationId,
+          bcCompanyId: order.bcCompanyId,
+          target: 'CHECKLIST',
+          subjectType: 'order_checklist',
+          subjectId: cl.id,
+          groupKey: `order:${orderId}`,
+          payload: {
+            op: 'patch',
+            endpoint: 'serviceChecklistLines',
+            ref: { table: 'bc_checklist_line', id: ref },
+            body: { checked: a.checked, answer: a.value ?? '', answerUnit: a.unit ?? '' },
+          },
+        });
+        count++;
+      }
+    } else if (cl && def) {
       const lines = wrapForBc(
-        [`Checkliste: ${tpl?.title ?? ''}`, ...checklistLines(tpl?.items ?? [], cl.results)].join('\n'),
+        [`Checkliste: ${def.title}`, ...checklistLines(def.items, cl.results)].join('\n'),
       );
       for (const line of lines) await comment('order_checklist', cl.id, line, 'General');
       count += lines.length;

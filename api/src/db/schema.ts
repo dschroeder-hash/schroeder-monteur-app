@@ -134,6 +134,7 @@ export const transferTargetEnum = pgEnum('transfer_target', [
   'ABSENCE',
   'STATUS',
   'ATTACHMENT',
+  'CHECKLIST',
 ]);
 export const productivityCategoryEnum = pgEnum('productivity_category', [
   'KUNDENSERVICE',
@@ -1121,9 +1122,9 @@ export const orderChecklist = pgTable('order_checklist', {
     .notNull()
     .unique()
     .references(() => serviceOrder.id),
-  templateId: uuid('template_id')
-    .notNull()
-    .references(() => checklistTemplate.id),
+  /** App template – null when the checklist lines come from BC (source 'bc'). */
+  templateId: uuid('template_id').references(() => checklistTemplate.id),
+  source: text('source').notNull().default('app'),
   authorId: uuid('author_id')
     .notNull()
     .references(() => appUser.id),
@@ -1215,4 +1216,36 @@ export const itemSubstitution = pgTable(
     uniqueIndex('item_substitution_uq').on(t.bcCompanyId, t.itemNo, t.substituteNo),
     index('item_substitution_sub').on(t.substituteNo),
   ],
+);
+
+/** Service checklist lines of a BC service order (yellow card, OP-44): definition and the answer stored in BC. */
+export const bcChecklistLine = pgTable(
+  'bc_checklist_line',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    bcCompanyId: uuid('bc_company_id').notNull(),
+    orderNo: text('order_no').notNull(),
+    lineNo: integer('line_no').notNull(),
+    description: text('description').notNull(),
+    lineType: text('line_type').notNull(),
+    inputEnabled: boolean('input_enabled').notNull().default(false),
+    answerType: text('answer_type').notNull().default('None'),
+    options: text('options')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    unit: text('unit').notNull().default(''),
+    unitOptions: text('unit_options')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    required: boolean('required').notNull().default(false),
+    checked: boolean('checked').notNull().default(false),
+    answer: text('answer').notNull().default(''),
+    answerUnit: text('answer_unit').notNull().default(''),
+    ...bcMirror,
+    ...timestamps,
+    ...rowVersion,
+  },
+  (t) => [uniqueIndex('bc_checklist_line_uq').on(t.bcCompanyId, t.orderNo, t.lineNo)],
 );

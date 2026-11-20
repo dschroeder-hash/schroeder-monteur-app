@@ -12,6 +12,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import {
   assignment,
+  bcChecklistLine,
   bcResourceMapping,
   bcTransfer,
   consumption,
@@ -192,9 +193,16 @@ export class BcTransferWorker {
   }
 
   private async resolveRef(ref: {
-    table: 'assignment' | 'service_order';
+    table: 'assignment' | 'service_order' | 'bc_checklist_line';
     id: string;
   }): Promise<string | null> {
+    if (ref.table === 'bc_checklist_line') {
+      const [l] = await this.db
+        .select({ id: bcChecklistLine.bcSystemId })
+        .from(bcChecklistLine)
+        .where(eq(bcChecklistLine.id, ref.id));
+      return l?.id ?? null;
+    }
     if (ref.table === 'assignment') {
       const [a] = await this.db
         .select({ id: assignment.bcAllocationId })

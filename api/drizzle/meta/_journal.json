@@ -134,6 +134,20 @@
       "when": 1795184032733,
       "tag": "0018_item_substitution",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795184484476,
+      "tag": "0019_bc_checklist_lines",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795184523355,
+      "tag": "0020_transfer_checklist",
+      "breakpoints": true
     }
   ]
 }
