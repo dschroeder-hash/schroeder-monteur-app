@@ -42,6 +42,7 @@ export default async function setup() {
   const so = new pg.Client({ connectionString: ownerUrl });
   await so.connect();
   await so.query(`insert into setting (key, value) values ('completion', '{"signatureRequired": false}')`);
+  await so.query('update checklist_template set active = false'); // seeded example (tests create their own)
   await so.end();
 
   const u = new URL(ownerUrl);

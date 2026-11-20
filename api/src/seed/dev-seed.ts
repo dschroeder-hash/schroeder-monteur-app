@@ -317,6 +317,21 @@ export async function seedDev(db: Db, now = new Date()): Promise<void> {
     ]);
   }
 
+  // Example service checklist (E-67) until the BC layout from the service office is entered by the Admin.
+  await db.insert(s.checklistTemplate).values({
+    title: 'Wartung (Beispiel)',
+    orderTypeCode: 'WARTUNG',
+    items: [
+      { id: 'motoroel', section: 'Motor', text: 'Motoröl und Ölfilter gewechselt', kind: 'check' },
+      { id: 'luftfilter', section: 'Motor', text: 'Luftfilter geprüft / gereinigt', kind: 'check' },
+      { id: 'kuehlmittel', section: 'Motor', text: 'Frostschutz', kind: 'value', unit: '°C' },
+      { id: 'hydraulik', section: 'Getriebe und Hydraulik', text: 'Hydrauliköl und Filter', kind: 'check' },
+      { id: 'bremsen', section: 'Fahrwerk', text: 'Bremsen geprüft', kind: 'check' },
+      { id: 'reifen', section: 'Fahrwerk', text: 'Reifendruck hinten', kind: 'value', unit: 'bar' },
+      { id: 'licht', section: 'Elektrik', text: 'Beleuchtung und Warneinrichtungen', kind: 'check' },
+      { id: 'hinweis', text: 'Hinweise an den Kunden', kind: 'text', required: false },
+    ],
+  });
   await db.insert(s.textTemplate).values([
     {
       title: 'Wartung nach Herstellerplan',

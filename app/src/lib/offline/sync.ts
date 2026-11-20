@@ -4,9 +4,11 @@
  * therefore focus/interval are the primary triggers on all platforms (ENTSCHEIDUNGEN E-32).
  */
 import {
+  checklistMissing,
   estimateDelivery,
   STAMP_COMMAND_KIND,
   type AppStatus,
+  type ChecklistAnswer,
   type Bundesland,
   type CommandResult,
   type CommandType,
@@ -21,6 +23,9 @@ import {
   type LocalChatMessage,
   type LocalChatRead,
   type LocalPhoto,
+  type LocalChecklistTemplate,
+  type LocalOrderChecklist,
+  type LocalOrderSignature,
   type LocalTemplate,
   type LocalWorkReport,
   type LocalConsumption,
@@ -99,6 +104,9 @@ export async function recordCommand<T extends CommandType>(
       db.kv,
       db.items,
       db.workReports,
+      db.checklistTemplates,
+      db.orderChecklists,
+      db.orderSignatures,
       db.chatMessages,
       db.photos,
       db.absences,
@@ -183,6 +191,31 @@ export async function recordCommand<T extends CommandType>(
           usedTemplateIds: p.usedTemplateIds,
           complete: false,
           deviceTime: at.toISOString(),
+          pending: true,
+        });
+      }
+      if (type === 'SaveChecklist') {
+        const p = payload as CommandPayload<'SaveChecklist'>;
+        const tpl = await db.checklistTemplates.get(p.templateId);
+        await db.orderChecklists.put({
+          orderId: p.orderId,
+          templateId: p.templateId,
+          results: p.results as Record<string, ChecklistAnswer>,
+          complete: tpl
+            ? checklistMissing(tpl.items, p.results as Record<string, ChecklistAnswer>).length === 0
+            : false,
+          deviceTime: at.toISOString(),
+          pending: true,
+        });
+      }
+      if (type === 'SignOrder') {
+        const p = payload as CommandPayload<'SignOrder'>;
+        await db.orderSignatures.put({
+          orderId: p.orderId,
+          signerName: p.signerName ?? '',
+          signedAt: p.signedAt,
+          absentReason: p.imagePng ? null : (p.absentReason ?? null),
+          imagePng: p.imagePng ?? null,
           pending: true,
         });
       }
@@ -405,6 +438,9 @@ interface PullResponse {
   partRequests?: LocalPartRequest[];
   workReports?: Array<LocalWorkReport & { deviceTime: string | null }>;
   templates?: LocalTemplate[];
+  checklistTemplates?: LocalChecklistTemplate[];
+  orderChecklists?: Array<Omit<LocalOrderChecklist, 'pending'>>;
+  orderSignatures?: Array<Omit<LocalOrderSignature, 'pending' | 'imagePng'>>;
   chatMessages?: LocalChatMessage[];
   chatReads?: LocalChatRead[];
   photos?: LocalPhoto[];
@@ -432,6 +468,9 @@ export async function pullChanges(db: MonteurDb, ownerId: string, fetcher: Fetch
     db.partRequests,
     db.workReports,
     db.templates,
+    db.checklistTemplates,
+    db.orderChecklists,
+    db.orderSignatures,
     db.chatMessages,
     db.chatReads,
     db.photos,
@@ -580,6 +619,18 @@ async function applyCommunication(db: MonteurDb, res: PullResponse) {
       deviceTime: r.deviceTime,
       pending: false,
     });
+  }
+  if (res.full) await db.checklistTemplates.clear();
+  if (res.checklistTemplates) await db.checklistTemplates.bulkPut(res.checklistTemplates);
+  for (const c of res.orderChecklists ?? []) {
+    const local = await db.orderChecklists.get(c.orderId);
+    if (local?.pending && local.deviceTime && c.deviceTime && local.deviceTime > c.deviceTime) continue;
+    await db.orderChecklists.put({ ...c, pending: false });
+  }
+  for (const sig of res.orderSignatures ?? []) {
+    const local = await db.orderSignatures.get(sig.orderId);
+    // keep the image of a signature captured on this device; the server confirms it without sending it back
+    await db.orderSignatures.put({ ...sig, imagePng: local?.imagePng ?? null, pending: false });
   }
   if (res.chatMessages?.length)
     await db.chatMessages.bulkPut(res.chatMessages.map((m) => ({ ...m, pending: false })));

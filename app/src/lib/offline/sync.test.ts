@@ -257,6 +257,18 @@ describe('every command type can be recorded offline', () => {
       RemoveConsumption: { consumptionId: uuid },
       RequestPart: { orderId: ORDER, itemId: uuid, quantity: 1, setWaitingForParts: false },
       SaveWorkReport: { orderId: ORDER, body: 'Text', requiredFields: {}, usedTemplateIds: [] },
+      SaveChecklist: {
+        orderId: ORDER,
+        templateId: '00000000-0000-4000-8000-0000000000c1',
+        results: { a: { state: 'OK', value: null, note: '' } },
+      },
+      SignOrder: {
+        orderId: ORDER,
+        signerName: 'Kunde',
+        signedAt: new Date().toISOString(),
+        imagePng: null,
+        absentReason: 'nicht anwesend',
+      },
       AttachPhoto: {
         orderId: ORDER,
         category: 'VORHER',

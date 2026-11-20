@@ -1,5 +1,14 @@
 import Dexie, { type EntityTable, type Table } from 'dexie';
-import type { AbsenceState, AbsenceType, Activity, AppStatus, HalfDay, StampKind } from '@schroeder/shared';
+import type {
+  AbsenceState,
+  AbsenceType,
+  Activity,
+  AppStatus,
+  ChecklistAnswer,
+  ChecklistItem,
+  HalfDay,
+  StampKind,
+} from '@schroeder/shared';
 
 /** A command written while (possibly) offline; sent to POST /v1/sync/push in device order (ENTSCHEIDUNGEN E-06). */
 export interface OutboxEntry {
@@ -192,6 +201,34 @@ export interface LocalWorkReport {
   pending?: boolean;
 }
 
+/** Service checklist template (E-67) and the filled-in checklist of an order. */
+export interface LocalChecklistTemplate {
+  id: string;
+  locationId: string | null;
+  title: string;
+  orderTypeCode: string | null;
+  brand: string | null;
+  items: ChecklistItem[];
+  active: boolean;
+}
+export interface LocalOrderChecklist {
+  orderId: string;
+  templateId: string;
+  results: Record<string, ChecklistAnswer>;
+  complete: boolean;
+  deviceTime: string | null;
+  pending?: boolean;
+}
+/** Customer signature (E-68); the image stays on the device that captured it until it is sent. */
+export interface LocalOrderSignature {
+  orderId: string;
+  signerName: string;
+  signedAt: string;
+  absentReason: string | null;
+  imagePng?: string | null;
+  pending?: boolean;
+}
+
 export interface LocalTemplate {
   id: string;
   locationId: string | null;
@@ -282,6 +319,9 @@ export class MonteurDb extends Dexie {
   partRequests!: EntityTable<LocalPartRequest, 'id'>;
   cart!: EntityTable<CartLine, 'id'>;
   workReports!: EntityTable<LocalWorkReport, 'orderId'>;
+  checklistTemplates!: EntityTable<LocalChecklistTemplate, 'id'>;
+  orderChecklists!: EntityTable<LocalOrderChecklist, 'orderId'>;
+  orderSignatures!: EntityTable<LocalOrderSignature, 'orderId'>;
   templates!: EntityTable<LocalTemplate, 'id'>;
   chatMessages!: EntityTable<LocalChatMessage, 'id'>;
   chatReads!: Table<LocalChatRead, [string, string]>;
@@ -319,6 +359,11 @@ export class MonteurDb extends Dexie {
       photoBlobs: 'id, state, orderId',
     });
     this.version(5).stores({ absences: 'id, type, fromDate, state' });
+    this.version(6).stores({
+      checklistTemplates: 'id',
+      orderChecklists: 'orderId',
+      orderSignatures: 'orderId',
+    });
   }
 
   /** Removes all cached personal data (logout). The outbox is kept only if the caller decides so. */
@@ -340,6 +385,9 @@ export class MonteurDb extends Dexie {
       this.partRequests,
       this.cart,
       this.workReports,
+      this.checklistTemplates,
+      this.orderChecklists,
+      this.orderSignatures,
       this.templates,
       this.chatMessages,
       this.chatReads,

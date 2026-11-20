@@ -2,6 +2,7 @@
 
 import { FEATURE_LABELS, FEATURES, WORKS_COUNCIL_FEATURES, type Feature } from '@schroeder/shared';
 import { useState } from 'react';
+import { ChecklistAdmin } from '@/components/ChecklistAdmin';
 import { ContainersEditor } from '@/components/ContainersEditor';
 import { ProductivityAdmin } from '@/components/ProductivityAdmin';
 import { TemplatesEditor } from '@/components/TemplatesEditor';
@@ -109,6 +110,7 @@ export default function AdminPage() {
       </div>
       <ProductivityAdmin />
       <ContainersEditor />
+      {locs.data && <ChecklistAdmin locations={locs.data} />}
       {locs.data && <TemplatesEditor locations={locs.data} allowGlobal />}
     </div>
   );
