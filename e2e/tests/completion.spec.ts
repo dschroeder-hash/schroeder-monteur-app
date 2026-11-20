@@ -52,11 +52,11 @@ test('Monteur finishes the order with checklist and customer signature – BC re
   const finish = page.getByRole('button', { name: 'Arbeit abgeschlossen', exact: true });
   await expect(finish).toBeDisabled();
 
-  const checklist = page.getByRole('heading', { name: /^Checkliste:/ });
+  const checklist = page.getByRole('heading', { name: /Checkliste:/ });
   if (await checklist.count()) {
     // yellow card: tick every "Eingabe" checkbox (the end-of-repair questions are mandatory), one quantity with unit
-    for (const box of await page.locator('[data-check] [role="checkbox"][aria-checked="false"]').all())
-      await box.click();
+    const open = page.locator('[data-check] [role="checkbox"][aria-checked="false"]');
+    while ((await open.count()) > 0) await open.first().click();
     const qty = page.getByRole('textbox', { name: 'Menge Motoröl' });
     if (await qty.count()) {
       await qty.fill('12');

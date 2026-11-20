@@ -147,9 +147,7 @@ function Completion() {
             initial={{ ...tpl.initial, ...(checklist?.templateId === tpl.id ? checklist.results : {}) }}
             onSave={saveChecklist}
           />
-          {!checklistDone && (
-            <p className="text-sm text-text-muted">Noch offen: {openItems.length} Punkt(e)</p>
-          )}
+          {!checklistDone && <p className="text-sm text-text-muted">Noch offen: {openItems.join(', ')}</p>}
         </Step>
       )}
 
