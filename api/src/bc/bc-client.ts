@@ -180,6 +180,9 @@ export class BcClient {
       const page = json as { value: Record<string, unknown>[]; '@odata.nextLink'?: string };
       out.push(...page.value.map((r) => this.parse(name, r)));
       const link = page['@odata.nextLink'];
+      // Paging links must stay on the BC host – the bearer token is never sent anywhere else (ASVS 13.2.x).
+      if (link && new URL(link, this.o.apiBaseUrl).origin !== new URL(this.o.apiBaseUrl).origin)
+        throw new BcContractError(`${name}: nextLink points to a foreign host`);
       next = link ? new URL(link, this.o.apiBaseUrl).toString() : undefined;
     }
     return out;
@@ -231,6 +234,17 @@ export class BcClient {
     });
     const row = json as Record<string, unknown>;
     return { record: this.parse(name, row), etag: row['@odata.etag'] as string | undefined };
+  }
+
+  /** Deletes a record. A record that is already gone counts as deleted (idempotent retry). */
+  async delete(name: EndpointName, id: string): Promise<void> {
+    if (!endpoints[name].writable?.delete) throw new Error(`${name} cannot be deleted`);
+    try {
+      await this.request('DELETE', this.url(name, `(${id})`), undefined, { 'if-match': '*' });
+    } catch (e) {
+      if (e instanceof BcError && e.status === 404) return;
+      throw e;
+    }
   }
 }
 

@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { ROLES } from '@schroeder/shared';
 import { DB } from '../db/db.module.js';
-import type { Db } from '../db/client.js';
+import { withSession, type Db } from '../db/client.js';
 import { appUser, userLocation } from '../db/schema.js';
 import type { AccessScope, LocationGrant, Principal } from './auth.types.js';
 
@@ -28,6 +28,13 @@ export class ScopeService {
       user ??= (await this.db.select().from(appUser).where(eq(appUser.entraOid, p.oid)).limit(1))[0];
     }
     if (!user || !user.active) throw new UserInactiveError();
+    // Remember the Entra roles (needed e.g. to notify Personal about absences).
+    const roles = [...p.roles].sort();
+    if (roles.join(',') !== [...(user.roles ?? [])].sort().join(','))
+      // as the user itself – RLS allows only the own row (and no status change, migration 0012)
+      await withSession(this.db, { userId: user.id, roles }, (tx) =>
+        tx.update(appUser).set({ roles }).where(eq(appUser.id, user.id)),
+      );
 
     const rows = await this.db.select().from(userLocation).where(eq(userLocation.userId, user.id));
     // A location grant only counts if the matching Entra role is present.

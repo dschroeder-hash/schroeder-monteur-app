@@ -81,3 +81,43 @@ In dieser Entwicklungsumgebung gibt es keinen AL-Compiler. Die Extension muss **
 8. Aufgabenwarteschlangenposten für Codeunit 50101 „WS Deleted Record Cleanup“ anlegen (täglich).
 9. **Produktion:** Die kompilierte `.app` in BC über _Erweiterungsverwaltung → Verwalten → Erweiterung hochladen_ als Per-Tenant-Extension bereitstellen (Bereitstellen für: aktuelle Version). Im Business Central Admin Center ist die installierte Extension danach unter der Umgebung sichtbar. Alternativ später Bereitstellung per AL-Go for GitHub.
 10. Versionswechsel: `version` in `app.json` erhöhen; Schemaänderungen nur additiv (Felder/Tabellen nicht löschen, sondern `ObsoleteState` setzen).
+
+### Funktionstest nach der Installation (Sandbox)
+
+Mit `test/requests.http` (VS Code „REST Client“) nacheinander:
+
+| Prüfung                                                                       | Erwartung                                                                  |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Serviceaufträge, Ressourcen, Artikel lesen                                    | Daten des Mandanten, `lastModifiedDateTime` vorhanden                      |
+| Servicezeile zweimal mit derselben `monteurAppId` anlegen                     | nur **eine** Zeile; die zweite Antwort liefert dieselbe Zeile (Idempotenz) |
+| Serviceauftragszuordnung anlegen und Zeit ändern (PATCH)                      | Zuordnung am Auftrag sichtbar                                              |
+| Kommentarzeile anlegen                                                        | Zeile in den Serviceauftragskommentaren                                    |
+| Mitarbeiterabwesenheit anlegen (Ursache `URLAUB`) und wieder löschen (DELETE) | Eintrag erscheint und ist danach weg (Storno in der App)                   |
+| Gelöschten Serviceauftrag prüfen (`deletedRecords`)                           | Eintrag mit Tabellen-Nr. und SystemId                                      |
+
+## Updates
+
+1. `version` in `app.json` erhöhen (z. B. 1.0.0.0 → 1.1.0.0).
+2. In VS Code gegen die Symbole der Sandbox kompilieren, in der Sandbox veröffentlichen, Funktionstest wiederholen.
+3. Produktion: neue `.app` über _Erweiterungsverwaltung → Erweiterung hochladen_ bereitstellen, **Bereitstellen für:
+   Aktuelle Version**. Der Upgrade-Vorgang läuft automatisch; Daten in den Zusatzfeldern (`Monteur App Id`) bleiben erhalten.
+4. Die App muss während des Updates nicht angehalten werden: Übertragungen, die in dieser Zeit fehlschlagen, wiederholt
+   der Worker automatisch.
+
+## Deinstallation
+
+_Erweiterungsverwaltung → Schroeder Werkstatt API → Deinstallieren._ **Daten nicht löschen** (Option „Daten der
+Erweiterung löschen“ nicht wählen), solange die Monteur-App noch Übertragungen nachvollziehen soll: Das Feld
+`Monteur App Id` ist die Grundlage der Duplikaterkennung. Vorher in der Monteur-App alle Module mit BC-Bezug abschalten
+bzw. den Worker stoppen.
+
+## Häufige Fehler
+
+| Meldung (BC / Übertragungsliste der App)                        | Ursache                                                              | Abhilfe                                                                       |
+| --------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `Authorization_RequestDenied` / 401                             | Entra-App in BC nicht registriert oder Zustimmung fehlt              | `docs/SETUP-BC.md` Abschnitt 3, „Zustimmung erteilen“                         |
+| `Internal_PermissionError` / 403 beim Anlegen von Servicezeilen | Berechtigungssatz unvollständig (Validierung liest weitere Tabellen) | Berechtigungsrecorder, fehlende Lesezugriffe ergänzen (nicht `SUPER`)         |
+| `BadRequest_NotFound` für `/schroeder/werkstatt/v1.0/…`         | Extension nicht installiert oder falsche Umgebung/Firma              | Erweiterungsverwaltung prüfen; `BC_API_BASE_URL` und Firmen-ID in der App     |
+| `The Employee does not exist`                                   | BC-Mitarbeiter-Nr. in der App-Zuordnung falsch                       | Admin → Benutzer, dann „Erneut senden“                                        |
+| `The Cause of Absence does not exist`                           | Ursachencodes `KRANK`/`URLAUB` fehlen in BC                          | Ursachencodes anlegen oder Zuordnung `absence.causeCodes` in der App anpassen |
+| `Another user has already changed the record` (412)             | Gleichzeitige Änderung in BC                                         | Keine Aktion nötig – der Worker liest neu und wiederholt                      |

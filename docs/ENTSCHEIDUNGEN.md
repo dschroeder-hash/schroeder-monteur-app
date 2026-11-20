@@ -2,39 +2,71 @@
 
 Format: kurze Architecture Decision Records. Status: **entschieden** (von mir getroffen, änderbar mit Begründung), **vorgegeben** (aus dem Auftrag, nicht neu verhandeln), **vorläufig** (Annahme bis zur Klärung in OFFENE-PUNKTE.md).
 
-| Nr.  | Thema                                                          | Status      |
-| ---- | -------------------------------------------------------------- | ----------- |
-| E-01 | Monorepo mit pnpm + Turborepo, zusätzlicher Ordner `/packages` | entschieden |
-| E-02 | Backend: NestJS (API + Worker aus einer Codebasis)             | entschieden |
-| E-03 | ORM: Drizzle statt Prisma                                      | entschieden |
-| E-04 | Hosting: Azure Container Apps                                  | vorläufig   |
-| E-05 | PWA-Tooling: Serwist (Workbox-basiert)                         | entschieden |
-| E-06 | Sync über idempotente Kommandos + Cursor-Pull                  | entschieden |
-| E-07 | Stempelereignisse append-only, Zeiten abgeleitet               | entschieden |
-| E-08 | Rechte doppelt: Service-Scope + PostgreSQL RLS                 | entschieden |
-| E-09 | BC-Transfer-Queue in PostgreSQL statt Service Bus              | entschieden |
-| E-10 | Echtzeit: Azure Web PubSub                                     | entschieden |
-| E-11 | Infrastruktur als Code: Bicep                                  | entschieden |
-| E-12 | Zusätzliche Rolle „Lager“                                      | vorläufig   |
-| E-13 | Zuweisungen werden sofort nach BC geschrieben                  | entschieden |
-| E-14 | BC-Status wird nur bei Meister-Freigabe geschrieben            | entschieden |
-| E-15 | Rundung auf Tagessumme je Auftrag und Tätigkeit                | vorläufig   |
-| E-16 | Bestand = BC-Bestand − noch nicht in BC gebuchte App-Entnahmen | entschieden |
-| E-17 | Diesel intern als ungebuchte Artikel-Buch.-Blatt-Zeile         | vorläufig   |
-| E-18 | Barcode-Scan mit zxing-wasm                                    | entschieden |
-| E-19 | Feature-Flags je Modul **und** Standort                        | entschieden |
-| E-20 | Fremde Datensätze → 404 statt 403                              | entschieden |
-| E-21 | Plantafel mit dnd-kit                                          | entschieden |
-| E-22 | Feiertage nach Bundesland des Standorts                        | entschieden |
-| E-23 | Auftragsart-Mapping versioniert (`valid_from`)                 | entschieden |
-| E-24 | Abwesenheit nach BC: eine Zeile je Kalendertag                 | vorläufig   |
-| E-25 | Mock-Server mit Fastify, gemeinsame Contract-Schemas           | entschieden |
-| E-26 | NestJS 11 statt 12                                             | entschieden |
-| E-27 | PWA-Build mit Webpack statt Turbopack                          | entschieden |
-| E-28 | Eigene Datenbankrollen für API und Worker                      | entschieden |
-| E-29 | Unbekannte Entra-Benutzer werden ohne Rechte angelegt          | entschieden |
-| E-30 | Service Worker cacht keine API-Daten                           | entschieden |
-| E-31 | Logo auf weißer Fläche im Dunkelmodus                          | entschieden |
+| Nr.  | Thema                                                                      | Status      |
+| ---- | -------------------------------------------------------------------------- | ----------- |
+| E-01 | Monorepo mit pnpm + Turborepo, zusätzlicher Ordner `/packages`             | entschieden |
+| E-02 | Backend: NestJS (API + Worker aus einer Codebasis)                         | entschieden |
+| E-03 | ORM: Drizzle statt Prisma                                                  | entschieden |
+| E-04 | Hosting: Azure Container Apps                                              | vorläufig   |
+| E-05 | PWA-Tooling: Serwist (Workbox-basiert)                                     | entschieden |
+| E-06 | Sync über idempotente Kommandos + Cursor-Pull                              | entschieden |
+| E-07 | Stempelereignisse append-only, Zeiten abgeleitet                           | entschieden |
+| E-08 | Rechte doppelt: Service-Scope + PostgreSQL RLS                             | entschieden |
+| E-09 | BC-Transfer-Queue in PostgreSQL statt Service Bus                          | entschieden |
+| E-10 | Echtzeit: Azure Web PubSub                                                 | entschieden |
+| E-11 | Infrastruktur als Code: Bicep                                              | entschieden |
+| E-12 | Zusätzliche Rolle „Lager“                                                  | vorläufig   |
+| E-13 | Zuweisungen werden sofort nach BC geschrieben                              | entschieden |
+| E-14 | BC-Status wird nur bei Meister-Freigabe geschrieben                        | entschieden |
+| E-15 | Rundung auf Tagessumme je Auftrag und Tätigkeit                            | vorläufig   |
+| E-16 | Bestand = BC-Bestand − noch nicht in BC gebuchte App-Entnahmen             | entschieden |
+| E-17 | Diesel intern als ungebuchte Artikel-Buch.-Blatt-Zeile                     | vorläufig   |
+| E-18 | Barcode-Scan mit zxing-wasm                                                | entschieden |
+| E-19 | Feature-Flags je Modul **und** Standort                                    | entschieden |
+| E-20 | Fremde Datensätze → 404 statt 403                                          | entschieden |
+| E-21 | Plantafel mit dnd-kit                                                      | entschieden |
+| E-22 | Feiertage nach Bundesland des Standorts                                    | entschieden |
+| E-23 | Auftragsart-Mapping versioniert (`valid_from`)                             | entschieden |
+| E-24 | ~~Abwesenheit nach BC: eine Zeile je Kalendertag~~ → E-51                  | ersetzt     |
+| E-25 | Mock-Server mit Fastify, gemeinsame Contract-Schemas                       | entschieden |
+| E-26 | NestJS 11 statt 12                                                         | entschieden |
+| E-27 | PWA-Build mit Webpack statt Turbopack                                      | entschieden |
+| E-28 | Eigene Datenbankrollen für API und Worker                                  | entschieden |
+| E-29 | Unbekannte Entra-Benutzer werden ohne Rechte angelegt                      | entschieden |
+| E-30 | Service Worker cacht keine API-Daten                                       | entschieden |
+| E-31 | Logo auf weißer Fläche im Dunkelmodus                                      | entschieden |
+| E-32 | Sync-Auslöser: Fokus, Online-Event, Intervall – keine Background Sync API  | entschieden |
+| E-33 | Lückenloser Delta-Pull über Transaktions-IDs (xid8)                        | entschieden |
+| E-34 | Auftragsdetail über Query-Parameter, App-Seiten vorab gecacht              | entschieden |
+| E-35 | Stempelregeln: implizites Kommen, Pause unterbricht und setzt fort         | entschieden |
+| E-36 | Zeitbuchungen werden bei jedem Stempel neu abgeleitet                      | entschieden |
+| E-37 | Korrekturen als stornierte + neue Stempelereignisse                        | entschieden |
+| E-38 | Zeitfreigabe je Monteur und Tag, eine BC-Zeile je Auftrag × Tätigkeit      | entschieden |
+| E-39 | Fehlgeschlagene Übertragung blockiert ihre Gruppe                          | entschieden |
+| E-40 | Plantafel: Ablegen an der Zeigerposition, Tastatur- und Dialog-Alternative | entschieden |
+| E-41 | Eigene Feiertagsberechnung statt Bibliothek `date-holidays`                | entschieden |
+| E-42 | Eine BC-Zeile je Entnahme; reservierter Bestand wird inkrementell geführt  | entschieden |
+| E-43 | Bestandskonflikte werden angenommen und gemeldet, nie abgelehnt            | entschieden |
+| E-44 | Barcode-Leser lokal ausgeliefert und vorab gecacht                         | entschieden |
+| E-45 | Statusnachrichten im Chat per Datenbank-Trigger                            | entschieden |
+| E-46 | Lokaler Speicher emuliert das Azure-Blob-Blockprotokoll                    | entschieden |
+| E-47 | Offline-Navigation über volle Seitenaufrufe                                | entschieden |
+| E-48 | AGCO-Absprung ohne Suchparameter (Zwischenablage)                          | entschieden |
+| E-49 | Team-Kalender über Spiegeltabelle ohne Art und Kommentar                   | entschieden |
+| E-50 | BC erst nach Meister-Entscheidung – auch bei Krankmeldungen                | entschieden |
+| E-51 | Abwesenheiten in BC: löschen und neu schreiben                             | entschieden |
+| E-52 | Offene Krankmeldungen zählen bei Überschneidungen bis heute                | entschieden |
+| E-53 | Genehmigter Urlaub sperrt die Plantafel, Krankheit markiert                | entschieden |
+| E-54 | Produktivitäts-Snapshot bis zum 10. des Folgemonats, dann fest             | entschieden |
+| E-55 | Produktivität nur aus freigegebenen Tagen; Fahrzeit zählt mit              | entschieden |
+| E-56 | Mapping-Änderungen nur ab dem laufenden Monat                              | entschieden |
+| E-57 | Eine Managed Identity je Komponente, Datenbank per Entra-Token             | entschieden |
+| E-58 | Service Worker speichert keine fremden Antworten; Abmeldung leert alles    | entschieden |
+| E-59 | Feature-Flags vor der Transaktion lesen; Überlast als 503                  | entschieden |
+| E-60 | Lasttest als eigener Lauf (`test:load`) mit frischer Datenbank             | entschieden |
+| E-61 | „Aus BC aktualisieren“ als Auftrag an den Worker                           | entschieden |
+| E-62 | Migrationen und Datenbank-Logins durch eigenen Job mit eigener Identität   | entschieden |
+| E-63 | Stammdaten per RLS schreibgeschützt; Erstanmeldung ohne Session            | entschieden |
 
 ---
 
@@ -151,7 +183,9 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Begründung:** Ein späteres Bonussystem braucht reproduzierbare Monatswerte. Mappingänderungen wirken ab `valid_from` und verändern abgeschlossene Monate nicht.
 
-### E-24 Abwesenheit: eine BC-Zeile je Kalendertag (vorläufig)
+### E-24 Abwesenheit: eine BC-Zeile je Kalendertag (ersetzt durch E-51)
+
+**Stand Phase 6:** Umgesetzt ist ein BC-Eintrag je Abwesenheit (Zeitraum, Menge = Arbeitstage). Änderungen löschen und schreiben neu (E-51). Die ursprüngliche Überlegung:
 
 **Begründung:** Employee Absence arbeitet tagesbezogen (From/To Date, Quantity). Eine Zeile je Arbeitstag erlaubt halbe Tage, Teilstornos und saubere Idempotenz (`Monteur App Id` = Abwesenheits-ID + Datum). Wochenenden und Feiertage werden ausgelassen.
 
@@ -189,3 +223,162 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Entscheidung:** Das Logo steht immer auf einer kleinen weißen Fläche.
 **Begründung:** Die Reinzeichnung enthält schwarzen Text, der auf dunklem Grund nicht lesbar wäre. Liefert Marketing eine Negativversion, wird diese im Dunkelmodus verwendet.
+
+### E-32 Sync-Auslöser ohne Background Sync API
+
+**Entscheidung:** Synchronisiert wird nach jeder Eingabe (0,5 s verzögert), beim `online`-Event, wenn die App in den Vordergrund kommt, und jede Minute.
+**Begründung:** Safari/iOS unterstützt die Background Sync API nicht, und der Service Worker hat keinen Zugriff auf das MSAL-Token. Ein zweiter Weg nur für Android brächte doppelte Logik ohne echten Gewinn: Monteure öffnen die App ohnehin regelmäßig. Die Outbox bleibt bis zur Übertragung erhalten.
+
+### E-33 Lückenloser Delta-Pull über Transaktions-IDs
+
+**Entscheidung:** Jede Zeile speichert per Trigger `pg_current_xact_id()`. Der Pull läuft in einer REPEATABLE-READ-Transaktion, liefert `tx_id >= cursor` und gibt den Snapshot-Horizont (`pg_snapshot_xmin`) als neuen Cursor zurück.
+**Begründung:** Ein reiner Sequenzzähler verliert Änderungen, wenn eine Transaktion mit kleinerer Nummer erst nach dem Pull committet. Der Test `pull › does not skip a change committed after the pull started` belegt das Verhalten. Doppelt gelieferte Zeilen sind harmlos, weil der Client per Upsert speichert.
+
+### E-34 Auftragsdetail über Query-Parameter
+
+**Entscheidung:** `/monteur/auftrag?id=…` statt `/monteur/auftrag/[id]`. Alle Monteur-Seiten werden vom Service Worker vorab gespeichert; der Parameter `id` wird beim Cache-Abgleich ignoriert.
+**Begründung:** Dynamische Routen wären offline nur erreichbar, wenn genau dieser Auftrag vorher online geöffnet wurde. So öffnet jeder synchronisierte Auftrag auch im Funkloch.
+
+### E-35 Stempelregeln
+
+**Entscheidung:** Auftragsstart ohne „Kommen“ eröffnet die Anwesenheit implizit zur selben Zeit (Hinweis in der App). „Pause“ unterbricht einen laufenden Auftrag, „Pause beenden“ setzt ihn als neues Segment fort. „Gehen“ beendet alles. Doppelte oder sinnlose Ereignisse werden ignoriert, nie abgelehnt.
+**Begründung:** Zwei Taps maximal bis zur Kernaktion, keine Datenverluste durch Bedienfehler offline.
+
+### E-36 Zeitbuchungen werden bei jedem Stempel neu abgeleitet
+
+**Entscheidung:** Der Server berechnet nach jedem Stempelereignis die Zeitbuchungen des Tages und des Vortags neu (deterministische Schlüssel, Upsert). Offene, abgeleitete Buchungen darf nur ihr Eigentümer löschen (restriktive RLS-Richtlinie). Sind Buchungen eines Tages bereits eingereicht oder freigegeben, wird nichts automatisch geändert; der Monteur erhält einen Hinweis (Freigabe-Workflow: Phase 3).
+
+### E-37 Korrekturen als stornierte und neue Stempelereignisse
+
+**Entscheidung:** Der Meister ändert keine Zeiten direkt. Er storniert falsche Stempelereignisse (`stamp_event_void`) und fügt richtige hinzu (`created_by`, `correction_reason`). Die Zeitbuchungen werden daraus neu berechnet. Ein Korrekturantrag des Monteurs (vergessenes Ausstempeln) wird nach Annahme genauso umgesetzt.
+**Begründung:** Rohdaten bleiben unverändert und nachvollziehbar (E-07). Das Audit-Log enthält Tageszusammenfassung vorher/nachher und die Pflichtbegründung. Die Datenbank erlaubt Korrekturereignisse nur dem Meister des Standorts, nie dem Monteur selbst (RLS, Test belegt).
+
+### E-38 Zeitfreigabe je Monteur und Tag
+
+**Entscheidung:** Freigegeben wird ein abgeschlossener Arbeitstag eines Monteurs. Je Auftrag × Tätigkeit entsteht eine BC-Servicezeile (Typ Ressource) mit den gerundeten Stunden und dem Arbeitstyp (`ARBEIT`/`FAHRT`/`DIAGNOSE`). Gemeinkosten gehen ins Ressourcen-Buch.-Blatt. Das Ziel für Auftragszeiten ist per Einstellung `timeTarget` auf das Buch.-Blatt umstellbar (OP-16). Tage mit laufender Buchung oder fehlendem Ausstempeln sind nicht freigebbar.
+**Begründung:** Der Tag ist die Einheit, in der Arbeitszeitgesetz-Warnungen, Pausen und vergessenes Ausstempeln geprüft werden. Eine Zeile je Auftrag und Tätigkeit hält den BC-Auftrag übersichtlich.
+
+### E-39 Fehlgeschlagene Übertragung blockiert ihre Gruppe
+
+**Entscheidung:** Übertragungen derselben Gruppe (ein Serviceauftrag, eine Einplanung) laufen strikt nacheinander. Schlägt eine fachlich fehl (z. B. Auftrag in BC bereits erledigt), warten die folgenden, bis der Admin erneut sendet oder „als erledigt“ markiert (beides im Audit-Log).
+**Begründung:** Sonst könnte z. B. „Status erledigt“ vor den Zeitzeilen in BC ankommen oder ein Verschieben vor dem Anlegen.
+
+### E-40 Plantafel-Bedienung
+
+**Entscheidung:** Abgelegt wird in der Zelle unter dem Finger/Mauszeiger (`pointerWithin`). Zusätzlich gibt es Tastatur-Drag & Drop mit deutschen Screenreader-Ansagen und für jeden Auftrag den Dialog „Einplanen ohne Ziehen …“.
+**Begründung:** Die Standard-Erkennung nach größter Überlappung legte die breite Auftragskarte im Test eine Stunde zu früh ab. Barrierefreiheit verlangt eine Alternative zum Ziehen.
+
+### E-41 Eigene Feiertagsberechnung
+
+**Entscheidung:** Gesetzliche Feiertage je Bundesland (inkl. Ostern-abhängiger Tage und Buß- und Bettag in Sachsen) werden in `packages/shared/material/holidays.ts` berechnet; E-22 ist damit umgesetzt, aber ohne die Bibliothek `date-holidays`.
+**Begründung:** Die Lieferzeit-Anzeige („Bestellschluss 17:00 → Lieferung morgen“) muss offline auf dem Gerät identisch zum Server rechnen. `date-holidays` enthält Daten aller Länder und wäre für den Browser unverhältnismäßig groß. Nur teilweise geltende Feiertage (z. B. Mariä Himmelfahrt in Teilen Bayerns) sind nicht enthalten.
+
+### E-42 Eine BC-Zeile je Entnahme, inkrementeller reservierter Bestand
+
+**Entscheidung:** Jede freigegebene Entnahme wird eine eigene BC-Servicezeile (bzw. Artikel-Buch.-Blatt-Zeile). `item_stock.pending_withdrawal` wird bei Entnahme, Storno, Ablehnung und gebuchter Menge in BC unter Zeilensperre erhöht bzw. verringert.
+**Begründung:** Die gebuchte Menge aus BC (`quantityConsumed/Shipped`) lässt sich so eindeutig der Entnahme zuordnen und aus dem reservierten Bestand herausrechnen (E-16) – der angezeigte Bestand bleibt vor und nach dem Buchen in BC gleich (Test belegt). Eine Summe über alle Entnahmen wäre für den Monteur wegen RLS nicht berechenbar, da er fremde Entnahmen nicht sehen darf.
+
+### E-43 Bestandskonflikte werden gemeldet, nicht abgelehnt
+
+**Entscheidung:** Entnimmt jemand mehr als verfügbar (z. B. zwei Monteure offline aus demselben Fass), wird die Entnahme angenommen, als Bestandskonflikt markiert und Meister sowie Lager werden benachrichtigt. Mindestbestand: einmalige Meldung beim Unterschreiten.
+**Begründung:** Das Material ist real verbraucht; eine Ablehnung würde nur die Dokumentation verfälschen (ARCHITEKTUR 4.3).
+
+### E-44 Barcode-Leser lokal
+
+**Entscheidung:** Die WebAssembly-Datei von zxing-wasm wird beim Build nach `public/zxing/` kopiert und vom Service Worker vorab gespeichert; der Standard (Laden vom CDN jsDelivr) ist abgeschaltet.
+**Begründung:** Scannen muss im Funkloch funktionieren, und es soll keine Anfrage an fremde Server gehen.
+
+### E-45 Statusnachrichten im Chat per Datenbank-Trigger
+
+**Entscheidung:** Jede Statusänderung eines Auftrags erzeugt per Trigger auf `order_status_event` eine Systemnachricht im Auftragschat („Status: Fertig – Doku offen“).
+**Begründung:** Statusänderungen kommen aus mehreren Wegen (Offline-Befehl, Meister, BC-Sync). Der Trigger garantiert, dass keiner davon vergessen wird, und die Nachricht entsteht in derselben Transaktion.
+
+### E-46 Lokaler Speicher emuliert das Azure-Blob-Blockprotokoll
+
+**Entscheidung:** Fotos werden direkt vom Gerät in den Speicher hochgeladen (zeitlich begrenzte SAS-URL), in 1-MB-Blöcken mit Abschluss über eine Blockliste. Für Entwicklung und Tests bildet `LocalBlobStorage` genau dieses Protokoll in der API nach.
+**Begründung:** Abgebrochene Uploads im Funkloch werden fortgesetzt statt neu begonnen; derselbe Client-Code läuft lokal, in E2E und in Azure. Produktion verweigert den lokalen Speicher.
+
+### E-47 Offline-Navigation über volle Seitenaufrufe
+
+**Entscheidung:** Ohne Verbindung wandelt `OfflineNavigation` Link-Klicks und `navigate()` in normale Seitenaufrufe um, die der Service Worker aus dem Vorab-Cache bedient (Abfrageparameter `id`/`orderId` werden beim Cache-Abgleich ignoriert).
+**Begründung:** Die Client-Navigation von Next lädt Seitendaten vom Server und bleibt offline hängen. Volle Aufrufe sind offline zuverlässig; die Daten kommen ohnehin aus IndexedDB.
+
+### E-48 AGCO-Absprung ohne Suchparameter
+
+**Entscheidung:** Solange das Suchformat von `parts.agcocorp.com` nicht bekannt ist, öffnet die App die Katalog-Startseite und legt Teile- bzw. Seriennummer in die Zwischenablage.
+**Begründung:** Kein Raten von URL-Formaten, kein Auslesen fremder Seiten; sobald das Format geklärt ist, genügt eine Einstellung mit `{query}` (OP-24).
+
+### E-49 Team-Kalender über Spiegeltabelle statt Sicht mit erhöhten Rechten
+
+**Entscheidung:** Kollegen lesen Abwesenheiten aus `team_absence` (nur Person, Zeitraum, halber Tag), die ein Trigger auf `absence` pflegt. Die Tabelle `absence` selbst bleibt für Monteure auf eigene Zeilen beschränkt.
+**Begründung:** Eine `SECURITY DEFINER`-Funktion oder Sicht würde RLS umgehen und hängt davon ab, wem sie gehört. Mit der Spiegeltabelle erzwingt die Datenbank, dass Art und Kommentar einer Krankmeldung nie bei Kollegen ankommen (PROMPT 5.10, 9).
+
+### E-50 BC nur nach Meister-Entscheidung – auch bei Krankmeldungen
+
+**Entscheidung:** Eine Krankmeldung des Monteurs geht erst nach „Zur Kenntnis genommen“ durch den Meister nach BC, und erst sobald ihr Ende feststeht. Ändert der Monteur das Ende, landet sie erneut in der Inbox. Erfasst Meister oder Personal die Krankmeldung, gilt sie als bestätigt.
+**Begründung:** Grundsatz „Schreiben nur nach Freigabe“ (PROMPT 2). Zugleich darf die Sitzung eines Monteurs per RLS keine BC-Übertragungen anlegen.
+
+### E-51 Änderungen an Abwesenheiten in BC: löschen und neu schreiben
+
+**Entscheidung:** Jede Änderung (Ende verschoben, Urlaub storniert) löscht die bisher geschriebenen BC-Einträge und schreibt bei Bedarf einen neuen. Der BC-Mitarbeiter wird erst beim Senden aus der Benutzerzuordnung gelesen; fehlt sie, schlägt die Übertragung mit klarer Meldung fehl und kann nach dem Pflegen erneut gesendet werden.
+**Begründung:** Mitarbeiterabwesenheiten sind in BC keine gebuchten Posten und dürfen gelöscht werden; ein PATCH bräuchte Schreibrechte auf mehr Felder. Löschen und Neuschreiben laufen in derselben Gruppe streng nacheinander, Duplikate sind ausgeschlossen (Test).
+
+### E-52 Offene Krankmeldungen zählen bei Überschneidungen nur bis heute
+
+**Entscheidung:** Für die Prüfung auf Überschneidungen gilt eine Krankmeldung ohne Ende als „bis heute“. Auf der Plantafel und im Team-Kalender gilt sie dagegen bis auf Weiteres.
+**Begründung:** Sonst wäre jeder spätere Urlaubsantrag blockiert; für die Planung ist die vorsichtige Annahme richtig.
+
+### E-53 Genehmigter Urlaub sperrt die Plantafel, Krankheit markiert nur
+
+**Entscheidung:** Einplanen auf einen genehmigten Urlaubstag wird abgelehnt (409). Krankmeldungen und beantragter Urlaub erzeugen nur einen Hinweis; betroffene Aufträge erscheinen unter „Neu einplanen“, berechnet aus den aktiven Abwesenheiten statt gespeichert.
+**Begründung:** PROMPT 5.9/5.10. Die Berechnung bleibt richtig, wenn das Ende einer Krankmeldung geändert oder der Auftrag umgeplant wird, und braucht keine Schreibrechte des Monteurs auf Einplanungen.
+
+### E-54 Produktivitäts-Snapshot bis zum 10. des Folgemonats, dann fest
+
+**Entscheidung:** Der Worker berechnet den Vormonat täglich bis zum 10. des Folgemonats neu und speichert ihn als `productivity_snapshot` (mit Mapping-Version und Konfigurations-Hash). Danach bleibt der Wert fest; die API liefert abgeschlossene Monate aus dem Snapshot. Nur der Worker darf Snapshots schreiben (RLS, getestet).
+**Begründung:** Späte Freigaben und Korrekturen fließen noch ein; danach ist der Monatswert reproduzierbar – Grundlage für ein späteres Bonussystem (PROMPT 5.11). Die Frist ist ein Vorschlag (OP-35).
+
+### E-55 Produktivität nur aus freigegebenen Tagen; Fahrzeit zählt als verrechnet
+
+**Entscheidung:** Zähler und Nenner berücksichtigen nur Tage, die der Meister vollständig freigegeben hat; offene Tage werden als Hinweis angezeigt. Fahrzeit auf produktiven Aufträgen zählt als verrechnete Zeit (sie wird in BC als Arbeitstyp `FAHRT` abgerechnet); der Fahrzeitanteil wird zusätzlich ausgewiesen (Fahrzeit ÷ Anwesenheit). Standortsummen werden aus den Minutensummen berechnet, nicht als Mittelwert der Quoten.
+**Begründung:** Gleiche Basis für Zähler und Nenner; Mittelwerte von Quoten verzerren bei unterschiedlicher Anwesenheit. Ob Fahrzeit produktiv zählen soll: OP-34.
+
+### E-56 Mapping-Änderungen nur ab dem laufenden Monat
+
+**Entscheidung:** Der Admin legt neue Versionen der Auftragsart-Zuordnung an (`valid_from`); ein Datum in einem abgeschlossenen Monat wird abgelehnt. Jede Änderung steht im Audit-Log. Der Admin sieht keine Produktivitätswerte einzelner Monteure.
+**Begründung:** E-23 (reproduzierbare Monatswerte) und Datenschutz (Rollenkonzept, PROMPT 4).
+
+### E-57 Eine Managed Identity je Komponente, Datenbank per Entra-Token
+
+**Entscheidung:** API, Worker und Web-App haben je eine eigene Identität. Die API-Identität ist in PostgreSQL nur Mitglied von `monteur_app`, die des Workers von `monteur_worker`; die Web-App darf nur Images ziehen. API und Worker melden sich mit einem Entra-Token an (kein Passwort) und prüfen beim Start ihre Rolle – in Azure brechen sie ab, wenn RLS umgangen würde.
+**Begründung:** Sicherheitsbefund H1: Mit einer gemeinsamen Identität wäre die Rollentrennung der RLS hinfällig, und ein Fehler in der Web-App hätte Zugriff auf alle Geheimnisse.
+
+### E-58 Service Worker speichert keine fremden Antworten; Abmeldung leert alles
+
+**Entscheidung:** Antworten anderer Herkunft (API, Fotos) werden nie zwischengespeichert; die API sendet `no-store`. Die Abmeldung löscht IndexedDB, Laufzeit-Caches und das Push-Abo.
+**Begründung:** Sicherheitsbefund H2/M1: Auf geteilten Tablets hätte der nächste Benutzer offline Daten des vorherigen gesehen bzw. dessen Push-Nachrichten erhalten. Offline-Daten liegen ausschließlich in der IndexedDB des angemeldeten Benutzers (E-30).
+
+### E-59 Feature-Flags vor der Transaktion lesen; Überlast als 503
+
+**Entscheidung:** Der Sync liest alle Flags einmal vor der ersten Transaktion; der Flag-Cache lädt einmal für alle Wartenden; der Datenbank-Pool wartet höchstens 10 s auf eine Verbindung, danach antwortet die API mit 503 und `Retry-After`.
+**Begründung:** Im Lasttest blockierte eine Flag-Abfrage in einer offenen Transaktion den Pool vollständig (alle Verbindungen warteten auf eine weitere). Eine klare 503 ist für die App wiederholbar, ein hängender Request nicht.
+
+### E-60 Lasttest als eigener Lauf mit frischer Datenbank
+
+**Entscheidung:** `pnpm --filter @schroeder/api test:load` läuft in der CI als eigener Schritt; Umfang per `LOAD_DEVICES`/`LOAD_COMMANDS` skalierbar.
+**Begründung:** Der Lasttest legt viele Benutzer an und leert die BC-Warteschlange; im gemeinsamen Testlauf hätte er – je nach Reihenfolge – den Zustand anderer Tests verändert.
+
+### E-61 „Aus BC aktualisieren“ als Auftrag an den Worker
+
+**Entscheidung:** Ein Klick auf „Aus BC aktualisieren“ legt eine Anfrage an (`bc_refresh_request`, RLS: nur wer den Auftrag sieht); der Worker liest Auftrag, Serviceartikel und Zuordnungen innerhalb von ca. 10 s direkt aus BC – unabhängig vom Delta-Cursor.
+**Begründung:** Nur der Worker hält die BC-Zugangsdaten (E-57); die API braucht keine. BC-Webhooks bleiben die spätere Ergänzung, wenn sie gegen die echte Sandbox getestet werden können (`SETUP-BC.md` Abschnitt 6).
+
+### E-62 Migrationen und Datenbank-Logins durch eigenen Job mit eigener Identität
+
+**Entscheidung:** Ein Container-Apps-Job (`-migrate`) mit eigener Identität – zweiter Entra-Administrator des PostgreSQL-Servers und Eigentümer des Schemas – führt vor jedem Ausrollen die Migrationen aus und legt die Logins von API und Worker mit genau ihrer Rolle an. Die Pipeline startet den Job über `infra/scripts/deploy.sh`; schlägt er fehl, wird nichts ausgerollt.
+**Begründung:** OP-37; kein manueller DBA-Schritt je Deployment, keine Administratorrechte in API oder Worker, und eine falsche Rollenzuordnung wird bei jedem Deployment korrigiert.
+
+### E-63 Stammdaten per RLS schreibgeschützt; Erstanmeldung ohne Session
+
+**Entscheidung:** `user_location`, `app_user`, `bc_resource_mapping`, `setting` und `feature_flag` sind für alle lesbar, schreiben dürfen nur Admin und Worker. Die Erstanmeldung legt ohne Session nur Konten ohne Rollen an; der Benutzer aktualisiert danach nur seine eigene Rollen-Momentaufnahme, Status und Azubi-Kennzeichen schützt ein Trigger.
+**Begründung:** Sicherheitsbefund L2: Diese Tabellen bestimmen, was RLS erlaubt – ein Schreibfehler in der API wäre sonst eine Rechteausweitung.

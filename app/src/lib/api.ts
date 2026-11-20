@@ -16,6 +16,9 @@ let tokenProvider: TokenProvider = async () => null;
 export function setTokenProvider(p: TokenProvider) {
   tokenProvider = p;
 }
+export function getToken() {
+  return tokenProvider();
+}
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await tokenProvider();

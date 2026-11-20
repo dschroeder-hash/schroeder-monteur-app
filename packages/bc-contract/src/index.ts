@@ -302,6 +302,17 @@ export const resourceJournalLineCreateSchema = resourceJournalLineSchema.omit({
 });
 export const itemJournalLineCreateSchema = itemJournalLineSchema.omit({ ...omitServer, lineNumber: true });
 export const serviceOrderStatusPatchSchema = z.object({ status: bcServiceStatus });
+/** Moving or cancelling an allocation from the planning board. */
+export const serviceOrderAllocationPatchSchema = z
+  .object({
+    resourceNumber: z.string(),
+    allocationDate: isoDate,
+    startingTime: isoTime,
+    finishingTime: isoTime,
+    allocatedHours: z.number(),
+    status: allocationStatus,
+  })
+  .partial();
 
 // ---------------------------------------------------------------------------
 // Endpoint registry
@@ -317,7 +328,7 @@ export interface EndpointDef<S extends z.ZodTypeAny = z.ZodTypeAny> {
   /** Whether the entity supports delta sync via lastModifiedDateTime. */
   delta: boolean;
   /** Write operations allowed by the Monteur-App. */
-  writable?: { create?: z.ZodTypeAny; patch?: z.ZodTypeAny };
+  writable?: { create?: z.ZodTypeAny; patch?: z.ZodTypeAny; delete?: true };
 }
 
 const def = <S extends z.ZodTypeAny>(d: EndpointDef<S>) => d;
@@ -384,7 +395,7 @@ export const endpoints = {
     entitySet: 'serviceOrderAllocations',
     schema: serviceOrderAllocationSchema,
     delta: true,
-    writable: { create: serviceOrderAllocationCreateSchema },
+    writable: { create: serviceOrderAllocationCreateSchema, patch: serviceOrderAllocationPatchSchema },
   }),
   serviceLines: def({
     family: 'werkstatt',
@@ -405,7 +416,8 @@ export const endpoints = {
     entitySet: 'employeeAbsences',
     schema: employeeAbsenceSchema,
     delta: true,
-    writable: { create: employeeAbsenceCreateSchema },
+    // Delete: cancelled vacation / changed sick period (Employee Absence is not a posted ledger entry).
+    writable: { create: employeeAbsenceCreateSchema, delete: true },
   }),
   resourceJournalLines: def({
     family: 'werkstatt',

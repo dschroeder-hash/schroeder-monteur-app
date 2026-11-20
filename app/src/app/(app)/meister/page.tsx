@@ -3,7 +3,9 @@
 import { DEFAULT_STATUS_DEFINITIONS, type AppStatus } from '@schroeder/shared';
 import { OrderCard } from '@/components/OrderCard';
 import { Tile } from '@/components/ui/Tile';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { useApi } from '@/lib/useApi';
+import { useMeisterLocations } from '@/lib/meister';
 import type { OrderSummary } from '@/lib/types';
 
 const STATUSES: AppStatus[] = [
@@ -16,10 +18,19 @@ const STATUSES: AppStatus[] = [
   'FERTIG',
 ];
 
-/** Meister dashboard – all orders of his location(s). Planning board and approval inbox follow in phase 3. */
+/** Meister dashboard – all orders of the Meister's location(s), inbox counters and shortcuts. */
 export default function MeisterDashboard() {
   const { data, error, loading } = useApi<OrderSummary[]>('/v1/orders?view=location');
   const orders = data ?? [];
+  const loc = useMeisterLocations()[0]?.id;
+  const { me } = useAuth();
+  const inbox = useApi<{
+    days: Array<{ approvable: boolean; needsCorrection: boolean }>;
+    corrections: unknown[];
+    orders: unknown[];
+    consumptions: unknown[];
+    absences: unknown[];
+  }>(loc ? `/v1/approvals/inbox?locationId=${loc}` : null).data;
   return (
     <div className="flex flex-col gap-6">
       <h1 className="font-headline text-2xl">Standort-Übersicht</h1>
@@ -28,6 +39,35 @@ export default function MeisterDashboard() {
           {error}
         </p>
       )}
+      <section aria-label="Freigabe-Inbox" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Tile
+          label="Zeiten zur Freigabe"
+          value={inbox?.days.filter((d) => d.approvable).length ?? '–'}
+          href="/meister/freigaben"
+        />
+        <Tile
+          label="Korrektur nötig"
+          value={inbox ? inbox.days.filter((d) => d.needsCorrection).length + inbox.corrections.length : '–'}
+          href="/meister/freigaben"
+          tone={inbox && inbox.corrections.length ? 'warning' : 'default'}
+        />
+        <Tile label="Aufträge zur Freigabe" value={inbox?.orders.length ?? '–'} href="/meister/freigaben" />
+        <Tile
+          label="Material zur Freigabe"
+          value={inbox?.consumptions.length ?? '–'}
+          href="/meister/freigaben"
+        />
+        <Tile
+          label="Abwesenheiten zu entscheiden"
+          value={inbox?.absences.length ?? '–'}
+          href="/meister/freigaben"
+          tone={inbox && inbox.absences.length ? 'warning' : 'default'}
+        />
+        <Tile label="Abwesenheitsübersicht" value="→" href="/meister/abwesenheiten" />
+        {me?.features['productivity.team'] && (
+          <Tile label="Produktivität Team" value="→" href="/meister/produktivitaet" />
+        )}
+      </section>
       <section aria-label="Status" className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {STATUSES.map((s) => (
           <Tile
@@ -47,7 +87,7 @@ export default function MeisterDashboard() {
             .filter((o) => o.appStatus === 'NEU')
             .slice(0, 20)
             .map((o) => (
-              <OrderCard key={o.id} order={o} />
+              <OrderCard key={o.id} order={o} href={`/meister/auftrag?id=${o.id}`} />
             ))}
         </div>
       </section>

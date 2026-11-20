@@ -1,7 +1,10 @@
 param name string
 param location string
 param tags object
-param blobContributorPrincipalId string
+@description('api (upload SAS via user delegation key) and worker (retention deletes).')
+param blobContributorPrincipalIds array
+@description('Origins allowed for direct browser uploads, e.g. https://werkstatt.schroeder-gruppe.de')
+param corsOrigins array
 param isProd bool
 
 resource sa 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -34,8 +37,8 @@ resource blob 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
     cors: {
       corsRules: [
         {
-          // Direct browser upload (Put Block / Put Block List) with SAS; restrict origins per environment later.
-          allowedOrigins: ['*']
+          // Direct browser upload (Put Block / Put Block List) with SAS – only from the app's origin(s).
+          allowedOrigins: corsOrigins
           allowedMethods: ['GET', 'PUT', 'HEAD', 'OPTIONS']
           allowedHeaders: ['*']
           exposedHeaders: ['*']
@@ -80,25 +83,25 @@ resource lifecycle 'Microsoft.Storage/storageAccounts/managementPolicies@2023-05
 var contributorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
 var delegatorRoleId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'db58b8e5-c6ad-4a2a-8342-4190687cbf4a')
 
-resource contributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(sa.id, blobContributorPrincipalId, contributorRoleId)
+resource contributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for p in blobContributorPrincipalIds: {
+  name: guid(sa.id, p, contributorRoleId)
   scope: sa
   properties: {
-    principalId: blobContributorPrincipalId
+    principalId: p
     roleDefinitionId: contributorRoleId
     principalType: 'ServicePrincipal'
   }
-}
+}]
 
-resource delegator 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(sa.id, blobContributorPrincipalId, delegatorRoleId)
+resource delegator 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for p in blobContributorPrincipalIds: {
+  name: guid(sa.id, p, delegatorRoleId)
   scope: sa
   properties: {
-    principalId: blobContributorPrincipalId
+    principalId: p
     roleDefinitionId: delegatorRoleId
     principalType: 'ServicePrincipal'
   }
-}
+}]
 
 output blobEndpoint string = sa.properties.primaryEndpoints.blob
 output name string = sa.name

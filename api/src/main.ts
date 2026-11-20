@@ -1,8 +1,10 @@
 import { SwaggerModule } from '@nestjs/swagger';
 import { buildOpenApi, createApp } from './bootstrap.js';
 import { loadConfig } from './config.js';
+import { assertDbRole } from './db/role-check.js';
 
 const config = loadConfig();
+await assertDbRole(config.DATABASE_URL, 'api', config.APP_ENV === 'prod' || !!config.CONTAINER_APP_NAME);
 const app = await createApp(config);
 if (config.APP_ENV !== 'prod')
   SwaggerModule.setup('docs', app, buildOpenApi(app), { jsonDocumentUrl: 'openapi.json' });

@@ -6,8 +6,26 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useSyncStatus } from '@/lib/offline/useSyncStatus';
 import { config } from '@/lib/config';
+import { apiFetch } from '@/lib/api';
+import { toast } from './Toast';
+import { NotificationBell } from './NotificationBell';
 import { SyncBadge } from './SyncBadge';
 import { ThemeToggle } from './ThemeToggle';
+
+/** Self-service export (Art. 15 DSGVO): everything stored about the signed-in user as JSON file. */
+async function downloadMyData() {
+  try {
+    const data = await apiFetch<unknown>('/v1/me/export');
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `monteur-app-daten-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    toast('Export nicht möglich – bitte mit Verbindung erneut versuchen.');
+  }
+}
 
 export function Header() {
   const { me, logout, offlineSession } = useAuth();
@@ -15,16 +33,23 @@ export function Header() {
   const [open, setOpen] = useState(false);
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-surface">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2">
-        <Link href="/" className="flex min-h-touch items-center text-text" aria-label="Startseite">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-2">
+        <Link href="/" className="flex min-h-touch shrink-0 items-center text-text" aria-label="Startseite">
+          {/* Narrow phones: signet only, so the header never gets wider than the screen. */}
+          <img
+            src={`${config.basePath}/icons/icon-192.png`}
+            alt="Schröder Landmaschinen"
+            className="h-9 w-9 rounded-md sm:hidden"
+          />
           <img
             src={`${config.basePath}/brand/logo.svg`}
             alt="Schröder Landmaschinen"
-            className="h-10 w-auto rounded-md bg-white px-1"
+            className="hidden h-10 w-auto rounded-md bg-white px-1 sm:block"
           />
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <SyncBadge status={sync} />
+          <NotificationBell />
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
@@ -62,6 +87,13 @@ export function Header() {
             </p>
           </div>
           <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => void downloadMyData()}
+            className="min-h-touch self-start text-sm font-semibold underline"
+          >
+            Meine Daten herunterladen
+          </button>
           <button
             type="button"
             onClick={() => void logout()}

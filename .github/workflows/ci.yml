@@ -48,13 +48,29 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      # Load and sync test with its own fresh test database (many devices, duplicate sends, BC queue).
+      - run: pnpm --filter @schroeder/api test:load
       - run: pnpm build
 
   e2e:
-    # Playwright end-to-end tests incl. offline scenarios (added in a later phase).
-    if: false
+    # Playwright end-to-end tests against the production build (service worker active), incl. offline day.
     needs: build-test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      E2E_DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+      CI: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -65,5 +81,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm --filter @schroeder/app test:e2e -- --trace off
+      - run: pnpm --filter @schroeder/e2e exec playwright install --with-deps chromium
+      # Everything the E2E servers and the app build need (API + deps, BC mock, design tokens).
+      - run: pnpm --filter "@schroeder/api..." --filter "@schroeder/bc-mock..." --filter "@schroeder/ui..." build
+      - run: pnpm --filter @schroeder/e2e build:app
+      - run: pnpm --filter @schroeder/e2e test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report

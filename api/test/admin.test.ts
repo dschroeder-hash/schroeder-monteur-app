@@ -1,3 +1,4 @@
+import { FeatureService } from '../src/features/feature.service.js';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -40,7 +41,12 @@ describe('feature flags per location (BetrVG § 87)', () => {
       "select * from audit_log where action = 'SET_FEATURE' and entity_id = $1",
       [`${wild.id}:productivity.self`],
     );
+    // Clean up: other test files rely on the default flags.
+    await owner.query("delete from feature_flag where location_id = $1 and feature = 'productivity.self'", [
+      wild.id,
+    ]);
     await owner.end();
+    app.get(FeatureService).invalidate();
     expect(audit.rowCount).toBe(1);
     expect(audit.rows[0].reason).toContain('BV');
   });

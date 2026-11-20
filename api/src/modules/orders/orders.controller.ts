@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Param, Query } from '@nestjs/common';
+import { Controller, Get, HttpCode, Inject, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { z } from 'zod';
 import { APP_STATUSES, ROLES } from '@schroeder/shared';
@@ -29,6 +29,14 @@ export class OrdersController {
   @ZodQuery(listQuery)
   list(@Scope() scope: AccessScope, @Query(new ZodPipe(listQuery)) q: z.infer<typeof listQuery>) {
     return this.orders.list(scope, q);
+  }
+
+  /** Re-read this order from BC within seconds (the worker processes the request). */
+  @Post(':id/refresh')
+  @HttpCode(202)
+  @Roles(ROLES.Monteur, ROLES.Meister, ROLES.Lager)
+  refresh(@Scope() scope: AccessScope, @Param('id', new ZodPipe(uuidParam)) id: string) {
+    return this.orders.requestRefresh(scope, id);
   }
 
   @Get(':id')

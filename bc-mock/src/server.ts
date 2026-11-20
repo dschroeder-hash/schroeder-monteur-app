@@ -307,6 +307,21 @@ export function buildMockServer(opts: MockOptions = {}): { app: FastifyInstance;
         const existing = rows.find((r) => r.monteurAppId === data.monteurAppId);
         if (existing) return { status: 201, body: { '@odata.etag': state.etag(existing), ...existing } };
       }
+      if (name === 'employeeAbsences') {
+        // Same validation as BC: employee and cause of absence must exist.
+        if (!state.tables.employees.some((e) => e.number === data.employeeNumber))
+          throw new ODataError(
+            400,
+            'Internal_RecordNotFound',
+            `The Employee does not exist. Identification fields and values: No.='${String(data.employeeNumber)}'`,
+          );
+        if (!state.tables.causesOfAbsence.some((c) => c.code === data.causeOfAbsenceCode))
+          throw new ODataError(
+            400,
+            'Internal_RecordNotFound',
+            `The Cause of Absence does not exist. Identification fields and values: Code='${String(data.causeOfAbsenceCode)}'`,
+          );
+      }
       if (name === 'serviceLines' || name === 'serviceCommentLines' || name === 'serviceOrderAllocations') {
         const so = state.tables.serviceOrders.find((o) => o.number === data.documentNumber);
         if (!so)
@@ -385,6 +400,25 @@ export function buildMockServer(opts: MockOptions = {}): { app: FastifyInstance;
       return { status: 200, body: { '@odata.etag': state.etag(row), ...row } };
     }
 
+    if (method === 'DELETE' && id) {
+      if (!def.writable?.delete)
+        throw new ODataError(
+          405,
+          'BadRequest_MethodNotAllowed',
+          'Deletes are not allowed for the Monteur-App',
+        );
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx < 0) throw new ODataError(404, 'Internal_RecordNotFound', `The ${entitySet} does not exist.`);
+      const [row] = rows.splice(idx, 1);
+      state.tables.deletedRecords.push({
+        id: randomUUID(),
+        tableNumber: TABLE_NO[name] ?? 0,
+        recordSystemId: id,
+        deletedAt: new Date().toISOString(),
+      });
+      await notify(entitySet, row!, 'deleted');
+      return { status: 204, body: undefined };
+    }
     if (method === 'DELETE')
       throw new ODataError(405, 'BadRequest_MethodNotAllowed', 'Deletes are not allowed for the Monteur-App');
     throw new ODataError(405, 'BadRequest_MethodNotAllowed', `'${method}' is not allowed`);

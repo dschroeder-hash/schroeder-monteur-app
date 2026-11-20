@@ -1,4 +1,6 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import request from 'supertest';
 import { createApp } from '../src/bootstrap.js';
 import { loadConfig } from '../src/config.js';
@@ -14,6 +16,7 @@ export async function createTestApp(): Promise<NestExpressApplication> {
     AUTH_MODE: 'dev',
     DEV_AUTH_SECRET: DEV_SECRET,
     DATABASE_URL: process.env.TEST_API_DATABASE_URL!,
+    LOCAL_STORAGE_DIR: join(tmpdir(), 'monteur-test-uploads'),
   });
   const app = await createApp(config, { logger: false });
   await app.init();

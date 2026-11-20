@@ -1,61 +1,85 @@
 'use client';
 
-import { DEFAULT_STATUS_DEFINITIONS, type AppStatus } from '@schroeder/shared';
+import { DEFAULT_STATUS_DEFINITIONS, localDate, type AppStatus } from '@schroeder/shared';
+import { useState } from 'react';
 import { OrderCard } from '@/components/OrderCard';
+import { SickReportDialog } from '@/components/SickReportDialog';
+import { Button } from '@/components/ui/Button';
 import { Tile } from '@/components/ui/Tile';
-import { useApi } from '@/lib/useApi';
-import type { OrderSummary } from '@/lib/types';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { fmtMinutes } from '@/lib/format';
+import { useDaySummary, useMyOrders, useTimezone } from '@/lib/offline/hooks';
 
 const DASHBOARD_STATUSES: AppStatus[] = [
   'EINGEPLANT',
+  'UNTERWEGS',
   'IN_ARBEIT',
   'WARTET_TEILE',
   'WARTET_KUNDE',
   'FERTIG_DOKU_OFFEN',
 ];
 
-/** Monteur dashboard – own orders only (filtered server-side). Stamping bar follows in phase 2. */
+/** Monteur dashboard – own orders only, read from the local (offline) cache. */
 export default function MonteurDashboard() {
-  const { data, error, loading } = useApi<OrderSummary[]>('/v1/orders?view=mine');
-  const orders = data ?? [];
-  const today = new Date().toDateString();
-  const startToday = (o: OrderSummary) =>
-    o.assignments
-      .map((a) => new Date(a.plannedStart))
-      .find((d) => d.toDateString() === today)
-      ?.getTime() ?? Infinity;
-  const dueToday = orders
-    .filter((o) => startToday(o) !== Infinity)
-    .sort((a, b) => startToday(a) - startToday(b));
+  const { me } = useAuth();
+  const tz = useTimezone();
+  const orders = useMyOrders(me?.id);
+  const today = localDate(new Date(), tz);
+  const day = useDaySummary(me?.id);
+  const due = orders
+    .filter((o) => o.assignments.some((a) => localDate(new Date(a.plannedStart), tz) === today))
+    .sort((a, b) =>
+      (a.assignments[0]?.plannedStart ?? '').localeCompare(b.assignments[0]?.plannedStart ?? ''),
+    );
+  const count = (s: AppStatus) => orders.filter((o) => o.appStatus === s).length;
+  const [sick, setSick] = useState(false);
+
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="font-headline text-2xl">Meine Aufträge</h1>
-      {error && (
-        <p role="alert" className="rounded-card bg-danger-bg p-3 text-danger">
-          {error}
-        </p>
-      )}
-      <section aria-label="Status" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="font-headline text-2xl">Meine Aufträge</h1>
+        {me?.features['absence.sick'] && (
+          <Button variant="secondary" onClick={() => setSick(true)}>
+            Krank melden
+          </Button>
+        )}
+      </div>
+      {sick && <SickReportDialog onClose={() => setSick(false)} />}
+      <section aria-label="Status" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {DASHBOARD_STATUSES.map((s) => (
           <Tile
             key={s}
             label={DEFAULT_STATUS_DEFINITIONS[s].label}
-            value={orders.filter((o) => o.appStatus === s).length}
+            value={count(s)}
             tone={s === 'WARTET_TEILE' ? 'warning' : 'default'}
           />
         ))}
+        <Tile
+          label="Offene Dokumentationen"
+          value={count('FERTIG_DOKU_OFFEN')}
+          tone={count('FERTIG_DOKU_OFFEN') ? 'warning' : 'default'}
+        />
+        <Tile label="Ungelesene Nachrichten" value={0} />
+        {me?.features['productivity.self'] && (
+          <Tile label="Meine Produktivität" value="→" href="/monteur/produktivitaet" />
+        )}
+        {me?.features.stamping && (
+          <Tile
+            label="Arbeitszeit heute"
+            value={fmtMinutes(day.workMinutes)}
+            href="/monteur/zeiten"
+            tone={day.warnings.length ? 'warning' : 'default'}
+          />
+        )}
       </section>
       <section aria-labelledby="heute" className="flex flex-col gap-3">
         <h2 id="heute" className="text-xl font-semibold">
-          Heute fällig ({dueToday.length})
+          Heute fällig ({due.length})
         </h2>
-        {loading && <p className="text-text-muted">Wird geladen …</p>}
-        {dueToday.map((o) => (
-          <OrderCard key={o.id} order={o} />
+        {due.map((o) => (
+          <OrderCard key={o.id} order={o} tz={tz} />
         ))}
-        {!loading && dueToday.length === 0 && (
-          <p className="text-text-muted">Heute sind Ihnen keine Aufträge zugewiesen.</p>
-        )}
+        {due.length === 0 && <p className="text-text-muted">Heute sind Ihnen keine Aufträge zugewiesen.</p>}
       </section>
     </div>
   );

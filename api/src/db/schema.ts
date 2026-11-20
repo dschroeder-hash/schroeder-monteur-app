@@ -9,6 +9,7 @@
  */
 import { sql } from 'drizzle-orm';
 import {
+  customType,
   bigint,
   bigserial,
   boolean,
@@ -34,7 +35,15 @@ const timestamps = {
     .defaultNow()
     .$onUpdate(() => new Date()),
 };
-const rowVersion = { rowVersion: bigint('row_version', { mode: 'number' }).notNull().default(0) };
+/** PostgreSQL xid8 (transaction id), transported as string. */
+const xid8 = customType<{ data: string; driverData: string }>({ dataType: () => 'xid8' });
+const rowVersion = {
+  rowVersion: bigint('row_version', { mode: 'number' }).notNull().default(0),
+  /** Writing transaction; drives the gap-free delta pull (migration 0003, sync.service.ts). */
+  txId: xid8('tx_id')
+    .notNull()
+    .default(sql`pg_current_xact_id()`),
+};
 const bcMirror = {
   bcSystemId: uuid('bc_system_id'),
   bcEtag: text('bc_etag'),
@@ -176,6 +185,11 @@ export const appUser = pgTable('app_user', {
   email: text('email').notNull(),
   isApprentice: boolean('is_apprentice').notNull().default(false),
   active: boolean('active').notNull().default(true),
+  /** Entra app roles seen at the last sign-in (e.g. to notify Personal, which has no location grant). */
+  roles: text('roles')
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
   ...timestamps,
   ...rowVersion,
 });
@@ -544,9 +558,56 @@ export const stampEvent = pgTable(
     skewFlag: boolean('skew_flag').notNull().default(false),
     implicit: boolean('implicit').notNull().default(false),
     deviceId: text('device_id'),
+    /** Set when a Meister added the event as a correction (null = stamped by the Monteur). */
+    createdBy: uuid('created_by').references(() => appUser.id),
+    correctionReason: text('correction_reason'),
     ...rowVersion,
   },
   (t) => [index('stamp_event_user_idx').on(t.userId, t.deviceTime)],
+);
+
+/** Correction: a stamp event is voided (never deleted or changed – E-07). */
+export const stampEventVoid = pgTable('stamp_event_void', {
+  eventId: uuid('event_id')
+    .primaryKey()
+    .references(() => stampEvent.id),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => appUser.id),
+  voidedBy: uuid('voided_by')
+    .notNull()
+    .references(() => appUser.id),
+  reason: text('reason').notNull(),
+  at: ts('at').notNull().defaultNow(),
+});
+
+export const correctionStateEnum = pgEnum('correction_state', ['OFFEN', 'ANGENOMMEN', 'ABGELEHNT']);
+
+/** Correction requested by the Monteur (e.g. forgotten clock-out), decided by the Meister (PROMPT 5.1). */
+export const timeCorrectionRequest = pgTable(
+  'time_correction_request',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUser.id),
+    locationId: uuid('location_id')
+      .notNull()
+      .references(() => location.id),
+    workDate: date('work_date', { mode: 'string' }).notNull(),
+    /** Proposed additional events, e.g. [{ kind: 'CLOCK_OUT', time: '16:30' }] (local time). */
+    proposal: jsonb('proposal')
+      .$type<Array<{ kind: string; time: string; orderId?: string | null; activity?: string | null }>>()
+      .notNull(),
+    comment: text('comment'),
+    state: correctionStateEnum('state').notNull().default('OFFEN'),
+    decidedBy: uuid('decided_by').references(() => appUser.id),
+    decidedAt: ts('decided_at'),
+    decisionReason: text('decision_reason'),
+    ...timestamps,
+    ...rowVersion,
+  },
+  (t) => [index('time_correction_request_loc_idx').on(t.locationId, t.state)],
 );
 
 export const timeEntry = pgTable(
@@ -572,12 +633,15 @@ export const timeEntry = pgTable(
     needsCorrection: boolean('needs_correction').notNull().default(false),
     skewFlag: boolean('skew_flag').notNull().default(false),
     approvalId: uuid('approval_id'),
+    /** Deterministic key of the derived segment (opening stamp event id + kind); null for manual corrections. */
+    segmentKey: text('segment_key'),
     ...timestamps,
     ...rowVersion,
   },
   (t) => [
     index('time_entry_user_date_idx').on(t.userId, t.workDate),
     index('time_entry_order_idx').on(t.orderId),
+    uniqueIndex('time_entry_segment_uq').on(t.userId, t.segmentKey),
   ],
 );
 
@@ -717,6 +781,8 @@ export const photo = pgTable(
     height: integer('height'),
     capturedAt: ts('captured_at'),
     uploadState: uploadStateEnum('upload_state').notNull().default('PENDING'),
+    /** Blocks already received by the local storage adapter (resumable upload); unused with Azure Blob. */
+    uploadedAt: ts('uploaded_at'),
     deletedAt: ts('deleted_at'),
     ...timestamps,
     ...rowVersion,
@@ -790,6 +856,29 @@ export const absence = pgTable(
     index('absence_user_idx').on(t.userId, t.fromDate),
     index('absence_location_idx').on(t.locationId, t.fromDate),
   ],
+);
+
+/**
+ * Team calendar (PROMPT 5.10): colleagues see that someone is absent, never why. Mirror of active absences
+ * without type and comment, maintained by a trigger on `absence` (migration 0009).
+ */
+export const teamAbsence = pgTable(
+  'team_absence',
+  {
+    absenceId: uuid('absence_id')
+      .primaryKey()
+      .references(() => absence.id),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUser.id),
+    locationId: uuid('location_id')
+      .notNull()
+      .references(() => location.id),
+    fromDate: date('from_date', { mode: 'string' }).notNull(),
+    toDate: date('to_date', { mode: 'string' }),
+    halfDay: halfDayEnum('half_day').notNull().default('NONE'),
+  },
+  (t) => [index('team_absence_location_idx').on(t.locationId, t.fromDate)],
 );
 
 export const vacationBalance = pgTable(
@@ -900,17 +989,22 @@ export const auditLog = pgTable(
   (t) => [index('audit_log_entity_idx').on(t.entity, t.entityId)],
 );
 
-export const pushSubscription = pgTable('push_subscription', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => appUser.id),
-  endpoint: text('endpoint').notNull().unique(),
-  p256dh: text('p256dh').notNull(),
-  auth: text('auth').notNull(),
-  userAgent: text('user_agent'),
-  ...timestamps,
-});
+export const pushSubscription = pgTable(
+  'push_subscription',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUser.id),
+    endpoint: text('endpoint').notNull(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    userAgent: text('user_agent'),
+    ...timestamps,
+  },
+  // One row per user and browser; on a shared device the newest sign-in wins (worker, deliverPush).
+  (t) => [uniqueIndex('push_subscription_user_endpoint_uq').on(t.userId, t.endpoint)],
+);
 
 export const notification = pgTable(
   'notification',
@@ -924,6 +1018,8 @@ export const notification = pgTable(
     body: text('body').notNull(),
     link: text('link'),
     readAt: ts('read_at'),
+    /** Web Push delivery (worker); null = not yet pushed. */
+    pushedAt: ts('pushed_at'),
     ...timestamps,
     ...rowVersion,
   },
@@ -947,6 +1043,24 @@ export const productivitySnapshot = pgTable(
     ...rowVersion,
   },
   (t) => [primaryKey({ columns: [t.userId, t.month] })],
+);
+
+/** "Aus BC aktualisieren": a user asks for one order to be re-read from BC now; the worker processes it (E-61). */
+export const bcRefreshRequest = pgTable(
+  'bc_refresh_request',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    orderId: uuid('order_id')
+      .notNull()
+      .references(() => serviceOrder.id),
+    requestedBy: uuid('requested_by')
+      .notNull()
+      .references(() => appUser.id),
+    requestedAt: ts('requested_at').notNull().defaultNow(),
+    doneAt: ts('done_at'),
+    error: text('error'),
+  },
+  (t) => [index('bc_refresh_request_open_idx').on(t.doneAt, t.requestedAt)],
 );
 
 /** Tables that get the row_version trigger (delta pull). */

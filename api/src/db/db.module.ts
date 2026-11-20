@@ -10,7 +10,11 @@ const DB_HANDLE = Symbol('DB_HANDLE');
 @Global()
 @Module({
   providers: [
-    { provide: DB_HANDLE, inject: [APP_CONFIG], useFactory: (c: AppConfig) => createDb(c.DATABASE_URL) },
+    {
+      provide: DB_HANDLE,
+      inject: [APP_CONFIG],
+      useFactory: (c: AppConfig) => createDb(c.DATABASE_URL, c.DB_POOL_MAX),
+    },
     { provide: DB, inject: [DB_HANDLE], useFactory: (h: ReturnType<typeof createDb>) => h.db },
     { provide: PG_POOL, inject: [DB_HANDLE], useFactory: (h: ReturnType<typeof createDb>) => h.pool },
   ],

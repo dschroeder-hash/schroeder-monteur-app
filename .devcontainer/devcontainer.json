@@ -1,0 +1,12 @@
+{
+  "name": "Schröder Monteur-App (Demo)",
+  "dockerComposeFile": "compose.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": { "label": "Monteur-App", "onAutoForward": "openBrowser" }
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y psmisc && corepack enable && pnpm install",
+  "postAttachCommand": "echo 'Demo starten: scripts/demo.sh  (erster Start baut ca. 5 Minuten)'"
+}

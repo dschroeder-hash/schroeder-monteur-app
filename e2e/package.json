@@ -1,0 +1,22 @@
+{
+  "name": "@schroeder/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:app": "cd ../app && NEXT_PUBLIC_AUTH_MODE=dev NEXT_PUBLIC_API_URL=http://localhost:4010 pnpm build",
+    "test:e2e": "node scripts/prepare-db.mjs && playwright test --trace off"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@playwright/test": "1.63.0",
+    "@schroeder/api": "workspace:*",
+    "@schroeder/bc-mock": "workspace:*",
+    "@types/node": "^22.19.1",
+    "@types/pg": "^8.15.6",
+    "lighthouse": "12.8.2",
+    "pg": "^8.16.3",
+    "puppeteer-core": "24.43.1",
+    "typescript": "^5.9.3"
+  }
+}

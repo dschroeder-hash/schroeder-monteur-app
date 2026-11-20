@@ -25,7 +25,10 @@ Namensschema: `schr-monteur-{env}-{Kürzel}` nach Cloud Adoption Framework (`-lo
 
 - **Geo-redundantes Backup ist aus.** Die Partnerregion von Germany West Central ist Germany North, die nur eingeschränkt verfügbar ist. Die Daten bleiben damit in Deutschland. In prod sorgt zonenredundante Hochverfügbarkeit für Ausfallsicherheit.
 - **Fotos:** Die API stellt _User Delegation SAS_ (über die Managed Identity) aus, deshalb ist der Shared Key am Storage Account abgeschaltet. Die eigentliche Löschfrist setzt die App (Löschjob), die Lifecycle-Regel ist nur ein Platzhalter.
-- **Secrets** liegen ausschließlich im Key Vault und werden von den Container Apps per URL referenziert: `DATABASE-URL`, `BC-CLIENT-SECRET`, `VAPID-PRIVATE-KEY`, `WEB-PUBSUB-CONNECTION`.
+- **Drei Identitäten (E-57):** `-id-api` (DB-Rolle `monteur_app`), `-id-worker` (DB-Rolle `monteur_worker`), `-id-app` (nur Image-Pull, für Next.js-App und BC-Mock). Nur API und Worker lesen Secrets und Storage; die Web-App hat keinerlei Datenzugriff.
+- **Datenbank ohne Passwort:** API und Worker melden sich mit einem Entra-Token ihrer Identität an (`DATABASE_AUTH=entra`); die Passwort-Anmeldung am Server ist aus. Beim Start prüfen API und Worker ihre DB-Rolle und brechen ab, wenn RLS umgangen würde.
+- **Secrets** liegen ausschließlich im Key Vault und werden von den Container Apps per URL referenziert: `BC-CLIENT-SECRET`, `VAPID-PRIVATE-KEY`. Web PubSub läuft ohne Zugriffsschlüssel (Managed Identity).
+- **Nur über Front Door:** Nach dem ersten Deployment `frontDoorId` in `params/{env}.bicepparam` eintragen und erneut deployen – die API lehnt dann direkte Aufrufe der Container-App-Adresse ab.
 - **Worker** läuft mit genau einer Replik (Sync-Cursor und Zeitpläne).
 
 ## Voraussetzungen
@@ -67,7 +70,8 @@ Reihenfolge beim **ersten** Deployment: Die Container Apps referenzieren Key-Vau
 3. Images per Pipeline (`deploy.yml`) bauen und pushen, danach erneut deployen.
 
 ```bash
-az keyvault secret set --vault-name schrmontdevkv --name DATABASE-URL --value "<connection string>"
+az keyvault secret set --vault-name schrmontdevkv --name BC-CLIENT-SECRET --value "<secret>"
+az keyvault secret set --vault-name schrmontdevkv --name VAPID-PRIVATE-KEY --value "<privater VAPID-Schlüssel>"
 ```
 
 ## Manuelle Schritte (nicht in Bicep)
@@ -78,6 +82,6 @@ az keyvault secret set --vault-name schrmontdevkv --name DATABASE-URL --value "<
 | Entra App Registration „Monteur-App Web“ (SPA)    | IT          | Redirect-URIs je Umgebung, API-Berechtigung auf „Monteur-App API“                                                                      |
 | Entra App Registration „Monteur-App BC-Connector“ | IT          | Client Credentials für Business Central, Secret in Key Vault `BC-CLIENT-SECRET` (siehe `docs/SETUP-BC.md`)                             |
 | Entra App Registration „GitHub Deploy“            | IT          | Federated Credentials für GitHub Actions (OIDC), Rollen auf den Ressourcengruppen                                                      |
-| PostgreSQL-Rolle für die Managed Identity         | DBA         | `SELECT * FROM pgaadauth_create_principal('schr-monteur-{env}-id', false, false);` und Rechte auf DB `monteur`                         |
+| PostgreSQL-Rollen für die Managed Identities      | DBA         | siehe `docs/BETRIEB.md` – API-Identität **nur** in `monteur_app`, Worker-Identität in `monteur_worker`                                 |
 | DNS / eigene Domain                               | IT          | CNAME auf Front Door bzw. Container App, Zertifikat (verwaltet)                                                                        |
 | VAPID-Schlüssel                                   | Entwicklung | `npx web-push generate-vapid-keys`, privater Schlüssel in Key Vault                                                                    |

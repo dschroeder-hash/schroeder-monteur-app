@@ -13,6 +13,16 @@ Offline-fähige Werkstatt- und Außendienst-App für die Schröder-Gruppe (Busin
 | [infra/README.md](./infra/README.md)               | Azure-Deployment (Bicep)                   |
 | [bc-extension/README.md](./bc-extension/README.md) | AL-Extension installieren                  |
 
+## App ansehen (Demo mit Testdaten)
+
+**Im Browser, ohne Installation:** auf GitHub im Repository **Code → Codespaces → Create codespace** (Branch `main`, sobald der Pull Request übernommen ist – vorher den Branch `nacharbeiten` wählen).
+Nach dem Start im Terminal unten `scripts/demo.sh` eingeben (erster Start ca. 5 Minuten). Danach öffnet sich die App;
+falls nicht: Reiter **Ports** → „Monteur-App“ (Port 3000) → Globus-Symbol. Anmeldung über die Test-Personen
+(Monteur, Meister, Lager, Personal, Admin). Business Central wird durch den eingebauten BC-Mock ersetzt.
+
+**Auf dem eigenen Rechner:** Node 22, pnpm 9 und PostgreSQL 16 installieren, dann `scripts/demo.sh` und
+http://localhost:3000 öffnen. Bildschirmfotos: `docs/screenshots/`.
+
 ## Struktur
 
 ```

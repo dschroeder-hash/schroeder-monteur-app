@@ -53,7 +53,8 @@ export default function LoginPage() {
       ) : (
         <section
           aria-labelledby="dev-login"
-          className="flex flex-col gap-2 rounded-card border-2 border-dashed border-warning p-4"
+          // Space reserved for the persona list (loaded asynchronously) – no layout shift.
+          className="flex min-h-[35rem] flex-col gap-2 rounded-card border-2 border-dashed border-warning p-4"
         >
           <h2 id="dev-login" className="font-semibold text-warning">
             Entwicklungs-Login (nur Test)

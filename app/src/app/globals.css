@@ -34,3 +34,33 @@ body {
     transition: none !important;
   }
 }
+
+/* Chart series (productivity categories), fixed order. Validated with the data-viz palette check: light passes with a
+   contrast warning → every chart shows its values as text/table as well; dark passes all checks. */
+:root {
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --chart-target: color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #0ca30c;
+  }
+}
+:root[data-theme='dark'] {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #0ca30c;
+}

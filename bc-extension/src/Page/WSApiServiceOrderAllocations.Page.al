@@ -1,6 +1,7 @@
 /// <summary>
 /// Service order allocations (resource planning). POST is used by the planning board
-/// of the Monteur-App. Idempotent via monteurAppId.
+/// of the Monteur-App (idempotent via monteurAppId); PATCH moves an allocation
+/// (resource, date, times) or cancels it (status = Canceled).
 /// </summary>
 page 50109 "WS API Service Order Allocs."
 {
@@ -17,7 +18,7 @@ page 50109 "WS API Service Order Allocs."
     ODataKeyFields = SystemId;
     DelayedInsert = true;
     InsertAllowed = true;
-    ModifyAllowed = false;
+    ModifyAllowed = true;
     DeleteAllowed = false;
     ChangeTrackingAllowed = true;
     Extensible = false;
@@ -29,15 +30,17 @@ page 50109 "WS API Service Order Allocs."
             repeater(Records)
             {
                 field(id; Rec.SystemId) { Editable = false; }
-                field(monteurAppId; Rec."Monteur App Id") { }
-                field(documentNumber; Rec."Document No.") { }
+                field(monteurAppId; Rec."Monteur App Id") { Editable = IsNew; }
+                field(documentNumber; Rec."Document No.") { Editable = IsNew; }
                 field(serviceItemLineNumber; Rec."Service Item Line No.") { }
                 field(resourceNumber; Rec."Resource No.") { }
                 field(allocationDate; Rec."Allocation Date") { }
                 field(startingTime; Rec."Starting Time") { }
                 field(finishingTime; Rec."Finishing Time") { }
                 field(allocatedHours; Rec."Allocated Hours") { }
-                field(status; Rec.Status) { Editable = false; }
+                // TO VERIFY in the tenant (OFFENE-PUNKTE OP-21): whether BC accepts cancelling via the
+                // status field or requires the standard cancel function with a reason code.
+                field(status; Rec.Status) { }
                 field(lastModifiedDateTime; Rec.SystemModifiedAt) { Editable = false; }
             }
         }
@@ -45,9 +48,24 @@ page 50109 "WS API Service Order Allocs."
 
     var
         ApiHelper: Codeunit "WS Api Helper";
+        IsNew: Boolean;
+
+    trigger OnAfterGetRecord()
+    begin
+        IsNew := false;
+    end;
+
+    trigger OnModifyRecord(): Boolean
+    begin
+        if Rec.Status = Rec.Status::Canceled then
+            Rec."Allocated Hours" := 0;
+        Rec.Modify(true);
+        exit(false);
+    end;
 
     trigger OnNewRecord(BelowxRec: Boolean)
     begin
+        IsNew := true;
         Rec."Document Type" := Rec."Document Type"::Order;
     end;
 
