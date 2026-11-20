@@ -1,5 +1,6 @@
 'use client';
 
+import { ExternalLink, ScanLine } from 'lucide-react';
 import {
   agcoDeeplinkAdapter,
   estimateDelivery,
@@ -158,6 +159,7 @@ function PartsPage() {
           inputMode="search"
         />
         <Button variant="secondary" onClick={() => setScanning(true)} aria-label="Barcode scannen">
+          <ScanLine aria-hidden className="h-5 w-5" />
           Scannen
         </Button>
       </div>
@@ -211,9 +213,22 @@ function PartsPage() {
           Herstellerkatalog
         </h2>
         <p className="text-sm text-text-muted">
-          Öffnet den AGCO-Teilekatalog in einem neuen Tab. Die gefundene Teilenummer hier einfügen.
+          Öffnet den AGCO-Teilekatalog (Fendt, Valtra, Massey Ferguson) in einem neuen Fenster. Die dort
+          gefundene Teilenummer kopieren und unten einfügen.
         </p>
         <div className="flex flex-wrap gap-2">
+          {agco.startUrl && (
+            <a
+              className="inline-flex min-h-touch items-center gap-2 rounded-card bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover"
+              href={agco.startUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-catalog="agco-start"
+            >
+              <ExternalLink aria-hidden className="h-5 w-5" />
+              AGCO-Katalog öffnen
+            </a>
+          )}
           {machine?.serialNo && agco.brands.includes(machine.brand.toUpperCase()) && (
             <a
               className="inline-flex min-h-touch items-center rounded-card border-2 border-border px-4 font-semibold"

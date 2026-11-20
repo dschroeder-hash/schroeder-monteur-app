@@ -34,7 +34,7 @@ test('Lighthouse mobile ≥ 90 (performance, accessibility, best practices)', as
       if (signedIn) await page.evaluate(() => sessionStorage.clear());
       await page.goto(`${baseURL}/login`);
       await page.click(`[data-persona="${persona}"]`);
-      await page.waitForURL((u) => !u.pathname.startsWith('/login'));
+      await page.waitForURL((u) => u.pathname !== '/' && !u.pathname.startsWith('/login')); // / forwards to the role's start page
       signedIn = persona;
     }
     let url = `${baseURL}${path}`;

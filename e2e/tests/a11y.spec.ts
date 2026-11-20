@@ -47,7 +47,7 @@ for (const theme of ['light', 'dark'] as const)
       await page.goto('/login');
       if (persona === 'monteur-wild') all.push(...(await scan(page, `/login (${theme})`)));
       await page.click(`[data-persona="${persona}"]`);
-      await page.waitForURL((u) => !u.pathname.startsWith('/login'));
+      await page.waitForURL((u) => u.pathname !== '/' && !u.pathname.startsWith('/login')); // / forwards to the role's start page
       for (const url of urls) {
         await page.goto(url);
         // networkidle never settles (sync polling) – wait for the page heading instead

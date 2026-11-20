@@ -52,10 +52,15 @@ jobs:
       - run: pnpm --filter @schroeder/api test:load
       - run: pnpm build
 
-  e2e:
-    # Playwright end-to-end tests against the production build (service worker active), incl. offline day.
+  e2e-device:
+    # Playwright end-to-end tests against the production build (service worker active), incl. offline day –
+    # once per device: iPad landscape/portrait (WebKit = Safari engine) and phone (Chromium).
     needs: build-test
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [ipad-quer, ipad-hoch, smartphone]
     services:
       postgres:
         image: postgres:16
@@ -81,13 +86,21 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @schroeder/e2e exec playwright install --with-deps chromium
+      - run: pnpm --filter @schroeder/e2e exec playwright install --with-deps ${{ startsWith(matrix.device, 'ipad') && 'webkit' || 'chromium' }}
       # Everything the E2E servers and the app build need (API + deps, BC mock, design tokens).
       - run: pnpm --filter "@schroeder/api..." --filter "@schroeder/bc-mock..." --filter "@schroeder/ui..." build
       - run: pnpm --filter @schroeder/e2e build:app
-      - run: pnpm --filter @schroeder/e2e test:e2e
+      - run: pnpm --filter @schroeder/e2e test:e2e --project=${{ matrix.device }}
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.device }}
           path: e2e/playwright-report
+
+  e2e:
+    # Single required check for the branch rule: green only if all devices passed.
+    needs: e2e-device
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.e2e-device.result }}" = success

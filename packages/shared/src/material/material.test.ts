@@ -59,8 +59,15 @@ describe('AGCO deep link (no scraping)', () => {
     );
     expect(agco.buildSearchUrl({})).toBeNull();
   });
+  it('always offers the catalog start page, also without a number', () => {
+    expect(agcoDeeplinkAdapter().startUrl).toBe('https://parts.agcocorp.com/de/de/');
+    expect(agcoDeeplinkAdapter('https://parts.agcocorp.com/de/de/search?q={query}').startUrl).toBe(
+      'https://parts.agcocorp.com/',
+    );
+  });
   it('refuses non-https templates', () => {
     expect(agcoDeeplinkAdapter('javascript:alert({query})').buildSearchUrl({ partNo: '1' })).toBeNull();
+    expect(agcoDeeplinkAdapter('javascript:alert({query})').startUrl).toBeNull();
   });
   it('normalises and extracts part numbers from pasted text', () => {
     expect(normalizePartNo('x548 880-400')).toBe(normalizePartNo('X548.880.400'));

@@ -17,6 +17,8 @@ export function deviceDayStart(now = Date.now()): Date {
   return now - today.getTime() >= 9 * 3_600_000 ? today : new Date(today.getTime() - 86_400_000);
 }
 
+const engine = process.env.E2E_ENGINE === 'chromium' ? { browserName: 'chromium' as const } : {};
+
 /**
  * End-to-end tests against the production build of the app (service worker active) and the real API.
  * Requires: `pnpm --filter @schroeder/e2e build:app` and `pnpm --filter @schroeder/api build` beforehand.
@@ -36,7 +38,14 @@ export default defineConfig({
     serviceWorkers: 'allow',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'smartphone', use: { ...devices['Pixel 7'] } }],
+  // Main device is the iPad (Safari engine WebKit, as every browser on iPadOS), phone as second device.
+  // Each project needs a fresh database (the specs change the seed data): run one project per invocation,
+  // e.g. `pnpm test:e2e --project=ipad-quer`. E2E_ENGINE=chromium runs the iPad projects without WebKit.
+  projects: [
+    { name: 'smartphone', use: { ...devices['Pixel 7'] } },
+    { name: 'ipad-quer', use: { ...devices['iPad Pro 11 landscape'], ...engine } },
+    { name: 'ipad-hoch', use: { ...devices['iPad Pro 11'], ...engine } },
+  ],
   webServer: [
     {
       command: 'node ../api/dist/main.js',

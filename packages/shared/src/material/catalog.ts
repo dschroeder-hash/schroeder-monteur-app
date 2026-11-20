@@ -17,6 +17,8 @@ export interface PartsCatalogAdapter {
   buildSearchUrl(q: CatalogSearch): string | null;
   /** true if the URL already contains the search; otherwise the app copies the query to the clipboard. */
   searchInUrl: boolean;
+  /** Start page of the catalog (always offered, also without a part or serial number); null if not https. */
+  startUrl: string | null;
 }
 
 /**
@@ -32,6 +34,7 @@ export function agcoDeeplinkAdapter(template = AGCO_DEFAULT_TEMPLATE): PartsCata
     label: 'AGCO Parts (Fendt, Valtra, Massey Ferguson)',
     brands: ['FENDT', 'VALTRA', 'MF', 'AGCO'],
     searchInUrl: template.includes('{query}'),
+    startUrl: catalogStartUrl(template),
     buildSearchUrl({ partNo, serialNo }) {
       const query = (partNo || serialNo || '').trim();
       if (!query) return null;
@@ -42,6 +45,14 @@ export function agcoDeeplinkAdapter(template = AGCO_DEFAULT_TEMPLATE): PartsCata
       return url.startsWith('https://') ? url : null;
     },
   };
+}
+
+function catalogStartUrl(template: string): string | null {
+  if (!template.startsWith('https://')) return null;
+  if (!template.includes('{query}')) return template;
+  // No URL class here: this package is built without DOM/Node types.
+  const origin = /^https:\/\/[^/?#\s{}]+/i.exec(template)?.[0];
+  return origin ? `${origin.toLowerCase()}/` : null;
 }
 
 /** Canonical form for comparing part numbers ("X548.880.400" ≙ "x548 880-400"). */

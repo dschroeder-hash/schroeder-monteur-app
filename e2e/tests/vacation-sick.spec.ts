@@ -3,6 +3,7 @@
  * the Monteur reports sick in 2 taps and requests vacation – both offline; after sync the Meister acknowledges and
  * approves, sets the end of the sick report; both arrive in BC as employee absences. Personal sees both.
  */
+import { navigate } from './nav.js';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { BC_MOCK_URL } from '../playwright.config.js';
 
@@ -18,6 +19,14 @@ const berlinDate = (offsetDays = 0) =>
   new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin' }).format(
     new Date(Date.now() + offsetDays * 86_400_000),
   );
+
+// Playwright's offline emulation in WebKit also cuts off the service worker's cached answers (navigation and
+// fetch fail with "WebKit encountered an internal error"), so flight mode cannot be emulated there. Real Safari
+// is not affected; the scenario runs on the smartphone project (Chromium) and must be checked on a real iPad.
+test.skip(
+  ({ browserName }) => browserName === 'webkit',
+  'Flugmodus lässt sich in Playwright-WebKit nicht emulieren',
+);
 
 test('sick report and vacation offline → Meister decides → employee absences in BC, Personal overview', async ({
   page,
@@ -39,7 +48,7 @@ test('sick report and vacation offline → Meister decides → employee absences
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   // ---- Vacation request (offline), remaining vacation computed on the device ----
-  await page.getByRole('link', { name: 'Abwesenheit' }).click();
+  await navigate(page, 'Urlaub & Krank');
   await page.waitForURL('**/monteur/abwesenheit');
   await expect(page.getByText(/Krank gemeldet ab/)).toBeVisible();
   await page.getByLabel('Von', { exact: true }).fill('2027-03-01');
