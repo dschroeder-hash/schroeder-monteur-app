@@ -82,7 +82,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @schroeder/e2e exec playwright install --with-deps chromium
-      - run: pnpm --filter "@schroeder/api..." build
+      # Everything the E2E servers and the app build need (API + deps, BC mock, design tokens).
+      - run: pnpm --filter "@schroeder/api..." --filter "@schroeder/bc-mock..." --filter "@schroeder/ui..." build
       - run: pnpm --filter @schroeder/e2e build:app
       - run: pnpm --filter @schroeder/e2e test:e2e
       - if: failure()
