@@ -260,7 +260,7 @@ describe('every command type can be recorded offline', () => {
       SaveChecklist: {
         orderId: ORDER,
         templateId: '00000000-0000-4000-8000-0000000000c1',
-        results: { a: { state: 'OK', value: null, note: '' } },
+        results: { a: { checked: true, value: null, unit: null } },
       },
       SignOrder: {
         orderId: ORDER,

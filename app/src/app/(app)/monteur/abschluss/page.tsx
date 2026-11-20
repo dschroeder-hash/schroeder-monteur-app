@@ -1,6 +1,11 @@
 'use client';
 
-import { checklistMissing, pickChecklistTemplate, type ChecklistAnswer } from '@schroeder/shared';
+import {
+  checklistItemsFor,
+  checklistMissing,
+  pickChecklistTemplate,
+  type ChecklistAnswer,
+} from '@schroeder/shared';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { CircleCheck, CircleAlert, ClipboardCheck, PenLine } from 'lucide-react';
 import Link from 'next/link';
@@ -78,8 +83,9 @@ function Completion() {
 
   if (!order || !loaded) return <p className="text-text-muted">Wird geladen …</p>;
   const reportDone = !!report?.complete || (!!report?.body.trim() && report.pending === true);
+  const items = tpl ? checklistItemsFor(tpl.items, order.orderTypeCode) : [];
   const openItems = tpl
-    ? checklistMissing(tpl.items, checklist?.templateId === tpl.id ? checklist.results : {})
+    ? checklistMissing(items, checklist?.templateId === tpl.id ? checklist.results : {})
     : [];
   const checklistDone = !tpl || openItems.length === 0;
   const signed = !!signature;
@@ -127,7 +133,7 @@ function Completion() {
         <Step n={2} title={`Checkliste: ${tpl.title}`} done={checklistDone}>
           <ChecklistForm
             key={tpl.id}
-            items={tpl.items}
+            items={items}
             initial={checklist?.templateId === tpl.id ? checklist.results : {}}
             onSave={saveChecklist}
           />

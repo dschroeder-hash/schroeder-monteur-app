@@ -121,9 +121,10 @@ describe('checklist templates (Admin)', () => {
         orderTypeCode: order.order_type_code,
         brand: order.brand,
         items: [
-          { id: 'oil', text: 'Motorölstand prüfen' },
-          { id: 'tyre', text: 'Reifendruck vorne', kind: 'value', unit: 'bar' },
-          { id: 'note', text: 'Sonstiges', kind: 'text', required: false },
+          { id: 'h', text: 'Reparaturende', kind: 'heading' },
+          { id: 'oil', text: 'Motorölstand geprüft?', checkbox: true, required: true },
+          { id: 'tyre', text: 'Reifendruck vorne', answer: 'number', unit: 'bar', required: true },
+          { id: 'note', text: 'Sonstiges', answer: 'text' },
         ],
       });
     expect(res.status).toBe(201);
@@ -149,13 +150,13 @@ describe('Arbeit abgeschlossen with checklist and signature', () => {
     expect(await status()).toBe('FERTIG_DOKU_OFFEN');
   });
 
-  it('"not OK" needs a note; a complete checklist is stored', async () => {
+  it('required lines and numbers are checked; a complete checklist is stored', async () => {
     await push('SaveChecklist', {
       orderId: order.id,
       templateId,
       results: {
-        oil: { state: 'NOK', value: null, note: '' },
-        tyre: { state: null, value: '1,8', note: '' },
+        oil: { checked: false, value: null, unit: null },
+        tyre: { checked: false, value: 'viel', unit: null },
       },
     }).expect(200);
     expect(
@@ -165,9 +166,9 @@ describe('Arbeit abgeschlossen with checklist and signature', () => {
       orderId: order.id,
       templateId,
       results: {
-        oil: { state: 'NOK', value: null, note: '1 l nachgefüllt' },
-        tyre: { state: null, value: '1,8', note: '' },
-        unknown: { state: 'OK', value: null, note: '' },
+        oil: { checked: true, value: null, unit: null },
+        tyre: { checked: false, value: '1,8', unit: null },
+        unknown: { checked: true, value: null, unit: null },
       },
     }).expect(200);
     const [c] = await q('select complete, results from order_checklist where order_id = $1', [order.id]);
@@ -230,13 +231,8 @@ describe('Arbeit abgeschlossen with checklist and signature', () => {
     for (let i = 0; i < 5; i++) await transfer.runOnce();
     const comments = state.tables.serviceCommentLines.filter((c) => c.documentNumber === order.bc_no);
     expect(comments.some((c) => String(c.comment).startsWith('Inspektion durchgeführt'))).toBe(true);
-    expect(
-      comments.some(
-        (c) =>
-          c.comment === 'n.i.O. Motorölstand prüfen - 1 l nachgefüllt' ||
-          String(c.comment).includes('Motorölstand prüfen'),
-      ),
-    ).toBe(true);
+    expect(comments.some((c) => c.comment === '[x] Motorölstand geprüft?')).toBe(true);
+    expect(comments.some((c) => c.comment === 'Reifendruck vorne: 1,8 bar')).toBe(true);
     const att = state.tables.serviceOrderAttachments.find((a) => a.documentNumber === order.bc_no);
     expect(att?.fileName).toBe(`Werkstattauftrag_${order.bc_no}.pdf`);
     expect(Buffer.from(String(att?.fileContent), 'base64').subarray(0, 5).toString()).toBe('%PDF-');

@@ -1,19 +1,30 @@
 /**
- * Service checklists (E-67). The layout comes from the checklist template in Business Central; the app only needs
- * the items, their kind and whether they are required.
+ * Service checklist (E-67) modelled on BC's "Servicecheckliste (gelbe Karte)": headings and lines; a line may have
+ * the "Eingabe" checkbox, an answer (text, number or a choice from a list) and a unit – fixed (g, ml, ltr.) or to
+ * be chosen (Liter / St.). Every line is configured individually, like in BC.
  */
 export interface ChecklistItem {
   id: string;
   text: string;
-  kind: 'check' | 'value' | 'text';
+  kind: 'heading' | 'line';
+  /** Line has the "Eingabe" checkbox. */
+  checkbox?: boolean;
+  answer?: 'none' | 'text' | 'number' | 'option';
+  /** Choices for answer 'option' (e.g. the engine oils). */
+  options?: string[];
+  /** Fixed unit shown next to the answer. */
   unit?: string | null;
+  /** Units to choose from (e.g. Liter / St.) – takes precedence over `unit`. */
+  unitOptions?: string[];
+  /** Must be filled in before "Arbeit abgeschlossen" (checkbox ticked / answer given). */
   required?: boolean;
-  section?: string | null;
+  /** Line or whole section only for these order types (e.g. warranty / goodwill). */
+  orderTypes?: string[] | null;
 }
 export interface ChecklistAnswer {
-  state: 'OK' | 'NOK' | 'NA' | null;
+  checked: boolean;
   value: string | null;
-  note: string;
+  unit: string | null;
 }
 export interface ChecklistTemplateDef {
   id: string;
@@ -24,17 +35,34 @@ export interface ChecklistTemplateDef {
   items: ChecklistItem[];
 }
 
-const answered = (item: ChecklistItem, a: ChecklistAnswer | undefined) =>
-  item.kind === 'check' ? !!a?.state : !!(a?.value ?? '').trim();
+const numberLike = /^-?\d+([.,]\d+)?$/;
 
-/** Required items not yet answered; a "not OK" needs a note (what was found / done). */
+/** Lines that apply to an order type: a heading with `orderTypes` hides its whole section for other types. */
+export function checklistItemsFor(items: ChecklistItem[], orderTypeCode: string): ChecklistItem[] {
+  const out: ChecklistItem[] = [];
+  let sectionVisible = true;
+  for (const item of items) {
+    const fits = !item.orderTypes?.length || item.orderTypes.includes(orderTypeCode);
+    if (item.kind === 'heading') sectionVisible = fits;
+    if (sectionVisible && fits) out.push(item);
+  }
+  return out;
+}
+
+/** What is still missing: required lines not ticked / not answered, numbers that are none, a missing unit. */
 export function checklistMissing(items: ChecklistItem[], results: Record<string, ChecklistAnswer>): string[] {
   const missing: string[] = [];
   for (const item of items) {
+    if (item.kind === 'heading') continue;
     const a = results[item.id];
-    if ((item.required ?? true) && !answered(item, a)) missing.push(item.text);
-    else if (item.kind === 'check' && a?.state === 'NOK' && !a.note.trim())
-      missing.push(`${item.text} (Bemerkung)`);
+    const value = (a?.value ?? '').trim();
+    const answer = item.answer ?? 'none';
+    if (item.required) {
+      if (item.checkbox && answer === 'none' && !a?.checked) missing.push(item.text);
+      else if (answer !== 'none' && !value) missing.push(item.text);
+    }
+    if (value && answer === 'number' && !numberLike.test(value)) missing.push(`${item.text} (Zahl)`);
+    if (value && item.unitOptions?.length && !a?.unit) missing.push(`${item.text} (Einheit)`);
   }
   return missing;
 }
@@ -57,17 +85,25 @@ export function pickChecklistTemplate<T extends ChecklistTemplateDef>(
   return fits.sort((a, b) => score(b) - score(a))[0] ?? null;
 }
 
-/** One BC comment text per answered item: "✓ Ölstand prüfen", "✗ Bremsen: Belag 2 mm – getauscht", "Reifendruck: 1,8 bar". */
+/** BC comment texts: "[x] Motoröl", "Menge Motoröl: 12 Liter", "Kältemittel: 650 g" – only filled-in lines. */
 export function checklistLines(items: ChecklistItem[], results: Record<string, ChecklistAnswer>): string[] {
   const lines: string[] = [];
+  let heading: string | null = null;
   for (const item of items) {
+    if (item.kind === 'heading') {
+      heading = item.text;
+      continue;
+    }
     const a = results[item.id];
     if (!a) continue;
-    const note = a.note.trim() ? ` – ${a.note.trim()}` : '';
-    if (item.kind === 'check' && a.state)
-      lines.push(`${a.state === 'OK' ? 'i.O.' : a.state === 'NOK' ? 'n.i.O.' : 'entf.'} ${item.text}${note}`);
-    else if (item.kind !== 'check' && (a.value ?? '').trim())
-      lines.push(`${item.text}: ${a.value!.trim()}${item.unit ? ` ${item.unit}` : ''}${note}`);
+    const value = (a.value ?? '').trim();
+    if (!a.checked && !value) continue;
+    if (heading) {
+      lines.push(`${heading}:`);
+      heading = null;
+    }
+    const unit = a.unit ?? item.unit ?? '';
+    lines.push(`${a.checked ? '[x] ' : ''}${item.text}${value ? `: ${value}${unit ? ` ${unit}` : ''}` : ''}`);
   }
   return lines;
 }

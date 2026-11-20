@@ -17,14 +17,18 @@ interface Template {
 }
 
 const EXAMPLE = `{
-  "title": "Wartung Traktor",
-  "orderTypeCode": "WARTUNG",
-  "brand": null,
+  "title": "Servicecheckliste (gelbe Karte)",
+  "orderTypeCode": null,
   "items": [
-    { "id": "motoroel", "section": "Motor", "text": "Motoröl und Filter gewechselt" },
-    { "id": "kuehler", "section": "Motor", "text": "Kühlmittelstand / Frostschutz", "kind": "value", "unit": "°C" },
-    { "id": "bremsen", "section": "Fahrwerk", "text": "Bremsen geprüft" },
-    { "id": "bemerkung", "text": "Hinweise an den Kunden", "kind": "text", "required": false }
+    { "id": "betriebsstoffe", "kind": "heading", "text": "Verbrauchsmaterial (Öl, Gas, etc.)" },
+    { "id": "motoroel", "text": "Motoröl", "checkbox": true },
+    { "id": "motoroel_auswahl", "text": "Auswahl Motoröl", "answer": "option", "options": ["15W-40", "10W-40"] },
+    { "id": "motoroel_menge", "text": "Menge Motoröl", "answer": "number", "unitOptions": ["Liter", "St."] },
+    { "id": "kaeltemittel", "text": "Kältemittel", "answer": "number", "unit": "g" },
+    { "id": "kulanz", "kind": "heading", "text": "Nur bei Kulanz", "orderTypes": ["GARANTIE", "KULANZ"] },
+    { "id": "regalfach", "text": "Regalfach", "answer": "text" },
+    { "id": "ende", "kind": "heading", "text": "Checkliste für das Reparaturende" },
+    { "id": "ende_1", "text": "Alle Arbeiten ausgeführt und notiert ?", "checkbox": true, "required": true }
   ]
 }`;
 

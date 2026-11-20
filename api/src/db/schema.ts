@@ -8,6 +8,7 @@
  *  - RLS policies are defined in the hand-written migration drizzle/0001_rls.sql
  */
 import { sql } from 'drizzle-orm';
+import type { ChecklistAnswer, ChecklistItem } from '@schroeder/shared';
 import {
   customType,
   bigint,
@@ -1099,19 +1100,8 @@ export const VERSIONED_TABLES = [
  * Service checklists (E-67): templates from BC's checklist layout (maintained by Admin, imported as JSON), one
  * filled-in checklist per order. Item kinds: check (OK / not OK / n. a.), value (number with unit), text.
  */
-export interface ChecklistItemDef {
-  id: string;
-  text: string;
-  kind: 'check' | 'value' | 'text';
-  unit?: string | null;
-  required?: boolean;
-  section?: string | null;
-}
-export interface ChecklistResult {
-  state: 'OK' | 'NOK' | 'NA' | null;
-  value: string | null;
-  note: string;
-}
+type ChecklistItemDef = ChecklistItem;
+type ChecklistResult = ChecklistAnswer;
 export const checklistTemplate = pgTable('checklist_template', {
   id: uuid('id').primaryKey().defaultRandom(),
   locationId: uuid('location_id').references(() => location.id),

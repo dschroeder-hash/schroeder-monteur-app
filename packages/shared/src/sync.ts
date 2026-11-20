@@ -93,9 +93,9 @@ export const COMMAND_PAYLOADS = {
       .record(
         z.string().max(80),
         z.object({
-          state: z.enum(['OK', 'NOK', 'NA']).nullable(),
-          value: z.string().max(200).nullable(),
-          note: z.string().max(1000).default(''),
+          checked: z.boolean().default(false),
+          value: z.string().max(500).nullable().default(null),
+          unit: z.string().max(20).nullable().default(null),
         }),
       )
       .refine((r) => Object.keys(r).length <= 300, { message: 'Zu viele Punkte' }),

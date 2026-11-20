@@ -5,6 +5,7 @@ import {
   DEFAULT_REQUIRED_FIELDS,
   REQUIRED_FIELD_DEFS,
   checklistLines,
+  checklistItemsFor,
   checklistMissing,
   localDate,
   pickChecklistTemplate,
@@ -74,7 +75,10 @@ export class ReportService {
     const tpl = await this.checklistTemplateFor(tx, order);
     if (tpl) {
       const [c] = await tx.select().from(orderChecklist).where(eq(orderChecklist.orderId, orderId));
-      const open = checklistMissing(tpl.items, c?.templateId === tpl.id ? c.results : {});
+      const open = checklistMissing(
+        checklistItemsFor(tpl.items, order.orderTypeCode),
+        c?.templateId === tpl.id ? c.results : {},
+      );
       if (open.length) missing.push(`Checkliste (${open.length} offen)`);
     }
     if (await this.signatureRequired(tx, order.locationId)) {
@@ -148,7 +152,7 @@ export class ReportService {
     p: CommandPayload<'SaveChecklist'>,
     access: OrderAccess,
   ): Promise<string[]> {
-    await this.editableOrder(p.orderId, access, tx);
+    const order = await this.editableOrder(p.orderId, access, tx);
     const [tpl] = await tx.select().from(checklistTemplate).where(eq(checklistTemplate.id, p.templateId));
     if (!tpl) throw new CommandRejected('Checklisten-Vorlage nicht gefunden');
     const [existing] = await tx
@@ -167,7 +171,7 @@ export class ReportService {
       templateId: p.templateId,
       authorId: scope.userId,
       results,
-      complete: checklistMissing(tpl.items, results).length === 0,
+      complete: checklistMissing(checklistItemsFor(tpl.items, order.orderTypeCode), results).length === 0,
       deviceTime,
     };
     if (existing) await tx.update(orderChecklist).set(values).where(eq(orderChecklist.id, existing.id));

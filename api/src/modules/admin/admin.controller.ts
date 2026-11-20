@@ -34,10 +34,14 @@ const checklistBody = z.object({
       z.object({
         id: z.string().trim().min(1).max(80),
         text: z.string().trim().min(1).max(250),
-        kind: z.enum(['check', 'value', 'text']).default('check'),
+        kind: z.enum(['heading', 'line']).default('line'),
+        checkbox: z.boolean().default(false),
+        answer: z.enum(['none', 'text', 'number', 'option']).default('none'),
+        options: z.array(z.string().trim().min(1).max(80)).max(100).optional(),
         unit: z.string().max(20).nullish(),
-        required: z.boolean().default(true),
-        section: z.string().max(120).nullish(),
+        unitOptions: z.array(z.string().trim().min(1).max(20)).max(10).optional(),
+        required: z.boolean().default(false),
+        orderTypes: z.array(z.string().trim().min(1).max(20)).max(20).nullish(),
       }),
     )
     .min(1)
