@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build:app": "cd ../app && NEXT_PUBLIC_AUTH_MODE=dev NEXT_PUBLIC_API_URL=http://localhost:4010 pnpm build",
-    "test:e2e": "playwright test --trace off"
+    "test:e2e": "node scripts/prepare-db.mjs && playwright test --trace off"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.2",
