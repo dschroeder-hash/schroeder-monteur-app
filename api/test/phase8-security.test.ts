@@ -393,3 +393,201 @@ describe('"Aus BC aktualisieren" (E-61)', () => {
     await api(app).post(`/v1/orders/${foreign.id}/refresh`).set(as('monteur-wild')).expect(404);
   });
 });
+
+describe('master data write protection (OP-40) and approvals per location (OP-41)', () => {
+  /** Runs SQL as the API database role with the session of a user (like every request). */
+  async function asUser(userId: string | null, roles: string, sqlText: string, params: unknown[] = []) {
+    const c = new pg.Client({ connectionString: process.env.TEST_API_DATABASE_URL });
+    await c.connect();
+    try {
+      await c.query('begin');
+      if (userId)
+        await c.query("select set_config('app.user_id', $1, true), set_config('app.roles', $2, true)", [
+          userId,
+          roles,
+        ]);
+      return (await c.query(sqlText, params)).rows;
+    } finally {
+      await c.query('rollback').catch(() => undefined);
+      await c.end();
+    }
+  }
+
+  it('a new Entra user can still sign in for the first time (provisioning without session)', async () => {
+    const oid = randomUUID();
+    const token = await app
+      .get(TokenVerifier)
+      .issueDevToken({ oid, name: 'Neu Angelegt', email: 'neu@example.invalid', roles: [ROLES.Monteur] });
+    const me = await api(app).get('/v1/me').set('Authorization', `Bearer ${token}`).expect(200);
+    expect(me.body.grants).toEqual([]);
+    expect((await q('select roles from app_user where entra_oid = $1', [oid]))[0].roles).toEqual([
+      ROLES.Monteur,
+    ]);
+  });
+
+  it('a Monteur cannot grant himself a Meister location or change settings and flags', async () => {
+    await expect(
+      asUser(
+        ids['monteur-wild']!,
+        'Werkstatt.Monteur',
+        "insert into user_location (user_id, location_id, role) values ($1, $2, 'MEISTER')",
+        [ids['monteur-wild'], ids.location],
+      ),
+    ).rejects.toThrow(/row-level security/);
+    await expect(
+      asUser(
+        ids['monteur-wild']!,
+        'Werkstatt.Monteur',
+        "insert into setting (key, value) values ('productivity', '{\"targetMin\":0}')",
+      ),
+    ).rejects.toThrow(/row-level security/);
+    await expect(
+      asUser(
+        ids['monteur-wild']!,
+        'Werkstatt.Monteur',
+        "insert into feature_flag (location_id, feature, enabled) values ($1, 'stamping', false)",
+        [ids.location],
+      ),
+    ).rejects.toThrow(/row-level security/);
+    // anonymous provisioning cannot create privileged accounts
+    await expect(
+      asUser(
+        null,
+        '',
+        "insert into app_user (entra_oid, display_name, email, roles) values (gen_random_uuid(), 'x', 'x@example.invalid', '{Werkstatt.Admin}')",
+      ),
+    ).rejects.toThrow(/row-level security/);
+    // the Admin may
+    const rows = await asUser(
+      ids.admin!,
+      'Werkstatt.Admin',
+      "insert into user_location (user_id, location_id, role) values ($1, $2, 'LAGER') returning role",
+      [ids['monteur-wild'], ids.location],
+    );
+    expect(rows).toEqual([{ role: 'LAGER' }]);
+  });
+
+  it('nobody re-activates the own account', async () => {
+    await expect(
+      asUser(
+        ids['monteur-wild']!,
+        'Werkstatt.Monteur',
+        'update app_user set active = true, is_apprentice = true where id = $1',
+        [ids['monteur-wild']],
+      ),
+    ).rejects.toThrow(/only the Admin/);
+    await expect(
+      asUser(
+        ids['monteur-wild']!,
+        'Werkstatt.Monteur',
+        "update app_user set display_name = 'x' where id = $1 returning id",
+        [ids['meister-wild']],
+      ),
+    ).resolves.toEqual([]);
+  });
+
+  it('a Meister sees approvals of colleagues at the own location only', async () => {
+    const [clp] = await q('select id from app_user where entra_oid = $1', [persona('meister-clp').oid]);
+    await q(
+      "insert into approval (subject_type, subject_id, decision, approved_by) values ('test', gen_random_uuid(), 'APPROVED', $1)",
+      [clp.id],
+    );
+    const seen = await asUser(
+      ids['meister-wild']!,
+      'Werkstatt.Meister',
+      'select approved_by from approval where approved_by = $1',
+      [clp.id],
+    );
+    expect(seen).toEqual([]);
+  });
+});
+
+describe('statutory retention (OP-38)', () => {
+  it('deletes time data, audit entries and old absences after 6 years; anonymises long-inactive accounts', async () => {
+    const old = '2019-03-04';
+    const [loc] = await q("select id from location where code = 'WILD'");
+    const stampId = randomUUID();
+    await q(
+      "insert into stamp_event (id, user_id, kind, device_time) values ($1, $2, 'CLOCK_IN', $3::date + time '07:00')",
+      [stampId, ids['monteur-wild'], old],
+    );
+    const [entry] = await q(
+      "insert into time_entry (user_id, location_id, work_date, kind, start_at, end_at, actual_minutes, state) values ($1, $2, $3, 'ATTENDANCE', $3::date + time '07:00', $3::date + time '15:00', 480, 'TRANSFERRED') returning id",
+      [ids['monteur-wild'], loc.id, old],
+    );
+    const [recent] = await q(
+      "insert into time_entry (user_id, location_id, work_date, kind, start_at, end_at, actual_minutes, state) values ($1, $2, current_date - 30, 'ATTENDANCE', now() - interval '30 days', now() - interval '30 days' + interval '8 hours', 480, 'APPROVED') returning id",
+      [ids['monteur-wild'], loc.id],
+    );
+    await q(
+      "insert into audit_log (actor_id, action, entity, entity_id, at) values ($1, 'TEST_OLD', 'x', 'x', '2019-01-01')",
+      [ids.admin],
+    );
+    await q(
+      "insert into absence (id, user_id, location_id, type, from_date, to_date, state) values (gen_random_uuid(), $1, $2, 'URLAUB', '2019-08-05', '2019-08-09', 'APPROVED')",
+      [ids['monteur-wild'], loc.id],
+    );
+    const [gone] = await q(
+      "insert into app_user (entra_oid, display_name, email, active) values (gen_random_uuid(), 'Alt Ausgeschieden', 'alt@example.invalid', false) returning id",
+    );
+    await q("update app_user set updated_at = '2018-12-31' where id = $1", [gone.id]);
+
+    const { applyRetention } = await import('../src/jobs.js');
+    const r = await applyRetention(workerDb.db, async () => undefined);
+    expect(r.timeEntries).toBeGreaterThanOrEqual(1);
+    expect(await q('select 1 from time_entry where id = $1', [entry.id])).toHaveLength(0);
+    expect(await q('select 1 from stamp_event where id = $1', [stampId])).toHaveLength(0);
+    expect(await q("select 1 from audit_log where action = 'TEST_OLD'")).toHaveLength(0);
+    expect(await q("select 1 from absence where from_date = '2019-08-05'")).toHaveLength(0);
+    expect((await q('select display_name, email from app_user where id = $1', [gone.id]))[0]).toEqual({
+      display_name: 'Ehemaliger Mitarbeiter',
+      email: '',
+    });
+    // recent data stays
+    expect(await q('select 1 from time_entry where id = $1', [recent.id])).toHaveLength(1);
+  });
+});
+
+describe('self-service data export (OP-39)', () => {
+  it('contains the own data only, as a file', async () => {
+    const res = await api(app).get('/v1/me/export').set(as('meister-wild')).expect(200);
+    expect(res.headers['content-disposition']).toMatch(
+      /attachment; filename="monteur-app-daten-\d{4}-\d{2}-\d{2}\.json"/,
+    );
+    expect(res.body.profile.id).toBe(ids['meister-wild']);
+    for (const key of [
+      'stampEvents',
+      'timeEntries',
+      'absences',
+      'consumptions',
+      'chatMessages',
+      'notifications',
+    ])
+      for (const row of res.body[key] as Array<Record<string, unknown>>)
+        expect(row.userId ?? row.authorId ?? row.uploadedBy, key).toBe(ids['meister-wild']);
+    // a Meister sees the whole location elsewhere – the export still contains only his own rows
+    const [{ n }] = await q('select count(*)::int n from time_entry where user_id <> $1', [
+      ids['meister-wild'],
+    ]);
+    expect(n).toBeGreaterThan(0);
+    expect(JSON.stringify(res.body)).not.toContain('blobPath');
+  });
+});
+
+describe('migration job: database logins (OP-37)', () => {
+  it('gives the API login only monteur_app and the worker login monteur_worker (idempotent)', async () => {
+    // pgaadauth_create_principal exists only in Azure – locally the logins are created beforehand.
+    for (const r of ['login_api_x', 'login_worker_x'])
+      await q(
+        `do $$ begin if not exists (select 1 from pg_roles where rolname = '${r}') then create role ${r} login; end if; end $$`,
+      );
+    await q('grant monteur_worker to login_api_x'); // wrong setup that must be repaired
+    const { setupLogins } = await import('../src/db/migrate.js');
+    await setupLogins(process.env.TEST_OWNER_DATABASE_URL!, 'login_api_x', 'login_worker_x');
+    await setupLogins(process.env.TEST_OWNER_DATABASE_URL!, 'login_api_x', 'login_worker_x');
+    const [r] =
+      await q(`select pg_has_role('login_api_x', 'monteur_app', 'MEMBER') a, pg_has_role('login_api_x', 'monteur_worker', 'MEMBER') aw,
+                                pg_has_role('login_worker_x', 'monteur_worker', 'MEMBER') w`);
+    expect(r).toEqual({ a: true, aw: false, w: true });
+  });
+});

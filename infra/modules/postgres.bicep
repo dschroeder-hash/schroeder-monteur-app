@@ -6,6 +6,9 @@ param vnetId string
 param tenantId string
 param adminGroupObjectId string
 param adminGroupName string
+@description('Identity of the migration job – second Entra administrator, owns the schema (OP-37).')
+param migrationPrincipalId string
+param migrationPrincipalName string
 param skuName string
 param skuTier string
 param storageSizeGB int
@@ -81,6 +84,18 @@ resource admin 'Microsoft.DBforPostgreSQL/flexibleServers/administrators@2024-08
   properties: {
     principalType: 'Group'
     principalName: adminGroupName
+    tenantId: tenantId
+  }
+}
+
+// Administrators can only be added one after another.
+resource migrationAdmin 'Microsoft.DBforPostgreSQL/flexibleServers/administrators@2024-08-01' = {
+  parent: server
+  name: migrationPrincipalId
+  dependsOn: [admin]
+  properties: {
+    principalType: 'ServicePrincipal'
+    principalName: migrationPrincipalName
     tenantId: tenantId
   }
 }

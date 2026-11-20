@@ -65,6 +65,8 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 | E-59 | Feature-Flags vor der Transaktion lesen; Überlast als 503                  | entschieden |
 | E-60 | Lasttest als eigener Lauf (`test:load`) mit frischer Datenbank             | entschieden |
 | E-61 | „Aus BC aktualisieren“ als Auftrag an den Worker                           | entschieden |
+| E-62 | Migrationen und Datenbank-Logins durch eigenen Job mit eigener Identität   | entschieden |
+| E-63 | Stammdaten per RLS schreibgeschützt; Erstanmeldung ohne Session            | entschieden |
 
 ---
 
@@ -370,3 +372,13 @@ Format: kurze Architecture Decision Records. Status: **entschieden** (von mir ge
 
 **Entscheidung:** Ein Klick auf „Aus BC aktualisieren“ legt eine Anfrage an (`bc_refresh_request`, RLS: nur wer den Auftrag sieht); der Worker liest Auftrag, Serviceartikel und Zuordnungen innerhalb von ca. 10 s direkt aus BC – unabhängig vom Delta-Cursor.
 **Begründung:** Nur der Worker hält die BC-Zugangsdaten (E-57); die API braucht keine. BC-Webhooks bleiben die spätere Ergänzung, wenn sie gegen die echte Sandbox getestet werden können (`SETUP-BC.md` Abschnitt 6).
+
+### E-62 Migrationen und Datenbank-Logins durch eigenen Job mit eigener Identität
+
+**Entscheidung:** Ein Container-Apps-Job (`-migrate`) mit eigener Identität – zweiter Entra-Administrator des PostgreSQL-Servers und Eigentümer des Schemas – führt vor jedem Ausrollen die Migrationen aus und legt die Logins von API und Worker mit genau ihrer Rolle an. Die Pipeline startet den Job über `infra/scripts/deploy.sh`; schlägt er fehl, wird nichts ausgerollt.
+**Begründung:** OP-37; kein manueller DBA-Schritt je Deployment, keine Administratorrechte in API oder Worker, und eine falsche Rollenzuordnung wird bei jedem Deployment korrigiert.
+
+### E-63 Stammdaten per RLS schreibgeschützt; Erstanmeldung ohne Session
+
+**Entscheidung:** `user_location`, `app_user`, `bc_resource_mapping`, `setting` und `feature_flag` sind für alle lesbar, schreiben dürfen nur Admin und Worker. Die Erstanmeldung legt ohne Session nur Konten ohne Rollen an; der Benutzer aktualisiert danach nur seine eigene Rollen-Momentaufnahme, Status und Azubi-Kennzeichen schützt ein Trigger.
+**Begründung:** Sicherheitsbefund L2: Diese Tabellen bestimmen, was RLS erlaubt – ein Schreibfehler in der API wäre sonst eine Rechteausweitung.

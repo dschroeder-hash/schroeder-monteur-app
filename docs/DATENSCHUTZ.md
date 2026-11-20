@@ -48,16 +48,17 @@ Keine Weitergabe an Dritte zu Werbezwecken, kein Tracking, keine Analysedienste 
 
 ## 4. Löschfristen
 
-| Daten                               | Frist (Standard, einstellbar)                                          | Umsetzung                                                                                                              |
-| ----------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Chat und Fotos am Auftrag           | 24 Monate nach Abrechnung des Auftrags                                 | Worker-Job `retention` (Fotos inkl. Datei)                                                                             |
-| Krankmeldungen in der App           | 12 Monate nach Ende (danach nur noch in BC)                            | Worker-Job `retention` löscht Datensatz und Kalendereintrag                                                            |
-| Kommentare zu Urlaub                | 12 Monate nach Ende (Zeitraum bleibt für Urlaubskonto)                 | Worker-Job `retention`                                                                                                 |
-| Benachrichtigungen                  | 180 Tage                                                               | Worker-Job `retention`                                                                                                 |
-| Arbeitszeiten, Audit-Log, Freigaben | 6 Jahre (Anlehnung an § 257 HGB / Lohnunterlagen; ArbZG mind. 2 Jahre) | Löschjob noch nicht gebaut → OP-38                                                                                     |
-| Produktivitäts-Snapshots            | wie Arbeitszeiten                                                      | OP-38                                                                                                                  |
-| Offline-Daten auf dem Gerät         | Abmeldung                                                              | IndexedDB und Caches werden geleert; nicht übertragene Einträge bleiben bis zur nächsten Anmeldung desselben Benutzers |
-| Benutzerkonto                       | Deaktivierung durch Admin; Löschung nach Ablauf der längsten Frist     | Admin; Löschroutine OP-38                                                                                              |
+| Daten                                                          | Frist (Standard, einstellbar)                                                                                 | Umsetzung                                                                                                              |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Chat und Fotos am Auftrag                                      | 24 Monate nach Abrechnung des Auftrags                                                                        | Worker-Job `retention` (Fotos inkl. Datei)                                                                             |
+| Krankmeldungen in der App                                      | 12 Monate nach Ende (danach nur noch in BC)                                                                   | Worker-Job `retention` löscht Datensatz und Kalendereintrag                                                            |
+| Kommentare zu Urlaub                                           | 12 Monate nach Ende (Zeitraum bleibt für Urlaubskonto)                                                        | Worker-Job `retention`                                                                                                 |
+| Benachrichtigungen                                             | 180 Tage                                                                                                      | Worker-Job `retention`                                                                                                 |
+| Arbeitszeiten, Stempelungen, Korrekturen, Audit-Log, Freigaben | 6 Jahre (Anlehnung an § 257 HGB / Lohnunterlagen; ArbZG mind. 2 Jahre), einstellbar `retention.timeDataYears` | Worker-Job `retention`                                                                                                 |
+| Produktivitäts-Snapshots, Urlaub                               | wie Arbeitszeiten                                                                                             | Worker-Job `retention`                                                                                                 |
+| Technisches Sync-Protokoll                                     | 90 Tage                                                                                                       | Worker-Job `retention`                                                                                                 |
+| Offline-Daten auf dem Gerät                                    | Abmeldung                                                                                                     | IndexedDB und Caches werden geleert; nicht übertragene Einträge bleiben bis zur nächsten Anmeldung desselben Benutzers |
+| Benutzerkonto                                                  | Deaktivierung durch Admin; nach Ablauf der Frist ohne Aktivität anonymisiert (Name, E-Mail, Rollen)           | Worker-Job `retention`                                                                                                 |
 
 ## 5. Technische und organisatorische Maßnahmen (Auszug)
 
@@ -80,12 +81,12 @@ Ausführlich: `SICHERHEIT.md`.
 
 ## 6. Betroffenenrechte
 
-| Recht                    | Umsetzung                                                                                                                                                                      |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Auskunft (Art. 15)       | Monteure sehen ihre Zeiten, Abwesenheiten, Produktivität und Aufträge in der App. Vollständiger Export auf Anfrage durch Admin/DSB (Datenbankabfrage); Export-Funktion: OP-39. |
-| Berichtigung (Art. 16)   | Zeitkorrekturantrag in der App; Meister korrigiert mit Begründung (Audit-Log).                                                                                                 |
-| Löschung / Einschränkung | Nach Ablauf der Fristen automatisch; vorher durch Admin nach Prüfung der Aufbewahrungspflichten.                                                                               |
-| Widerspruch (Art. 21)    | Prüfung durch Personal/DSB.                                                                                                                                                    |
+| Recht                                         | Umsetzung                                                                                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auskunft / Datenübertragbarkeit (Art. 15, 20) | Jeder Benutzer lädt seine Daten selbst herunter: Benutzermenü → „Meine Daten herunterladen“ (JSON, nur eigene Datensätze). Fotos auf Anfrage durch den Admin. |
+| Berichtigung (Art. 16)                        | Zeitkorrekturantrag in der App; Meister korrigiert mit Begründung (Audit-Log).                                                                                |
+| Löschung / Einschränkung                      | Nach Ablauf der Fristen automatisch; vorher durch Admin nach Prüfung der Aufbewahrungspflichten.                                                              |
+| Widerspruch (Art. 21)                         | Prüfung durch Personal/DSB.                                                                                                                                   |
 
 ## 7. Datenschutz-Folgenabschätzung (Art. 35 DSGVO)
 
@@ -99,5 +100,4 @@ Admin sind als risikomindernde Maßnahmen in die DSFA aufzunehmen. Beteiligung d
 
 - OP-18: Löschfristen bestätigen.
 - OP-31: KI-Umformulierung – Anbieter, AVV, ggf. Einwilligung.
-- OP-38: Löschroutine für Zeitdaten, Audit-Log und Benutzerkonten nach 6 Jahren.
-- OP-39: Self-Service-Export für Betroffene (Art. 15/20).
+- OP-38 und OP-39 sind umgesetzt (Löschroutine 6 Jahre, Selbstauskunft); die Frist von 6 Jahren ist durch DSB/Personal zu bestätigen.

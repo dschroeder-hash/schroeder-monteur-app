@@ -85,6 +85,20 @@
       "when": 1795164514596,
       "tag": "0011_bc_refresh_request",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795166497908,
+      "tag": "0012_master_data_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795166614891,
+      "tag": "0013_retention_worker_delete",
+      "breakpoints": true
     }
   ]
 }

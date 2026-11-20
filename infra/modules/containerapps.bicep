@@ -16,6 +16,10 @@ param workerIdentityClientId string
 param workerIdentityName string
 @description('Identity of the Next.js app and the BC mock: image pull only – no secrets, no data access.')
 param appIdentityId string
+@description('Identity of the migration job (Entra administrator of PostgreSQL, owns the schema).')
+param migrateIdentityId string
+param migrateIdentityClientId string
+param migrateIdentityName string
 param entraTenantId string
 param entraApiAudience string
 param entraClientId string
@@ -292,6 +296,44 @@ resource bcMock 'Microsoft.App/containerApps@2024-03-01' = if (deployBcMock) {
   }
 }
 
+// Migrations + database logins (OP-37): started by the pipeline before every rollout (manual trigger), idempotent.
+resource migrationJob 'Microsoft.App/jobs@2024-03-01' = {
+  name: '${prefix}-migrate'
+  location: location
+  tags: tags
+  identity: identityOf(migrateIdentityId)
+  properties: {
+    environmentId: cae.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      triggerType: 'Manual'
+      replicaTimeout: 900
+      replicaRetryLimit: 1
+      manualTriggerConfig: { parallelism: 1, replicaCompletionCount: 1 }
+      registries: registriesFor(registryLoginServer, migrateIdentityId)
+    }
+    template: {
+      containers: [
+        {
+          name: 'migrate'
+          image: '${registryLoginServer}/monteur-api:${imageTag}'
+          command: ['node', 'dist/db/migrate.js']
+          resources: { cpu: json('0.25'), memory: '0.5Gi' }
+          env: [
+            { name: 'NODE_ENV', value: 'production' }
+            { name: 'AZURE_CLIENT_ID', value: migrateIdentityClientId }
+            { name: 'DATABASE_AUTH', value: 'entra' }
+            { name: 'DATABASE_URL', value: 'postgres://${migrateIdentityName}@${postgresHost}:5432/monteur?sslmode=require' }
+            { name: 'DB_API_LOGIN', value: apiIdentityName }
+            { name: 'DB_WORKER_LOGIN', value: workerIdentityName }
+          ]
+        }
+      ]
+    }
+  }
+}
+
+output migrationJobName string = migrationJob.name
 output appFqdn string = app.properties.configuration.ingress.fqdn
 output apiFqdn string = api.properties.configuration.ingress.fqdn
 output environmentId string = cae.id

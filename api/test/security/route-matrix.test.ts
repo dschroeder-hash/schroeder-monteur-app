@@ -15,6 +15,7 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
   'GET /health/live': { public: true },
   'GET /health/ready': { public: true },
   'GET /v1/me': { allowed: ALL },
+  'GET /v1/me/export': { allowed: ALL },
   'GET /v1/orders': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
   'POST /v1/orders/{id}/refresh': {
     allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],

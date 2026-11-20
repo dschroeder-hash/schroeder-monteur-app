@@ -6,9 +6,26 @@ import { useState } from 'react';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useSyncStatus } from '@/lib/offline/useSyncStatus';
 import { config } from '@/lib/config';
+import { apiFetch } from '@/lib/api';
+import { toast } from './Toast';
 import { NotificationBell } from './NotificationBell';
 import { SyncBadge } from './SyncBadge';
 import { ThemeToggle } from './ThemeToggle';
+
+/** Self-service export (Art. 15 DSGVO): everything stored about the signed-in user as JSON file. */
+async function downloadMyData() {
+  try {
+    const data = await apiFetch<unknown>('/v1/me/export');
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `monteur-app-daten-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    toast('Export nicht möglich – bitte mit Verbindung erneut versuchen.');
+  }
+}
 
 export function Header() {
   const { me, logout, offlineSession } = useAuth();
@@ -70,6 +87,13 @@ export function Header() {
             </p>
           </div>
           <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => void downloadMyData()}
+            className="min-h-touch self-start text-sm font-semibold underline"
+          >
+            Meine Daten herunterladen
+          </button>
           <button
             type="button"
             onClick={() => void logout()}

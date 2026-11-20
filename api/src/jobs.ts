@@ -26,13 +26,7 @@ export async function flagForgottenClockOuts(db: Db): Promise<number> {
 export async function applyRetention(
   db: Db,
   deleteBlob: (path: string) => Promise<void>,
-): Promise<{
-  messages: number;
-  photos: number;
-  sickReports: number;
-  absenceComments: number;
-  notifications: number;
-}> {
+): Promise<Record<string, number>> {
   const months = sql`coalesce((select (value->>'chatPhotosMonthsAfterBilled')::int from setting where key = 'retention' and location_id is null limit 1), 24)`;
   const msgs = await db.execute(sql`
     update chat_message m set deleted_at = now(), body = ''
@@ -58,12 +52,45 @@ export async function applyRetention(
   const notes = await db.execute(
     sql`delete from notification where created_at < now() - interval '180 days'`,
   );
+
+  // Statutory retention (OP-38, default 6 years – § 257 HGB / payroll records; ArbZG requires at least 2): time data,
+  // corrections, approvals, audit log, productivity snapshots and vacation older than that are deleted; accounts that
+  // have been inactive for that long are anonymised (rows stay for referential integrity).
+  const years = sql`coalesce((select (value->>'timeDataYears')::int from setting where key = 'retention' and location_id is null limit 1), 6)`;
+  const cutoff = sql`(now() - make_interval(years => ${years}))`;
+  await db.execute(
+    sql`delete from time_entry_revision where time_entry_id in (select id from time_entry where work_date < ${cutoff}::date)`,
+  );
+  const entries = await db.execute(sql`delete from time_entry where work_date < ${cutoff}::date`);
+  await db.execute(
+    sql`delete from stamp_event_void where event_id in (select id from stamp_event where device_time < ${cutoff})`,
+  );
+  const stamps = await db.execute(sql`delete from stamp_event where device_time < ${cutoff}`);
+  await db.execute(sql`delete from time_correction_request where work_date < ${cutoff}::date`);
+  await db.execute(sql`delete from productivity_snapshot where month < ${cutoff}::date`);
+  await db.execute(sql`delete from approval where approved_at < ${cutoff}`);
+  const audit = await db.execute(sql`delete from audit_log where at < ${cutoff}`);
+  const oldAbsences = sql`select id from absence where coalesce(to_date, from_date) < ${cutoff}::date`;
+  await db.execute(sql`delete from team_absence where absence_id in (${oldAbsences})`);
+  await db.execute(sql`delete from absence where id in (${oldAbsences})`);
+  const accounts = await db.execute(sql`
+    update app_user set display_name = 'Ehemaliger Mitarbeiter', email = '', roles = '{}'
+    where not active and updated_at < ${cutoff} and display_name <> 'Ehemaliger Mitarbeiter'`);
+  // Technical sync log: only needed to recognise re-sent commands (idempotency) – 90 days.
+  const syncLog = await db.execute(
+    sql`delete from sync_command where received_at < now() - interval '90 days'`,
+  );
   return {
     messages: msgs.rowCount ?? 0,
     photos: photos.rowCount ?? 0,
     sickReports: sick.rowCount ?? 0,
     absenceComments: comments.rowCount ?? 0,
     notifications: notes.rowCount ?? 0,
+    timeEntries: entries.rowCount ?? 0,
+    stampEvents: stamps.rowCount ?? 0,
+    auditEntries: audit.rowCount ?? 0,
+    anonymisedAccounts: accounts.rowCount ?? 0,
+    syncLog: syncLog.rowCount ?? 0,
   };
 }
 

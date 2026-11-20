@@ -70,6 +70,10 @@ module idWorker 'modules/identity.bicep' = {
   name: 'identity-worker'
   params: { name: '${prefix}-id-worker', location: location, tags: tags }
 }
+module idMigrate 'modules/identity.bicep' = {
+  name: 'identity-migrate'
+  params: { name: '${prefix}-id-migrate', location: location, tags: tags }
+}
 module idApp 'modules/identity.bicep' = {
   name: 'identity-app'
   params: { name: '${prefix}-id-app', location: location, tags: tags }
@@ -92,7 +96,12 @@ module registry 'modules/registry.bicep' = {
     location: location
     tags: tags
     sku: isProd ? 'Standard' : 'Basic'
-    pullPrincipalIds: [idApi.outputs.principalId, idWorker.outputs.principalId, idApp.outputs.principalId]
+    pullPrincipalIds: [
+      idApi.outputs.principalId
+      idWorker.outputs.principalId
+      idApp.outputs.principalId
+      idMigrate.outputs.principalId
+    ]
   }
 }
 
@@ -120,6 +129,8 @@ module postgres 'modules/postgres.bicep' = {
     tenantId: tenantId
     adminGroupObjectId: postgresAdminGroupObjectId
     adminGroupName: postgresAdminGroupName
+    migrationPrincipalId: idMigrate.outputs.principalId
+    migrationPrincipalName: '${prefix}-id-migrate'
     skuName: isProd ? 'Standard_D2ds_v5' : 'Standard_B1ms'
     skuTier: isProd ? 'GeneralPurpose' : 'Burstable'
     storageSizeGB: isProd ? 128 : 32
@@ -168,6 +179,9 @@ module containerApps 'modules/containerapps.bicep' = {
     workerIdentityClientId: idWorker.outputs.clientId
     workerIdentityName: '${prefix}-id-worker'
     appIdentityId: idApp.outputs.id
+    migrateIdentityId: idMigrate.outputs.id
+    migrateIdentityClientId: idMigrate.outputs.clientId
+    migrateIdentityName: '${prefix}-id-migrate'
     entraTenantId: tenantId
     entraApiAudience: entraApiAudience
     entraClientId: entraClientId
@@ -202,5 +216,6 @@ output frontDoorEndpoint string = enableFrontDoor ? frontDoor!.outputs.endpointH
 output keyVaultName string = keyVault.outputs.name
 output registryLoginServer string = registry.outputs.loginServer
 output postgresFqdn string = postgres.outputs.fqdn
+output migrationJobName string = containerApps.outputs.migrationJobName
 output apiIdentityName string = '${prefix}-id-api'
 output workerIdentityName string = '${prefix}-id-worker'

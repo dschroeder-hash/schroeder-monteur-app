@@ -44,25 +44,13 @@ Reihenfolge einhalten – jeder Schritt mit Verantwortlichem.
    ```
    VAPID-Schlüsselpaar einmalig mit `npx web-push generate-vapid-keys` erzeugen; den öffentlichen Schlüssel als
    Parameter `vapidPublicKey` hinterlegen (OP-28).
-4. **Datenbank (DBA, Mitglied der PostgreSQL-Admin-Gruppe)** – aus dem VNet (z. B. Azure Cloud Shell mit VNet oder
-   Jumphost) mit Entra-Token anmelden:
-   ```bash
-   export PGPASSWORD="$(az account get-access-token --resource-type oss-rdbms --query accessToken -o tsv)"
-   psql "host=schr-monteur-{env}-psql.postgres.database.azure.com dbname=monteur user=<Admin-Gruppe> sslmode=require"
-   ```
-   a) **Migrationen** ausführen (legt Tabellen, RLS-Richtlinien und die Rollen `monteur_app`/`monteur_worker` an):
-   ```bash
-   DATABASE_URL="postgres://<Admin-Gruppe>@<host>:5432/monteur?sslmode=require" DATABASE_AUTH=entra \
-     node api/dist/db/migrate.js
-   ```
-   b) **Logins der Identitäten** anlegen und berechtigen – die API-Identität **nur** in `monteur_app`:
-   ```sql
-   SELECT * FROM pgaadauth_create_principal('schr-monteur-{env}-id-api', false, false);
-   SELECT * FROM pgaadauth_create_principal('schr-monteur-{env}-id-worker', false, false);
-   GRANT monteur_app    TO "schr-monteur-{env}-id-api";
-   GRANT monteur_worker TO "schr-monteur-{env}-id-worker";
-   GRANT CONNECT ON DATABASE monteur TO "schr-monteur-{env}-id-api", "schr-monteur-{env}-id-worker";
-   ```
+4. **Datenbank – automatisch.** Die Pipeline (`infra/scripts/deploy.sh`) startet vor jedem Ausrollen den
+   Container-Apps-Job `schr-monteur-{env}-migrate`. Er meldet sich mit seiner eigenen Identität `-id-migrate`
+   (zweiter Entra-Administrator des Servers, Eigentümer des Schemas) an, führt die Migrationen aus und legt die Logins
+   der Identitäten an: `-id-api` **nur** in `monteur_app`, `-id-worker` in `monteur_worker` (idempotent, korrigiert
+   falsche Zuordnungen). Beim allerersten Deployment läuft der Job direkt nach dem Bicep-Deployment.
+   Manuell (z. B. nach einem Fehlschlag): `az containerapp job start -n schr-monteur-{env}-migrate -g rg-schr-monteur-{env}`;
+   Protokoll in Log Analytics (`ContainerAppConsoleLogs_CL`, Containername `migrate`).
 5. **Images (Pipeline)** – Workflow „Deploy“ starten; baut und verteilt App, API/Worker und (nicht prod) BC-Mock.
 6. **Front Door abschließen (IT, prod/test)** – `frontDoorId` ermitteln und in `params/{env}.bicepparam` eintragen,
    erneut deployen. Danach lehnt die API direkte Aufrufe ohne Front-Door-Kennung ab.
@@ -104,15 +92,15 @@ Ursachencodes), Produktivität (Zielkorridor, Altdaten-Regel).
 
 ## 4. Hintergrundjobs (Worker)
 
-| Job                            | Intervall | Aufgabe                                                                                                                                 |
-| ------------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `bc-transfer`                  | 15 s      | Freigegebene Daten nach BC (idempotent, Wiederholung mit Backoff, nach 10 Versuchen „DEAD“).                                            |
-| `bc-sync`                      | 180 s     | Aufträge, Artikel, Bestand, Stammdaten aus BC (Delta über `lastModifiedDateTime`, Sperre gegen Doppellauf).                             |
-| `web-push`                     | 20 s      | Benachrichtigungen an Geräte; Abwesenheiten nur mit neutralem Text.                                                                     |
-| `forgotten-clock-out`          | 15 min    | Markiert vergessene „Gehen“-Buchungen zur Korrektur.                                                                                    |
-| `forgotten-clock-out-reminder` | 5 min     | Erinnerung 19:00 Uhr Standortzeit (OP-17).                                                                                              |
-| `retention`                    | 6 h       | Löschfristen: Chat/Fotos 24 Monate nach Abrechnung, Kommentare zu Abwesenheiten 12 Monate nach Ende, Benachrichtigungen nach 180 Tagen. |
-| `productivity-snapshot`        | 6 h       | Vormonat bis zum 10. neu berechnen, danach fest (E-54).                                                                                 |
+| Job                            | Intervall | Aufgabe                                                                                                                                                                                                                                                                                                     |
+| ------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bc-transfer`                  | 15 s      | Freigegebene Daten nach BC (idempotent, Wiederholung mit Backoff, nach 10 Versuchen „DEAD“).                                                                                                                                                                                                                |
+| `bc-sync`                      | 180 s     | Aufträge, Artikel, Bestand, Stammdaten aus BC (Delta über `lastModifiedDateTime`, Sperre gegen Doppellauf).                                                                                                                                                                                                 |
+| `web-push`                     | 20 s      | Benachrichtigungen an Geräte; Abwesenheiten nur mit neutralem Text.                                                                                                                                                                                                                                         |
+| `forgotten-clock-out`          | 15 min    | Markiert vergessene „Gehen“-Buchungen zur Korrektur.                                                                                                                                                                                                                                                        |
+| `forgotten-clock-out-reminder` | 5 min     | Erinnerung 19:00 Uhr Standortzeit (OP-17).                                                                                                                                                                                                                                                                  |
+| `retention`                    | 6 h       | Löschfristen: Chat/Fotos 24 Monate nach Abrechnung, Krankmeldungen und Kommentare 12 Monate nach Ende, Benachrichtigungen 180 Tage, Sync-Protokoll 90 Tage; Zeitdaten, Audit-Log, Freigaben, Produktivität und Urlaub nach 6 Jahren (`retention.timeDataYears`); lange inaktive Konten werden anonymisiert. |
+| `productivity-snapshot`        | 6 h       | Vormonat bis zum 10. neu berechnen, danach fest (E-54).                                                                                                                                                                                                                                                     |
 
 `GET /health/ready` des Workers (Port `WORKER_HEALTH_PORT`, Standard 4001) liefert je Job den Zeitpunkt des letzten
 erfolgreichen Laufs.
@@ -139,7 +127,7 @@ wiederholt automatisch. 500 BC-Übertragungen mit zwei Workern: ca. 100 je Sekun
 
 | Symptom                                                                              | Ursache / Prüfung                                                                                | Abhilfe                                                                                                               |
 | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| API oder Worker startet nicht, Log „[db-role] … Row Level Security wäre wirkungslos“ | Datenbank-Login falsch berechtigt                                                                | Rollen nach Abschnitt 2, Schritt 4b korrigieren. **Nie** die Prüfung abschalten.                                      |
+| API oder Worker startet nicht, Log „[db-role] … Row Level Security wäre wirkungslos“ | Datenbank-Login falsch berechtigt                                                                | Migrations-Job erneut starten (Abschnitt 2, Schritt 4) – er korrigiert die Rollen. **Nie** die Prüfung abschalten.    |
 | Übertragung FAILED „Dem Benutzer ist kein BC-Mitarbeiter zugeordnet“                 | Zuordnung Benutzer ↔ BC-Mitarbeiter fehlt                                                        | Admin → Benutzer: BC-Mitarbeiter-Nr. pflegen, dann „Erneut senden“.                                                   |
 | Übertragung FAILED mit BC-Meldung (z. B. Lagerort, Arbeitstyp)                       | Fachlicher Fehler in BC                                                                          | Ursache in BC beheben, „Erneut senden“. Falls bereits manuell in BC erfasst: „Als erledigt markieren“ mit Begründung. |
 | Übertragung DEAD                                                                     | 10 erfolglose Versuche (BC nicht erreichbar, Drosselung)                                         | Erreichbarkeit/Secret prüfen (Key Vault, Ablauf des Client-Secrets), „Erneut senden“.                                 |
@@ -157,8 +145,9 @@ wiederholt automatisch. 500 BC-Übertragungen mit zwei Workern: ca. 100 je Sekun
 
 - **Bereitstellung:** Pipeline „Deploy“ (dev automatisch nach Freischaltung, test/prod mit Freigabe in GitHub).
   Images werden je Commit gebaut und in test/prod übernommen.
-- **Migrationen** vor dem Ausrollen der neuen Images ausführen (Abschnitt 2, Schritt 4a). Migrationen sind nur
-  additiv; ältere Images laufen mit dem neuen Schema weiter. Automatisierung als Container-Apps-Job: OP-37.
+- **Migrationen** laufen automatisch vor dem Ausrollen (Abschnitt 2, Schritt 4). Migrationen sind nur additiv;
+  die laufenden älteren Images arbeiten mit dem neuen Schema weiter. Schlägt der Job fehl, bricht die Pipeline ab,
+  bevor neue Images ausgerollt werden.
 - **Rückfall:** vorherige Revision der Container App aktivieren (`az containerapp revision activate`) bzw. Pipeline
   mit dem vorherigen Commit erneut ausführen. Datenbankänderungen werden nicht zurückgerollt.
 - **Offline-Geräte** behalten ihre Daten über Updates hinweg; der Service Worker aktualisiert die App beim nächsten Start.
