@@ -1,10 +1,10 @@
 'use client';
 
-import { ExternalLink, ScanLine } from 'lucide-react';
+import { CircleCheck, ClipboardPaste, ExternalLink, ScanLine } from 'lucide-react';
 import {
   agcoDeeplinkAdapter,
   estimateDelivery,
-  extractPartNo,
+  extractPartNos,
   normalizePartNo,
   type Bundesland,
 } from '@schroeder/shared';
@@ -47,6 +47,16 @@ function PartsPage() {
   const [scanning, setScanning] = useState(false);
   const [requestFor, setRequestFor] = useState<{ item?: ItemWithStock; text?: string } | null>(null);
   const [paste, setPaste] = useState('');
+  /** Several part numbers taken over from the catalog at once (drag & drop or pasted list). */
+  const [catalogList, setCatalogList] = useState<
+    Array<{
+      partNo: string;
+      state: 'pending' | 'found' | 'missing' | 'offline';
+      name?: string;
+      done?: boolean;
+    }>
+  >([]);
+  const [dropActive, setDropActive] = useState(false);
   const machine = order?.items[0]?.machine;
   const [catalogTemplate, setCatalogTemplate] = useState<string | undefined>(undefined);
   useEffect(() => {
@@ -124,17 +134,53 @@ function PartsPage() {
     await localDb.cart.where('orderId').equals(orderId).delete();
     toast('Entnahme gebucht – Freigabe durch den Meister');
   };
-  const resolvePaste = async () => {
-    const partNo = extractPartNo(paste);
-    if (!partNo) return toast('Keine Teilenummer erkannt');
-    setText(partNo);
-    const local = (await searchLocal(partNo)).filter(
+  /** Exact match of one part number: local catalog first, then the BC item master (online). */
+  const lookup = async (
+    partNo: string,
+  ): Promise<{ state: 'found' | 'missing' | 'offline'; name?: string }> => {
+    const local = (await searchLocal(partNo)).find(
       (i) => normalizePartNo(i.number) === normalizePartNo(partNo),
     );
-    if (local.length || !navigator.onLine) return setResults(local.length ? local : []);
-    const r = await apiFetch<{ items: RemoteItem[] }>(`/v1/items/resolve?text=${encodeURIComponent(paste)}`);
-    if (!r.items.length) setRequestFor({ text: partNo });
+    if (local) return { state: 'found', name: local.name };
+    if (!navigator.onLine) return { state: 'offline' };
+    try {
+      const r = await apiFetch<{ items: RemoteItem[] }>(
+        `/v1/items/resolve?text=${encodeURIComponent(partNo)}`,
+      );
+      return r.items[0] ? { state: 'found', name: r.items[0].name } : { state: 'missing' };
+    } catch {
+      return { state: 'offline' };
+    }
+  };
+  /** Shows one part number in the normal result list (with stock per storage and "add to cart"). */
+  const showPart = async (partNo: string) => {
+    setText(partNo);
+    const hit = await lookup(partNo);
+    if (hit.state === 'missing') setRequestFor({ text: partNo });
     else await search(partNo, true);
+  };
+  /** Text from the catalog – dragged over, pasted or from the clipboard. One number: show it, several: list. */
+  const ingest = async (raw: string) => {
+    const nos = extractPartNos(raw);
+    if (!nos.length) return toast('Keine Teilenummer erkannt');
+    setPaste('');
+    if (nos.length === 1) {
+      setCatalogList([]);
+      return showPart(nos[0]!);
+    }
+    setCatalogList(nos.map((partNo) => ({ partNo, state: 'pending' })));
+    for (const partNo of nos) {
+      const hit = await lookup(partNo);
+      setCatalogList((cur) => cur.map((c) => (c.partNo === partNo ? { ...c, ...hit } : c)));
+    }
+  };
+  const resolvePaste = () => ingest(paste);
+  const fromClipboard = async () => {
+    try {
+      await ingest(await navigator.clipboard.readText());
+    } catch {
+      toast('Zwischenablage nicht lesbar – Teilenummer bitte ins Feld einfügen');
+    }
   };
 
   return (
@@ -207,15 +253,24 @@ function PartsPage() {
 
       <section
         aria-labelledby="hersteller"
-        className="flex flex-col gap-2 rounded-card border border-border bg-surface p-3"
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDropActive(true);
+        }}
+        onDragLeave={() => setDropActive(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDropActive(false);
+          void ingest(e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text'));
+        }}
+        data-testid="catalog-drop"
+        className={`flex flex-col gap-3 rounded-card border-2 p-3 transition-colors ${
+          dropActive ? 'border-dashed border-primary bg-success-bg' : 'border-border bg-surface'
+        }`}
       >
-        <h2 id="hersteller" className="font-semibold">
-          Herstellerkatalog
+        <h2 id="hersteller" className="font-bold">
+          Herstellerkatalog (AGCO: Fendt, Valtra, Massey Ferguson)
         </h2>
-        <p className="text-sm text-text-muted">
-          Öffnet den AGCO-Teilekatalog (Fendt, Valtra, Massey Ferguson) in einem neuen Fenster. Die dort
-          gefundene Teilenummer kopieren und unten einfügen.
-        </p>
         <div className="flex flex-wrap gap-2">
           {agco.startUrl && (
             <a
@@ -251,7 +306,22 @@ function PartsPage() {
               AGCO: „{text}“ suchen
             </a>
           )}
+          <Button variant="secondary" onClick={() => void fromClipboard()}>
+            <ClipboardPaste aria-hidden className="h-5 w-5" />
+            Teilenummer aus Zwischenablage
+          </Button>
         </div>
+        <ol className="list-inside list-decimal text-sm text-text-muted">
+          <li>
+            <strong className="text-text">Nebeneinander auf dem iPad:</strong> „AGCO-Katalog öffnen“ gedrückt
+            halten und an den rechten Bildschirmrand ziehen.
+          </li>
+          <li>
+            Im Katalog Teilenummer (oder mehrere Zeilen) markieren und{' '}
+            <strong className="text-text">hierher ziehen</strong> – oder kopieren und „Teilenummer aus
+            Zwischenablage“ tippen.
+          </li>
+        </ol>
         <div className="flex gap-2">
           <label className="sr-only" htmlFor="paste">
             Teilenummer aus dem Katalog
@@ -259,14 +329,61 @@ function PartsPage() {
           <input
             id="paste"
             className={`${field} min-w-0 flex-1`}
-            placeholder="Teilenummer aus Katalog einfügen"
+            placeholder="… oder hier einfügen"
             value={paste}
             onChange={(e) => setPaste(e.target.value)}
+            onPaste={(e) => {
+              e.preventDefault();
+              void ingest(e.clipboardData.getData('text/plain'));
+            }}
           />
           <Button variant="secondary" onClick={() => void resolvePaste()}>
             Übernehmen
           </Button>
         </div>
+        {catalogList.length > 0 && (
+          <div className="flex flex-col gap-1" aria-live="polite">
+            <h3 className="font-semibold">Aus dem Katalog ({catalogList.length} Teilenummern)</h3>
+            <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
+              {catalogList.map((c) => (
+                <li key={c.partNo} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="font-semibold tabular-nums">{c.partNo}</span>
+                    <span className="text-text-muted">
+                      {' · '}
+                      {c.state === 'pending'
+                        ? 'wird gesucht …'
+                        : c.state === 'found'
+                          ? c.name
+                          : c.state === 'missing'
+                            ? 'nicht im Artikelstamm'
+                            : 'offline – später prüfen'}
+                    </span>
+                  </span>
+                  {c.state === 'found' && (
+                    <Button
+                      variant={c.done ? 'ghost' : 'secondary'}
+                      onClick={() => {
+                        setCatalogList((cur) =>
+                          cur.map((x) => (x.partNo === c.partNo ? { ...x, done: true } : x)),
+                        );
+                        void showPart(c.partNo);
+                      }}
+                    >
+                      {c.done && <CircleCheck aria-hidden className="h-5 w-5 text-success" />}
+                      Auswählen
+                    </Button>
+                  )}
+                  {c.state === 'missing' && (
+                    <Button variant="secondary" onClick={() => setRequestFor({ text: c.partNo })}>
+                      Beim Lager anfragen
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       {cart.length > 0 && (

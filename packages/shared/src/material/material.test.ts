@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { zonedToUtc } from '../time/tz.js';
-import { agcoDeeplinkAdapter, extractPartNo, normalizePartNo } from './catalog.js';
+import { agcoDeeplinkAdapter, extractPartNo, extractPartNos, normalizePartNo } from './catalog.js';
 import { estimateDelivery } from './delivery.js';
 import { easterSunday, holidays, isWorkingDay } from './holidays.js';
 import { availableQuantity, belowMinimum, meterPlausible } from './stock.js';
@@ -74,6 +74,14 @@ describe('AGCO deep link (no scraping)', () => {
     expect(extractPartNo('Teilenummer: X548.880.400 – Keilrippenriemen')).toBe('X548.880.400');
     expect(extractPartNo('F931.200.020.010')).toBe('F931.200.020.010');
     expect(extractPartNo('Bitte bestellen')).toBeNull();
+  });
+  it('extracts several part numbers from a list marked in the catalog', () => {
+    const list = 'Teilenummer: X548.880.400 – Keilrippenriemen\nF931.200.020.010 Filter\n\nx548.880-400 doppelt\nHinweis';
+    expect(extractPartNos(list)).toEqual(['X548.880.400', 'F931.200.020.010']);
+    expect(extractPartNos('Bitte bestellen')).toEqual([]);
+    // the description after the number is not part of it; digit groups separated by spaces are
+    expect(extractPartNo('Teilenummer: F931.200.020.010 Motorölfilter')).toBe('F931.200.020.010');
+    expect(extractPartNo('Teile-Nr. X548 880 400 Riemen')).toBe('X548 880 400');
   });
 });
 
