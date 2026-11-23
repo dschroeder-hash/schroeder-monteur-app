@@ -62,18 +62,13 @@ function PartsPage() {
   /** AGCO catalog inside the page (E-74) – Admin can switch it off; the Monteur opens/closes it. */
   const [embedAllowed, setEmbedAllowed] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
-  /** Results panel under the full-screen catalog: opens when a part number comes over, closable. */
+  /** Results panel under the large catalog: opens when a part number comes over, closable. */
   const [embedPanel, setEmbedPanel] = useState(false);
   useEffect(() => {
     if (!embedOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setEmbedOpen(false);
     window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [embedOpen]);
   useEffect(() => {
     if (navigator.onLine)
@@ -296,136 +291,139 @@ function PartsPage() {
         <h1 className="font-headline text-2xl">Teile</h1>
       </header>
 
-      <div className="flex gap-2">
-        <label className="sr-only" htmlFor="part-search">
-          Teilenummer, Bezeichnung oder EAN
-        </label>
-        <input
-          id="part-search"
-          className={`${field} min-w-0 flex-1`}
-          placeholder="Teilenummer, Bezeichnung oder EAN"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          inputMode="search"
-        />
-        <Button variant="secondary" onClick={() => setScanning(true)} aria-label="Barcode scannen">
-          <ScanLine aria-hidden className="h-5 w-5" />
-          Scannen
-        </Button>
-      </div>
-
-      {!embedOpen && resultList}
-
-      <section
-        aria-labelledby="hersteller"
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDropActive(true);
-        }}
-        onDragLeave={() => setDropActive(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDropActive(false);
-          void ingest(e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text'));
-        }}
-        data-testid="catalog-drop"
-        className={`flex flex-col gap-3 rounded-card border-2 p-3 transition-colors ${
-          dropActive ? 'border-dashed border-primary bg-success-bg' : 'border-border bg-surface'
-        }`}
-      >
-        <h2 id="hersteller" className="font-bold">
-          Herstellerkatalog (AGCO: Fendt, Valtra, Massey Ferguson)
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {agco.startUrl && embedAllowed && (
-            <Button
-              variant={embedOpen ? 'primary' : 'secondary'}
-              aria-expanded={embedOpen}
-              onClick={() => setEmbedOpen((o) => !o)}
-            >
-              <Maximize2 aria-hidden className="h-5 w-5" />
-              Katalog hier anzeigen
+      {!embedOpen && (
+        <>
+          <div className="flex gap-2">
+            <label className="sr-only" htmlFor="part-search">
+              Teilenummer, Bezeichnung oder EAN
+            </label>
+            <input
+              id="part-search"
+              className={`${field} min-w-0 flex-1`}
+              placeholder="Teilenummer, Bezeichnung oder EAN"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              inputMode="search"
+            />
+            <Button variant="secondary" onClick={() => setScanning(true)} aria-label="Barcode scannen">
+              <ScanLine aria-hidden className="h-5 w-5" />
+              Scannen
             </Button>
-          )}
-          {agco.startUrl && (
-            <a
-              className="inline-flex min-h-touch items-center gap-2 rounded-card bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover"
-              href={agco.startUrl}
-              target="_blank"
-              rel="noopener"
-              data-catalog="agco-start"
-            >
-              <ExternalLink aria-hidden className="h-5 w-5" />
-              AGCO-Katalog öffnen
-            </a>
-          )}
-          {machine?.serialNo && agco.brands.includes(machine.brand.toUpperCase()) && (
-            <a
-              className="inline-flex min-h-touch items-center rounded-card border-2 border-border px-4 font-semibold"
-              href={agco.buildSearchUrl({ serialNo: machine.serialNo }) ?? '#'}
-              onClick={() => copyForCatalog(machine.serialNo)}
-              target="_blank"
-              rel="noopener"
-            >
-              AGCO: Seriennr. {machine.serialNo}
-            </a>
-          )}
-          {text && (
-            <a
-              className="inline-flex min-h-touch items-center rounded-card border-2 border-border px-4 font-semibold"
-              href={agco.buildSearchUrl({ partNo: text }) ?? '#'}
-              onClick={() => copyForCatalog(text)}
-              target="_blank"
-              rel="noopener"
-            >
-              AGCO: „{text}“ suchen
-            </a>
-          )}
-          <Button variant="secondary" onClick={() => void fromClipboard()}>
-            <ClipboardPaste aria-hidden className="h-5 w-5" />
-            Teilenummer aus Zwischenablage
-          </Button>
-        </div>
-        <ol className="list-inside list-decimal text-sm text-text-muted">
-          <li>
-            <strong className="text-text">Nebeneinander auf dem iPad:</strong> „AGCO-Katalog öffnen“ gedrückt
-            halten und an den rechten Bildschirmrand ziehen.
-          </li>
-          <li>
-            Im Katalog Teilenummer (oder mehrere Zeilen) markieren und{' '}
-            <strong className="text-text">hierher ziehen</strong> – oder kopieren und „Teilenummer aus
-            Zwischenablage“ tippen.
-          </li>
-        </ol>
-        <div className="flex gap-2">
-          <label className="sr-only" htmlFor="paste">
-            Teilenummer aus dem Katalog
-          </label>
-          <input
-            id="paste"
-            className={`${field} min-w-0 flex-1`}
-            placeholder="… oder hier einfügen"
-            value={paste}
-            onChange={(e) => setPaste(e.target.value)}
-            onPaste={(e) => {
+          </div>
+
+          {resultList}
+
+          <section
+            aria-labelledby="hersteller"
+            onDragOver={(e) => {
               e.preventDefault();
-              void ingest(e.clipboardData.getData('text/plain'));
+              setDropActive(true);
             }}
-          />
-          <Button variant="secondary" onClick={() => void resolvePaste()}>
-            Übernehmen
-          </Button>
-        </div>
-        {!embedOpen && catalogListView}
-      </section>
+            onDragLeave={() => setDropActive(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDropActive(false);
+              void ingest(e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text'));
+            }}
+            data-testid="catalog-drop"
+            className={`flex flex-col gap-3 rounded-card border-2 p-3 transition-colors ${
+              dropActive ? 'border-dashed border-primary bg-success-bg' : 'border-border bg-surface'
+            }`}
+          >
+            <h2 id="hersteller" className="font-bold">
+              Herstellerkatalog (AGCO: Fendt, Valtra, Massey Ferguson)
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {agco.startUrl && embedAllowed && (
+                <Button
+                  variant={embedOpen ? 'primary' : 'secondary'}
+                  aria-expanded={embedOpen}
+                  onClick={() => setEmbedOpen((o) => !o)}
+                >
+                  <Maximize2 aria-hidden className="h-5 w-5" />
+                  Katalog hier anzeigen
+                </Button>
+              )}
+              {agco.startUrl && (
+                <a
+                  className="inline-flex min-h-touch items-center gap-2 rounded-card bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover"
+                  href={agco.startUrl}
+                  target="_blank"
+                  rel="noopener"
+                  data-catalog="agco-start"
+                >
+                  <ExternalLink aria-hidden className="h-5 w-5" />
+                  AGCO-Katalog öffnen
+                </a>
+              )}
+              {machine?.serialNo && agco.brands.includes(machine.brand.toUpperCase()) && (
+                <a
+                  className="inline-flex min-h-touch items-center rounded-card border-2 border-border px-4 font-semibold"
+                  href={agco.buildSearchUrl({ serialNo: machine.serialNo }) ?? '#'}
+                  onClick={() => copyForCatalog(machine.serialNo)}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  AGCO: Seriennr. {machine.serialNo}
+                </a>
+              )}
+              {text && (
+                <a
+                  className="inline-flex min-h-touch items-center rounded-card border-2 border-border px-4 font-semibold"
+                  href={agco.buildSearchUrl({ partNo: text }) ?? '#'}
+                  onClick={() => copyForCatalog(text)}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  AGCO: „{text}“ suchen
+                </a>
+              )}
+              <Button variant="secondary" onClick={() => void fromClipboard()}>
+                <ClipboardPaste aria-hidden className="h-5 w-5" />
+                Teilenummer aus Zwischenablage
+              </Button>
+            </div>
+            <ol className="list-inside list-decimal text-sm text-text-muted">
+              <li>
+                <strong className="text-text">Nebeneinander auf dem iPad:</strong> „AGCO-Katalog öffnen“
+                gedrückt halten und an den rechten Bildschirmrand ziehen.
+              </li>
+              <li>
+                Im Katalog Teilenummer (oder mehrere Zeilen) markieren und{' '}
+                <strong className="text-text">hierher ziehen</strong> – oder kopieren und „Teilenummer aus
+                Zwischenablage“ tippen.
+              </li>
+            </ol>
+            <div className="flex gap-2">
+              <label className="sr-only" htmlFor="paste">
+                Teilenummer aus dem Katalog
+              </label>
+              <input
+                id="paste"
+                className={`${field} min-w-0 flex-1`}
+                placeholder="… oder hier einfügen"
+                value={paste}
+                onChange={(e) => setPaste(e.target.value)}
+                onPaste={(e) => {
+                  e.preventDefault();
+                  void ingest(e.clipboardData.getData('text/plain'));
+                }}
+              />
+              <Button variant="secondary" onClick={() => void resolvePaste()}>
+                Übernehmen
+              </Button>
+            </div>
+            {catalogListView}
+          </section>
+        </>
+      )}
 
       {embedOpen && agco.startUrl && (
         <div
-          role="dialog"
-          aria-modal="true"
+          role="region"
           aria-label="AGCO-Teilekatalog"
           data-testid="catalog-embed"
-          className="fixed inset-0 z-[45] flex flex-col bg-surface"
+          className="flex h-[calc(100dvh-23rem)] min-h-[26rem] flex-col overflow-hidden rounded-card border-2 border-border bg-surface lg:h-[calc(100dvh-10.5rem)]"
         >
           <div
             onDragOver={(e) => {
@@ -504,7 +502,7 @@ function PartsPage() {
           )}
         </div>
       )}
-      {cart.length > 0 && (
+      {!embedOpen && cart.length > 0 && (
         <section
           aria-labelledby="warenkorb"
           className="flex flex-col gap-2 rounded-card border-2 border-primary bg-surface p-3"
