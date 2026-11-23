@@ -246,12 +246,18 @@ describe('pull', () => {
     expect(res.body.full).toBe(true);
     expect(res.body.cursor).toMatch(/^\d+$/);
     const assigned = new Set(orders);
-    for (const o of res.body.orders) {
-      const mine =
-        res.body.assignments.some((a: { orderId: string }) => a.orderId === o.id) ||
-        res.body.timeEntries.some((e: { orderId: string }) => e.orderId === o.id);
-      expect(mine).toBe(true);
-    }
+    // Own orders: assigned (not cancelled) or stamped on – an assignment may have been cancelled by the BC sync of
+    // another test file, the own times keep the order visible (RLS policy service_order_select).
+    const mineInDb = new Set(
+      (
+        await owner.query(
+          `select order_id from assignment where user_id = $1 and cancelled_at is null
+           union select order_id from time_entry where user_id = $1 and order_id is not null`,
+          [userId],
+        )
+      ).rows.map((r: { order_id: string }) => r.order_id),
+    );
+    for (const o of res.body.orders) expect(mineInDb.has(o.id)).toBe(true);
     expect(res.body.orders.some((o: { id: string }) => assigned.has(o.id))).toBe(true);
     expect(res.body.timeEntries.every((e: { userId: string }) => e.userId === userId)).toBe(true);
     expect(res.body.orders[0].items[0].machine).toBeTruthy();

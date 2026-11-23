@@ -3,6 +3,7 @@
  * All names, customers and numbers are fictitious test data (no real customer data).
  */
 import { EMPTY_GUID, type EndpointName } from '@schroeder/bc-contract';
+import { YELLOW_CARD } from '@schroeder/shared';
 import { rng, stableId } from './ids.js';
 
 export interface SeedLocation {
@@ -366,6 +367,12 @@ export function buildSeed(now = new Date()): Tables {
     serviceOrderAllocations: [],
     serviceLines: [],
     serviceCommentLines: [],
+    serviceOrderAttachments: [],
+    customerComments: [],
+    itemSubstitutions: [],
+    serviceChecklistLines: [],
+    serviceItemComments: [],
+    customerContacts: [],
     employeeAbsences: [],
     resourceJournalLines: [],
     itemJournalLines: [],
@@ -553,6 +560,66 @@ export function buildSeed(now = new Date()): Tables {
     }
   }
 
+  // Substitute items: the old filter is replaced by the new one (successor), two hydraulic filters are
+  // interchangeable.
+  t.itemSubstitutions.push(
+    {
+      id: stableId('sub:F931.200.020.110'),
+      lastModifiedDateTime: ts,
+      itemNumber: 'F931.200.020.110',
+      substituteNumber: 'F931.200.020.010',
+      interchangeable: false,
+      description: 'Nachfolger ab Modelljahr 2024',
+    },
+    {
+      id: stableId('sub:H931.202.050.010'),
+      lastModifiedDateTime: ts,
+      itemNumber: 'H931.202.050.010',
+      substituteNumber: 'H931.202.050.020',
+      interchangeable: true,
+      description: 'gleichwertig',
+    },
+  );
+
+  // Remarks and contact persons (deterministic, without the random generator so the orders below stay unchanged).
+  const CONTACT_FIRST = ['Hinrich', 'Anke', 'Jens', 'Maren', 'Gerd', 'Silke'];
+  customers.forEach((c, i) => {
+    const lastName = c.name.split(' ').at(-1) ?? 'Kunde';
+    for (let k = 0; k < 1 + (i % 2); k++)
+      t.customerContacts.push({
+        id: stableId(`kt:${c.no}:${k}`),
+        lastModifiedDateTime: ts,
+        number: `KT${c.no.slice(1)}${k}`,
+        customerNumber: c.no,
+        name: `${CONTACT_FIRST[(i + k) % CONTACT_FIRST.length]} ${lastName}`,
+        jobTitle: k === 0 ? 'Inhaber' : 'Betriebsleiter',
+        phoneNumber: c.phone,
+        mobilePhoneNumber: `+49 171 ${String(4000000 + i * 37 + k).padStart(7, '0')}`,
+        email: k === 0 ? `info@${lastName.toLowerCase().replace(/[^a-z]/g, '')}-hof.example` : '',
+      });
+    if (i % 3 === 0)
+      t.customerComments.push({
+        id: stableId(`cc:${c.no}`),
+        lastModifiedDateTime: ts,
+        customerNumber: c.no,
+        lineNumber: 10000,
+        date: '2026-03-02',
+        comment: i % 2 ? 'Hofhund – vor Betreten anrufen.' : 'Zahlt nur gegen Rechnung, keine Barzahlung.',
+      });
+  });
+  machines.forEach((m, i) => {
+    if (i % 4 === 0)
+      t.serviceItemComments.push({
+        id: stableId(`sic:${m.no}`),
+        lastModifiedDateTime: ts,
+        serviceItemNumber: m.no,
+        type: 'General',
+        lineNumber: 10000,
+        date: '2026-05-14',
+        comment: 'Frontlader nachgerüstet, Hydraulikanschlüsse vorne links.',
+      });
+  });
+
   // Service orders around "now"
   let soNo = 1;
   for (let i = 0; i < 72; i++) {
@@ -624,6 +691,31 @@ export function buildSeed(now = new Date()): Tables {
     }
   }
 
+  // Service checklist (yellow card) per open order, like the BC checklist extension creates it (OP-44).
+  for (const so of t.serviceOrders) {
+    if (so.status === 'Finished') continue;
+    YELLOW_CARD.forEach((item, i) =>
+      t.serviceChecklistLines.push({
+        id: stableId(`cl:${String(so.number)}:${i}`),
+        lastModifiedDateTime: ts,
+        documentNumber: so.number,
+        lineNumber: (i + 1) * 10000,
+        description: item.text,
+        lineType: item.kind === 'heading' ? 'Heading' : 'Line',
+        inputEnabled: !!item.checkbox,
+        answerType: ({ none: 'None', text: 'Text', number: 'Number', option: 'Option' } as const)[
+          item.answer ?? 'none'
+        ],
+        options: (item.options ?? []).join(';'),
+        unit: item.unit ?? '',
+        unitOptions: (item.unitOptions ?? []).join(';'),
+        required: !!item.required,
+        checked: false,
+        answer: '',
+        answerUnit: '',
+      }),
+    );
+  }
   return t;
 }
 

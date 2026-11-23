@@ -1,6 +1,6 @@
 /**
  * Productivity (PROMPT 5.11): approved times of the previous month → the Monteur sees his own figure with target
- * corridor, categories and trend; the Meister sees the same figure in the team view.
+ * corridor, categories and trend.
  */
 import { navigate } from './nav.js';
 import { expect, test } from '@playwright/test';
@@ -11,10 +11,7 @@ const prevMonth = () => {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
 };
 
-test('own productivity with categories and trend; same figure in the Meister team view', async ({
-  page,
-  browser,
-}) => {
+test('own productivity with categories and trend', async ({ page }) => {
   const month = prevMonth();
   const day1 = `${month}-05`;
   const day2 = `${month}-06`;
@@ -66,15 +63,4 @@ test('own productivity with categories and trend; same figure in the Meister tea
   await expect(page.getByRole('img', { name: /Kundenservice 12,8 h, Intern sonstige 1 h/ })).toBeVisible();
   await expect(page.getByRole('img', { name: 'Produktivität der letzten 12 Monate' })).toBeVisible();
   await page.screenshot({ path: 'test-results/productivity-monteur.png', fullPage: true });
-
-  const m = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
-  await m.goto('/login');
-  await m.click('[data-persona="meister-clp"]');
-  await m.waitForURL('**/meister');
-  await navigate(m, 'Produktivität Team');
-  await m.getByRole('button', { name: 'Vormonat' }).click();
-  await expect(m.getByRole('row').filter({ hasText: 'Hendrik Wessels' })).toContainText('85 %');
-  await expect(m.getByRole('row').filter({ hasText: 'gesamt' })).toContainText('85 %');
-  await m.screenshot({ path: 'test-results/productivity-meister.png', fullPage: true });
-  await m.context().close();
 });

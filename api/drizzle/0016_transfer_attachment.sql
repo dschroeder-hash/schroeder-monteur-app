@@ -1,0 +1,1 @@
+ALTER TYPE "public"."transfer_target" ADD VALUE 'ATTACHMENT';

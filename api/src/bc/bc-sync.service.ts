@@ -17,6 +17,10 @@ import type pg from 'pg';
 import type { Db } from '../db/client.js';
 import {
   assignment,
+  bcChecklistLine,
+  bcContact,
+  bcRemark,
+  itemSubstitution,
   bcResourceMapping,
   bcSyncCursor,
   bcTransfer,
@@ -240,11 +244,57 @@ export class BcSyncService {
       (s) => bc.listModifiedSince('postedServiceInvoices', s),
       (rows) => this.applyInvoices(companyId, rows),
     );
+    // Remarks and contact persons shown at the order (read only).
+    await step(
+      'customerComments',
+      (s) => bc.listModifiedSince('customerComments', s),
+      (rows) =>
+        this.applyRemarks(
+          companyId,
+          rows.map((r) => ({ ...r, scope: 'CUSTOMER', refNo: r.customerNumber, kind: 'General' })),
+        ),
+    );
+    await step(
+      'serviceItemComments',
+      (s) => bc.listModifiedSince('serviceItemComments', s),
+      (rows) =>
+        this.applyRemarks(
+          companyId,
+          rows.map((r) => ({ ...r, scope: 'SERVICE_ITEM', refNo: r.serviceItemNumber, kind: r.type })),
+        ),
+    );
+    await step(
+      'serviceCommentLines',
+      (s) => bc.listModifiedSince('serviceCommentLines', s),
+      // own report lines (written by the app) are not shown again as remarks
+      (rows) =>
+        this.applyRemarks(
+          companyId,
+          rows
+            .filter((r) => !r.monteurAppId || r.monteurAppId === '00000000-0000-0000-0000-000000000000')
+            .map((r) => ({ ...r, scope: 'ORDER', refNo: r.documentNumber, kind: r.type })),
+        ),
+    );
+    await step(
+      'customerContacts',
+      (s) => bc.listModifiedSince('customerContacts', s),
+      (rows) => this.applyContacts(companyId, rows),
+    );
     // Material (phase 4). Posted quantities first, then inventory – keeps the "BC − pending" window small.
     await step(
       'items',
       (s) => bc.listModifiedSince('items', s),
       (rows) => this.applyItems(companyId, locs, rows),
+    );
+    await step(
+      'serviceChecklistLines',
+      (s) => bc.listModifiedSince('serviceChecklistLines', s),
+      (rows) => this.applyChecklistLines(companyId, rows),
+    );
+    await step(
+      'itemSubstitutions',
+      (s) => bc.listModifiedSince('itemSubstitutions', s),
+      (rows) => this.applySubstitutions(companyId, rows),
     );
     await step(
       'itemReferences',
@@ -407,6 +457,133 @@ export class BcSyncService {
         .insert(orderType)
         .values(v)
         .onConflictDoUpdate({ target: [orderType.bcCompanyId, orderType.code], set: v });
+    }
+  }
+
+  private async applyRemarks(
+    companyId: string,
+    rows: Array<{
+      id: string;
+      lastModifiedDateTime: string;
+      scope: string;
+      refNo: string;
+      kind: string;
+      lineNumber: number;
+      date: string;
+      comment: string;
+    }>,
+  ) {
+    for (const r of rows) {
+      const v = {
+        bcCompanyId: companyId,
+        scope: r.scope,
+        refNo: r.refNo,
+        kind: r.kind,
+        lineNo: r.lineNumber,
+        date: r.date === '0001-01-01' ? null : r.date,
+        text: r.comment,
+        bcSystemId: r.id,
+        bcModifiedAt: new Date(r.lastModifiedDateTime),
+      };
+      await this.db
+        .insert(bcRemark)
+        .values(v)
+        .onConflictDoUpdate({
+          target: [bcRemark.bcCompanyId, bcRemark.scope, bcRemark.refNo, bcRemark.kind, bcRemark.lineNo],
+          set: v,
+        });
+    }
+  }
+
+  /** Yellow card lines: many rows per order, therefore written in batches. */
+  private async applyChecklistLines(companyId: string, rows: EntityOf<'serviceChecklistLines'>[]) {
+    const list = (x: string) =>
+      x
+        .split(';')
+        .map((v) => v.trim())
+        .filter(Boolean);
+    const values = rows.map((r) => ({
+      bcCompanyId: companyId,
+      orderNo: r.documentNumber,
+      lineNo: r.lineNumber,
+      description: r.description,
+      lineType: r.lineType,
+      inputEnabled: r.inputEnabled,
+      answerType: r.answerType,
+      options: list(r.options),
+      unit: r.unit,
+      unitOptions: list(r.unitOptions),
+      required: r.required,
+      checked: r.checked,
+      answer: r.answer,
+      answerUnit: r.answerUnit,
+      bcSystemId: r.id,
+      bcModifiedAt: new Date(r.lastModifiedDateTime),
+    }));
+    const ex = (c: string) => sql.raw(`excluded.${c}`);
+    for (let i = 0; i < values.length; i += 500)
+      await this.db
+        .insert(bcChecklistLine)
+        .values(values.slice(i, i + 500))
+        .onConflictDoUpdate({
+          target: [bcChecklistLine.bcCompanyId, bcChecklistLine.orderNo, bcChecklistLine.lineNo],
+          set: {
+            description: ex('description'),
+            lineType: ex('line_type'),
+            inputEnabled: ex('input_enabled'),
+            answerType: ex('answer_type'),
+            options: ex('options'),
+            unit: ex('unit'),
+            unitOptions: ex('unit_options'),
+            required: ex('required'),
+            checked: ex('checked'),
+            answer: ex('answer'),
+            answerUnit: ex('answer_unit'),
+            bcSystemId: ex('bc_system_id'),
+            bcModifiedAt: ex('bc_modified_at'),
+          },
+        });
+  }
+
+  private async applySubstitutions(companyId: string, rows: EntityOf<'itemSubstitutions'>[]) {
+    for (const r of rows) {
+      const v = {
+        bcCompanyId: companyId,
+        itemNo: r.itemNumber,
+        substituteNo: r.substituteNumber,
+        interchangeable: r.interchangeable,
+        description: r.description,
+        bcSystemId: r.id,
+        bcModifiedAt: new Date(r.lastModifiedDateTime),
+      };
+      await this.db
+        .insert(itemSubstitution)
+        .values(v)
+        .onConflictDoUpdate({
+          target: [itemSubstitution.bcCompanyId, itemSubstitution.itemNo, itemSubstitution.substituteNo],
+          set: v,
+        });
+    }
+  }
+
+  private async applyContacts(companyId: string, rows: EntityOf<'customerContacts'>[]) {
+    for (const r of rows) {
+      const v = {
+        bcCompanyId: companyId,
+        number: r.number,
+        customerNo: r.customerNumber,
+        name: r.name,
+        jobTitle: r.jobTitle,
+        phone: r.phoneNumber,
+        mobile: r.mobilePhoneNumber,
+        email: r.email,
+        bcSystemId: r.id,
+        bcModifiedAt: new Date(r.lastModifiedDateTime),
+      };
+      await this.db
+        .insert(bcContact)
+        .values(v)
+        .onConflictDoUpdate({ target: [bcContact.bcCompanyId, bcContact.number], set: v });
     }
   }
 

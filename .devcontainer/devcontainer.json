@@ -5,8 +5,12 @@
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "forwardPorts": [3000],
   "portsAttributes": {
-    "3000": { "label": "Monteur-App", "onAutoForward": "openBrowser" }
+    "3000": {
+      "label": "Monteur-App",
+      "onAutoForward": "openBrowser"
+    }
   },
-  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y psmisc && corepack enable && pnpm install",
-  "postAttachCommand": "echo 'Demo starten: scripts/demo.sh  (erster Start baut ca. 5 Minuten)'"
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y psmisc && sudo corepack enable && pnpm install",
+  "postAttachCommand": "echo 'Die Demo startet automatisch (erster Start ca. 5 Minuten). Fortschritt und Adresse: tail -f /tmp/demo.log'",
+  "postStartCommand": "nohup bash scripts/demo-autostart.sh >/dev/null 2>&1 &"
 }

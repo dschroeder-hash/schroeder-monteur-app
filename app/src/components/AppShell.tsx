@@ -1,7 +1,7 @@
 'use client';
 
 import { ROLE_LABELS, ROLES } from '@schroeder/shared';
-import { Download, LogOut, Menu, X } from 'lucide-react';
+import { Download, KeyRound, LogOut, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -16,6 +16,7 @@ import { StampBar } from './StampBar';
 import { SyncBadge } from './SyncBadge';
 import { ThemeToggle } from './ThemeToggle';
 import { toast, ToastHost } from './Toast';
+import { Button } from './ui/Button';
 
 /** Self-service export (Art. 15 DSGVO): everything stored about the signed-in user as JSON file. */
 async function downloadMyData() {
@@ -102,6 +103,63 @@ function NavList({
   );
 }
 
+/** Own 4-digit PIN for the shared workshop PC (E-72). */
+function PinSetter() {
+  const [open, setOpen] = useState(false);
+  const [pin, setPin] = useState('');
+  const [again, setAgain] = useState('');
+  const save = async () => {
+    if (pin !== again) return toast('Die beiden PINs stimmen nicht überein');
+    try {
+      await apiFetch('/v1/me/pin', { method: 'PUT', body: JSON.stringify({ pin }) });
+      toast('Stempel-PIN gespeichert');
+      setOpen(false);
+      setPin('');
+      setAgain('');
+    } catch {
+      toast('PIN nicht gespeichert – bitte mit Verbindung erneut versuchen');
+    }
+  };
+  if (!open)
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex min-h-touch items-center gap-2 self-start text-sm font-semibold"
+      >
+        <KeyRound aria-hidden className="h-5 w-5" /> Stempel-PIN festlegen
+      </button>
+    );
+  const field =
+    'min-h-touch w-24 rounded-card border border-border bg-surface px-3 text-center text-lg tracking-widest';
+  return (
+    <div className="flex flex-col gap-2 rounded-card border border-border p-3">
+      <p className="text-sm">PIN für den Werkstatt-PC (4 Ziffern)</p>
+      <div className="flex gap-2">
+        {[
+          ['Neue PIN', pin, setPin],
+          ['Wiederholen', again, setAgain],
+        ].map(([label, value, set]) => (
+          <label key={label as string} className="flex flex-col text-xs">
+            {label as string}
+            <input
+              className={field}
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              value={value as string}
+              onChange={(e) => (set as (v: string) => void)(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            />
+          </label>
+        ))}
+      </div>
+      <Button onClick={() => void save()} disabled={pin.length !== 4 || again.length !== 4}>
+        PIN speichern
+      </Button>
+    </div>
+  );
+}
+
 function UserMenu() {
   const { me, logout } = useAuth();
   const [open, setOpen] = useState(false);
@@ -139,6 +197,7 @@ function UserMenu() {
             </p>
           </div>
           <ThemeToggle />
+          {me.roles.includes(ROLES.Monteur) && <PinSetter />}
           <button
             type="button"
             onClick={() => void downloadMyData()}

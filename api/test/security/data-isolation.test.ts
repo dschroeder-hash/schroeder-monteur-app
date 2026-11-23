@@ -29,6 +29,19 @@ async function ordersAssignedTo(userId: string): Promise<string[]> {
   return r.rows.map((x) => x.order_id);
 }
 
+/**
+ * What RLS lets a Monteur see: orders assigned to him plus orders he has stamped on (an assignment may have been
+ * cancelled later, e.g. by the BC sync – the own times stay visible).
+ */
+async function ordersVisibleTo(userId: string): Promise<string[]> {
+  const r = await owner.query<{ order_id: string }>(
+    `select order_id from assignment where user_id = $1 and cancelled_at is null
+     union select order_id from time_entry where user_id = $1 and order_id is not null`,
+    [userId],
+  );
+  return r.rows.map((x) => x.order_id);
+}
+
 describe('API: Monteur sees only own orders', () => {
   it('list contains exactly the orders assigned to him', async () => {
     const t = await tokenFor(app, 'monteur-wild');
@@ -134,7 +147,7 @@ describe('RLS: database enforces isolation independently of the API code', () =>
 
   it('a Monteur sees only orders assigned to him even with an unfiltered query', async () => {
     const id = ids.get('monteur-wild')!;
-    const expected = (await ordersAssignedTo(id)).length;
+    const expected = (await ordersVisibleTo(id)).length;
     expect(await asUser(id, 'Werkstatt.Monteur', 'select * from service_order')).toBe(expected);
     const ownAssignments = (await owner.query('select 1 from assignment where user_id = $1', [id])).rowCount;
     expect(await asUser(id, 'Werkstatt.Monteur', 'select * from assignment')).toBe(ownAssignments);
@@ -142,7 +155,7 @@ describe('RLS: database enforces isolation independently of the API code', () =>
 
   it('claiming the Meister role in the session without a location grant shows nothing extra', async () => {
     const id = ids.get('monteur-wild')!;
-    const expected = (await ordersAssignedTo(id)).length;
+    const expected = (await ordersVisibleTo(id)).length;
     expect(await asUser(id, 'Werkstatt.Meister,Werkstatt.Admin', 'select * from service_order')).toBe(
       expected,
     );

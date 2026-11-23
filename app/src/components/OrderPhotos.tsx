@@ -93,7 +93,9 @@ export function OrderPhotos({ orderId }: { orderId: string }) {
               <span className="text-xs">{PHOTO_CATEGORIES[p.category]}</span>
               <span className={`text-xs ${q?.state === 'error' ? 'text-danger' : 'text-text-muted'}`}>
                 {p.uploadState === 'UPLOADED'
-                  ? '✓ hochgeladen'
+                  ? p.mfilesObjectId
+                    ? '✓ in M-Files'
+                    : '✓ hochgeladen'
                   : q?.state === 'error'
                     ? 'Upload wird wiederholt'
                     : 'wartet auf Upload'}

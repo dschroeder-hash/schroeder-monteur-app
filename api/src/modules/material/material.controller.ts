@@ -76,7 +76,7 @@ export class MaterialController {
   }
 
   @Get('items/search')
-  @Roles(ROLES.Monteur, ROLES.Meister, ROLES.Lager)
+  @Roles(ROLES.Monteur, ROLES.Meister, ROLES.Lager, ROLES.Terminal)
   @RequireFeature('materials')
   @ZodQuery(searchQuery)
   search(@Scope() s: AccessScope, @Query(new ZodPipe(searchQuery)) q: z.infer<typeof searchQuery>) {

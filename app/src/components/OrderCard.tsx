@@ -1,4 +1,4 @@
-import { DEFAULT_STATUS_DEFINITIONS, type AppStatus } from '@schroeder/shared';
+import type { AppStatus } from '@schroeder/shared';
 import { ChevronRight, MapPin, Tractor, Wrench } from 'lucide-react';
 import Link from 'next/link';
 import { fmtTime } from '@/lib/format';
@@ -17,19 +17,13 @@ export interface OrderCardData {
   assignments: Array<{ plannedStart: string }>;
 }
 
-/** Status pill colours: blue = planned, green = running, amber = waiting, grey = done. */
-const STATUS_TONE: Record<AppStatus, string> = {
-  NEU: 'bg-info-bg text-info',
-  EINGEPLANT: 'bg-info-bg text-info',
-  UNTERWEGS: 'bg-success-bg text-success',
-  IN_ARBEIT: 'bg-success-bg text-success',
-  WARTET_TEILE: 'bg-warning-bg text-warning',
-  WARTET_KUNDE: 'bg-warning-bg text-warning',
-  FERTIG_DOKU_OFFEN: 'bg-warning-bg text-warning',
-  FERTIG: 'bg-surface-muted text-text',
-  FREIGEGEBEN: 'bg-surface-muted text-text',
-  ABGERECHNET: 'bg-surface-muted text-text',
-};
+/** The Monteur only needs to know whether the work is done (E-66) – no workflow statuses on the card. */
+function doneLabel(s: AppStatus): { text: string; tone: string } | null {
+  if (s === 'FERTIG_DOKU_OFFEN') return { text: 'Doku offen', tone: 'bg-warning-bg text-warning' };
+  if (s === 'FERTIG' || s === 'FREIGEGEBEN' || s === 'ABGERECHNET')
+    return { text: 'Abgeschlossen', tone: 'bg-success-bg text-success' };
+  return null;
+}
 
 export function OrderCard({
   order,
@@ -42,6 +36,7 @@ export function OrderCard({
 }) {
   const m = order.items?.[0]?.machine ?? order.machines?.[0] ?? null;
   const a = order.assignments[0];
+  const done = doneLabel(order.appStatus);
   const body = (
     <article className="flex overflow-hidden rounded-card border border-border bg-surface shadow-sm transition-shadow hover:shadow-md">
       <div className="flex w-20 shrink-0 flex-col items-center justify-center gap-0.5 bg-primary px-1 py-3 text-on-primary sm:w-24">
@@ -63,11 +58,11 @@ export function OrderCard({
             </p>
             <h3 className="text-lg font-bold leading-snug">{order.customerName}</h3>
           </div>
-          <span
-            className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${STATUS_TONE[order.appStatus]}`}
-          >
-            {DEFAULT_STATUS_DEFINITIONS[order.appStatus].label}
-          </span>
+          {done && (
+            <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-bold ${done.tone}`}>
+              {done.text}
+            </span>
+          )}
         </div>
         {m && (
           <p className="flex items-center gap-2">

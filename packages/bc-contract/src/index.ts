@@ -211,6 +211,81 @@ export const serviceCommentLineSchema = z.object({
   monteurAppId: guid,
 });
 
+/** Remarks on customers (Comment Line, table 97) – read only, shown to the Monteur at the order. */
+export const customerCommentSchema = z.object({
+  ...base,
+  customerNumber: z.string(),
+  lineNumber: z.number().int(),
+  date: isoDate.or(z.literal('0001-01-01')),
+  comment: z.string(),
+});
+/** Remarks on service items / machines (Service Comment Line, Table Name "Service Item") – read only. */
+export const serviceItemCommentSchema = z.object({
+  ...base,
+  serviceItemNumber: z.string(),
+  type: z.enum(['General', 'Fault', 'Resolution', 'Accessory', 'Internal', 'Service Item Loaner']),
+  lineNumber: z.number().int(),
+  date: isoDate.or(z.literal('0001-01-01')),
+  comment: z.string(),
+});
+/** Contact persons of a customer (Contact type Person, linked through the customer's company contact). */
+export const customerContactSchema = z.object({
+  ...base,
+  number: z.string(),
+  customerNumber: z.string(),
+  name: z.string(),
+  jobTitle: z.string(),
+  phoneNumber: z.string(),
+  mobilePhoneNumber: z.string(),
+  email: z.string(),
+});
+
+/**
+ * Substitute items (Item Substitution, table 5715, item → item). `interchangeable` = can be used both ways;
+ * one-way substitutions are shown as successor ("Nachfolgeartikel", OP-47).
+ */
+export const itemSubstitutionSchema = z.object({
+  ...base,
+  itemNumber: z.string(),
+  substituteNumber: z.string(),
+  interchangeable: z.boolean(),
+  description: z.string(),
+});
+
+/**
+ * Lines of the service checklist of a service order ("Servicecheckliste (gelbe Karte)", OP-44): definition and
+ * answer per line. The app reads them and writes back checkbox, answer and unit. Lists are separated by ';'.
+ */
+export const serviceChecklistLineSchema = z.object({
+  ...base,
+  documentNumber: z.string(),
+  lineNumber: z.number().int(),
+  description: z.string(),
+  lineType: z.enum(['Heading', 'Line']),
+  inputEnabled: z.boolean(),
+  answerType: z.enum(['None', 'Text', 'Number', 'Option']),
+  options: z.string(),
+  unit: z.string(),
+  unitOptions: z.string(),
+  required: z.boolean(),
+  checked: z.boolean(),
+  answer: z.string(),
+  answerUnit: z.string(),
+});
+export const serviceChecklistLinePatchSchema = z.object({
+  checked: z.boolean(),
+  answer: z.string().max(250),
+  answerUnit: z.string().max(20),
+});
+
+/** Attachment of a service order (signed workshop order as PDF, E-68). The content is write-only. */
+export const serviceOrderAttachmentSchema = z.object({
+  ...base,
+  documentNumber: z.string(),
+  fileName: z.string().max(250),
+  monteurAppId: guid,
+});
+
 export const employeeAbsenceSchema = z.object({
   ...base,
   entryNumber: z.number().int(),
@@ -295,6 +370,9 @@ export const serviceCommentLineCreateSchema = serviceCommentLineSchema.omit({
   ...omitServer,
   lineNumber: true,
 });
+export const serviceOrderAttachmentCreateSchema = serviceOrderAttachmentSchema
+  .omit({ ...omitServer })
+  .extend({ fileContent: z.string().min(1) });
 export const employeeAbsenceCreateSchema = employeeAbsenceSchema.omit({ ...omitServer, entryNumber: true });
 export const resourceJournalLineCreateSchema = resourceJournalLineSchema.omit({
   ...omitServer,
@@ -410,6 +488,44 @@ export const endpoints = {
     schema: serviceCommentLineSchema,
     delta: true,
     writable: { create: serviceCommentLineCreateSchema },
+  }),
+  serviceChecklistLines: def({
+    family: 'werkstatt',
+    entitySet: 'serviceChecklistLines',
+    schema: serviceChecklistLineSchema,
+    delta: true,
+    writable: { patch: serviceChecklistLinePatchSchema },
+  }),
+  itemSubstitutions: def({
+    family: 'werkstatt',
+    entitySet: 'itemSubstitutions',
+    schema: itemSubstitutionSchema,
+    delta: true,
+  }),
+  customerComments: def({
+    family: 'werkstatt',
+    entitySet: 'customerComments',
+    schema: customerCommentSchema,
+    delta: true,
+  }),
+  serviceItemComments: def({
+    family: 'werkstatt',
+    entitySet: 'serviceItemComments',
+    schema: serviceItemCommentSchema,
+    delta: true,
+  }),
+  customerContacts: def({
+    family: 'werkstatt',
+    entitySet: 'customerContacts',
+    schema: customerContactSchema,
+    delta: true,
+  }),
+  serviceOrderAttachments: def({
+    family: 'werkstatt',
+    entitySet: 'serviceOrderAttachments',
+    schema: serviceOrderAttachmentSchema,
+    delta: false,
+    writable: { create: serviceOrderAttachmentCreateSchema },
   }),
   employeeAbsences: def({
     family: 'werkstatt',

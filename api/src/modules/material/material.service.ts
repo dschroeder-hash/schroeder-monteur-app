@@ -16,6 +16,7 @@ import {
   consumption,
   container,
   item,
+  itemSubstitution,
   itemBarcode,
   itemStock,
   location,
@@ -292,6 +293,30 @@ export class MaterialService {
           items.map((i) => i.id),
         ),
       );
+    // Substitutes in both directions (E-71): "Ersatz" if interchangeable, otherwise successor / predecessor.
+    const numbers = items.map((i) => i.number);
+    const subs = await tx
+      .select()
+      .from(itemSubstitution)
+      .where(or(inArray(itemSubstitution.itemNo, numbers), inArray(itemSubstitution.substituteNo, numbers)));
+    const subItems = subs.length
+      ? await tx
+          .select({ number: item.number, name: item.name, id: item.id })
+          .from(item)
+          .where(inArray(item.number, [...new Set(subs.flatMap((x) => [x.itemNo, x.substituteNo]))]))
+      : [];
+    const substitutesOf = (no: string) =>
+      subs
+        .filter((x) => x.itemNo === no || x.substituteNo === no)
+        .map((x) => {
+          const other = x.itemNo === no ? x.substituteNo : x.itemNo;
+          return {
+            number: other,
+            name: subItems.find((s) => s.number === other)?.name ?? '',
+            relation: x.interchangeable ? 'ERSATZ' : x.itemNo === no ? 'NACHFOLGER' : 'VORGAENGER',
+            note: x.description,
+          };
+        });
     return items.map((i) => {
       const own = stocks.filter((s) => s.s.itemId === i.id && locationIds.includes(s.storage.locationId));
       const other = stocks.filter(
@@ -308,6 +333,7 @@ export class MaterialService {
           available: availableQuantity(s.s.bcInventory, s.s.pendingWithdrawal),
           minStock: s.s.minStock,
         })),
+        substitutes: substitutesOf(i.number),
         otherLocations: other
           .map((s) => ({
             locationCode: s.locationCode,

@@ -38,6 +38,18 @@ export default async function setup() {
   const { db, pool } = createDb(ownerUrl, 1);
   await seedDev(db, TEST_NOW);
   await pool.end();
+  // Most tests finish orders without a customer signature; checklist-signature.test.ts switches it on per location.
+  const so = new pg.Client({ connectionString: ownerUrl });
+  await so.connect();
+  await so.query(`insert into setting (key, value) values ('completion', '{"signatureRequired": false}')`);
+  await so.query('update checklist_template set active = false'); // seeded example (tests create their own)
+  await so.query(`insert into setting (key, value) values ('checklist', '{"bcLines": false}')`);
+  // The time tests check minute-precise derivation and daily-sum billing; the stamp clock (E-69) is covered by
+  // the shared unit tests and stamp-clock.test.ts (location setting).
+  await so.query(
+    `update setting set value = value || '{"stampClock": null}'::jsonb where key = 'rounding' and location_id is null`,
+  );
+  await so.end();
 
   const u = new URL(ownerUrl);
   const as = (user: string) => {

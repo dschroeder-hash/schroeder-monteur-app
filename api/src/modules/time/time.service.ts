@@ -71,7 +71,10 @@ export class TimeService {
       overheadCode: r.overheadCode,
     }));
     const flagged = rows.filter((r) => r.skewFlag).map((r) => r.deviceTime.getTime());
-    const segments = deriveSegments(events, tz).filter((s) => dates.includes(s.workDate));
+    const cfg = await this.rounding(tx, locationId);
+    const segments = deriveSegments(events, tz, cfg.stampClock ?? null).filter((s) =>
+      dates.includes(s.workDate),
+    );
 
     const existing = await tx
       .select()
@@ -86,7 +89,6 @@ export class TimeService {
     const lockedDates = [...new Set(existing.filter((e) => e.state !== 'OPEN').map((e) => e.workDate))];
     const editable = segments.filter((s) => !lockedDates.includes(s.workDate));
 
-    const cfg = await this.rounding(tx, locationId);
     const billable = allocateBillable(
       editable
         .filter((s) => s.kind === 'ORDER' && s.end)

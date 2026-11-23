@@ -5,6 +5,8 @@ export const ROLES = {
   Lager: 'Werkstatt.Lager',
   Personal: 'Werkstatt.Personal',
   Admin: 'Werkstatt.Admin',
+  /** Shared workshop PC of a location ("Stempel-PC", E-72): stamping by personnel number + PIN. */
+  Terminal: 'Werkstatt.Terminal',
 } as const;
 
 export type Role = (typeof ROLES)[keyof typeof ROLES];
@@ -15,7 +17,12 @@ export function isRole(value: string): value is Role {
 }
 
 /** Roles that are bound to a location (scope comes from user_location). */
-export const LOCATION_SCOPED_ROLES: readonly Role[] = [ROLES.Monteur, ROLES.Meister, ROLES.Lager];
+export const LOCATION_SCOPED_ROLES: readonly Role[] = [
+  ROLES.Monteur,
+  ROLES.Meister,
+  ROLES.Lager,
+  ROLES.Terminal,
+];
 
 /** German UI labels. */
 export const ROLE_LABELS: Record<Role, string> = {
@@ -24,4 +31,5 @@ export const ROLE_LABELS: Record<Role, string> = {
   'Werkstatt.Lager': 'Lager',
   'Werkstatt.Personal': 'Personal',
   'Werkstatt.Admin': 'Admin',
+  'Werkstatt.Terminal': 'Werkstatt-PC',
 };

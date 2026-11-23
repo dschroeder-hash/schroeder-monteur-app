@@ -9,8 +9,47 @@ import { AuditService } from '../../common/audit.service.js';
 import { uuidParam, ZodBody, ZodPipe } from '../../common/zod.js';
 import { DB } from '../../db/db.module.js';
 import { withSession, type Db } from '../../db/client.js';
-import { appUser, bcResourceMapping, featureFlag, location, userLocation } from '../../db/schema.js';
+import {
+  appUser,
+  bcResourceMapping,
+  checklistTemplate,
+  featureFlag,
+  location,
+  userLocation,
+} from '../../db/schema.js';
 import { FeatureService } from '../../features/feature.service.js';
+
+/**
+ * Service checklist template (E-67) – layout of the checklist in Business Central, entered or imported as JSON
+ * by the Admin. Item ids must be unique and stable (answers are stored per id).
+ */
+const checklistBody = z.object({
+  title: z.string().trim().min(2).max(120),
+  locationId: z.string().uuid().nullable().default(null),
+  orderTypeCode: z.string().trim().max(20).nullable().default(null),
+  brand: z.string().trim().max(40).nullable().default(null),
+  active: z.boolean().default(true),
+  items: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(80),
+        text: z.string().trim().min(1).max(250),
+        kind: z.enum(['heading', 'line']).default('line'),
+        checkbox: z.boolean().default(false),
+        answer: z.enum(['none', 'text', 'number', 'option']).default('none'),
+        options: z.array(z.string().trim().min(1).max(80)).max(100).optional(),
+        unit: z.string().max(20).nullish(),
+        unitOptions: z.array(z.string().trim().min(1).max(20)).max(10).optional(),
+        required: z.boolean().default(false),
+        orderTypes: z.array(z.string().trim().min(1).max(20)).max(20).nullish(),
+      }),
+    )
+    .min(1)
+    .max(300)
+    .refine((items) => new Set(items.map((i) => i.id)).size === items.length, {
+      message: 'Die Kennungen (id) der Punkte müssen eindeutig sein',
+    }),
+});
 
 const locationBody = z.object({
   code: z
@@ -244,5 +283,56 @@ export class AdminController {
     });
     this.features.invalidate();
     return result;
+  }
+
+  @Get('checklist-templates')
+  checklistTemplates() {
+    return this.db.select().from(checklistTemplate).orderBy(asc(checklistTemplate.title));
+  }
+
+  @Post('checklist-templates')
+  @ZodBody(checklistBody)
+  async createChecklistTemplate(
+    @Scope() s: AccessScope,
+    @Body(new ZodPipe(checklistBody)) body: z.infer<typeof checklistBody>,
+  ) {
+    return withSession(this.db, { userId: s.userId, roles: s.roles }, async (tx) => {
+      const [row] = await tx.insert(checklistTemplate).values(body).returning();
+      await this.audit.log(tx, {
+        actorId: s.userId,
+        action: 'CREATE',
+        entity: 'checklist_template',
+        entityId: row!.id,
+        newValue: { title: row!.title, items: row!.items.length },
+      });
+      return row;
+    });
+  }
+
+  @Put('checklist-templates/:id')
+  @ZodBody(checklistBody)
+  async updateChecklistTemplate(
+    @Scope() s: AccessScope,
+    @Param('id', new ZodPipe(uuidParam)) id: string,
+    @Body(new ZodPipe(checklistBody)) body: z.infer<typeof checklistBody>,
+  ) {
+    return withSession(this.db, { userId: s.userId, roles: s.roles }, async (tx) => {
+      const [old] = await tx.select().from(checklistTemplate).where(eq(checklistTemplate.id, id));
+      if (!old) throw new NotFoundException('Vorlage nicht gefunden');
+      const [row] = await tx
+        .update(checklistTemplate)
+        .set(body)
+        .where(eq(checklistTemplate.id, id))
+        .returning();
+      await this.audit.log(tx, {
+        actorId: s.userId,
+        action: 'UPDATE',
+        entity: 'checklist_template',
+        entityId: id,
+        oldValue: { title: old.title, active: old.active, items: old.items.length },
+        newValue: { title: row!.title, active: row!.active, items: row!.items.length },
+      });
+      return row;
+    });
   }
 }
