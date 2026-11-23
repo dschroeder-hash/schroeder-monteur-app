@@ -1,22 +1,17 @@
 'use client';
 
-import {
-  checklistItemsFor,
-  checklistMissing,
-  pickChecklistTemplate,
-  type ChecklistAnswer,
-} from '@schroeder/shared';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { CircleCheck, CircleAlert, ClipboardCheck, PenLine } from 'lucide-react';
+import { CircleCheck, CircleAlert, ClipboardCheck, ListChecks, PenLine } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useState } from 'react';
-import { ChecklistForm } from '@/components/ChecklistForm';
+import { Suspense, useState } from 'react';
+import { BackLink } from '@/components/BackLink';
 import { SignaturePad } from '@/components/SignaturePad';
 import { toast } from '@/components/Toast';
 import { Button } from '@/components/ui/Button';
 import { WorkOrderSheet } from '@/components/WorkOrderSheet';
 import { localDb } from '@/lib/offline/db';
+import { useOrderChecklist } from '@/lib/offline/checklist';
 import { useSync } from '@/lib/offline/SyncProvider';
 
 function Step({
@@ -48,7 +43,7 @@ function Step({
 }
 
 /**
- * "Arbeit abgeschlossen" (E-66 to E-68): check the workshop order, fill in the service checklist, let the customer
+ * "Arbeit abgeschlossen" (E-66 to E-68): check the workshop order, check the service checklist (filled in during the work), let the customer
  * sign – then the order is finished and handed over to BC automatically. Works offline.
  */
 function Completion() {
@@ -57,10 +52,7 @@ function Completion() {
   const { run } = useSync();
   const order = useLiveQuery(() => localDb.orders.get(orderId), [orderId]);
   const report = useLiveQuery(() => localDb.workReports.get(orderId), [orderId]);
-  const templates =
-    useLiveQuery(() => localDb.checklistTemplates.filter((t) => t.active).toArray(), []) ?? [];
-  const checklist = useLiveQuery(() => localDb.orderChecklists.get(orderId), [orderId]);
-  const bcDef = useLiveQuery(() => localDb.checklistDefs.get(orderId), [orderId]);
+  const c = useOrderChecklist(orderId);
   const signature = useLiveQuery(() => localDb.orderSignatures.get(orderId), [orderId]);
   const loaded = useLiveQuery(async () => true, []);
   const [png, setPng] = useState<string | null>(null);
@@ -68,36 +60,10 @@ function Completion() {
   const [absent, setAbsent] = useState(false);
   const [reason, setReason] = useState('');
 
-  // The yellow card of the BC order wins; otherwise the most specific app template (E-67, OP-44).
-  const appTpl = order
-    ? pickChecklistTemplate(templates, {
-        locationId: order.locationId,
-        orderTypeCode: order.orderTypeCode,
-        brand: order.items[0]?.machine?.brand ?? null,
-      })
-    : null;
-  const tpl = bcDef
-    ? { id: null, title: bcDef.title, items: bcDef.items, initial: bcDef.bcAnswers }
-    : appTpl
-      ? { id: appTpl.id, title: appTpl.title, items: appTpl.items, initial: {} }
-      : null;
-  const saveChecklist = useCallback(
-    (results: Record<string, ChecklistAnswer>) => {
-      if (tpl) void run('SaveChecklist', { orderId, templateId: tpl.id, results });
-    },
-    [run, orderId, tpl],
-  );
-
   if (!order || !loaded) return <p className="text-text-muted">Wird geladen …</p>;
   const reportDone = !!report?.complete || (!!report?.body.trim() && report.pending === true);
-  const items = tpl ? checklistItemsFor(tpl.items, order.orderTypeCode) : [];
-  const openItems = tpl
-    ? checklistMissing(items, {
-        ...tpl.initial,
-        ...(checklist?.templateId === tpl.id ? checklist.results : {}),
-      })
-    : [];
-  const checklistDone = !tpl || openItems.length === 0;
+  const tpl = c.tpl;
+  const checklistDone = c.done;
   const signed = !!signature;
   const ready = reportDone && checklistDone && signed;
 
@@ -119,6 +85,7 @@ function Completion() {
 
   return (
     <div className="flex flex-col gap-8">
+      <BackLink orderId={orderId} />
       <header>
         <p className="text-sm text-text-muted">
           {order.bcNo} · {order.customerName}
@@ -141,13 +108,28 @@ function Completion() {
 
       {tpl && (
         <Step n={2} title={`Checkliste: ${tpl.title}`} done={checklistDone}>
-          <ChecklistForm
-            key={tpl.id ?? 'bc'}
-            items={items}
-            initial={{ ...tpl.initial, ...(checklist?.templateId === tpl.id ? checklist.results : {}) }}
-            onSave={saveChecklist}
-          />
-          {!checklistDone && <p className="text-sm text-text-muted">Noch offen: {openItems.join(', ')}</p>}
+          {checklistDone ? (
+            <p className="flex items-center gap-2 font-semibold text-success">
+              <CircleCheck aria-hidden className="h-5 w-5" /> Checkliste vollständig ausgefüllt.{' '}
+              <Link className="font-normal underline" href={`/monteur/checkliste?orderId=${orderId}`}>
+                Ansehen
+              </Link>
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <p className="flex items-start gap-2 font-semibold text-warning">
+                <CircleAlert aria-hidden className="h-5 w-5 shrink-0" />
+                Die Checkliste gehört zur Arbeitszeit – bitte vor dem Abschluss ausfüllen. Noch offen:{' '}
+                {c.openItems.join(', ')}
+              </p>
+              <Link
+                href={`/monteur/checkliste?orderId=${orderId}`}
+                className="inline-flex min-h-touch items-center justify-center gap-2 self-start rounded-card bg-primary px-5 font-bold text-on-primary hover:bg-primary-hover"
+              >
+                <ListChecks aria-hidden className="h-5 w-5" /> Checkliste ausfüllen
+              </Link>
+            </div>
+          )}
         </Step>
       )}
 

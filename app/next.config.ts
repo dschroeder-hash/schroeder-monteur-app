@@ -17,6 +17,7 @@ const OFFLINE_PAGES = [
   '/monteur/bericht',
   '/monteur/chat',
   '/monteur/abschluss',
+  '/monteur/checkliste',
   '/monteur/artikel',
   '/monteur/produktivitaet',
   '/chat',

@@ -3,6 +3,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
+import { BackLink } from '@/components/BackLink';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { kvGet, kvSet, localDb } from '@/lib/offline/db';
@@ -63,6 +64,7 @@ function MonteurChat() {
 
   return (
     <div className="flex flex-col gap-3">
+      <BackLink orderId={orderId} />
       <header>
         <p className="text-sm text-text-muted">{order ? `${order.bcNo} · ${order.customerName}` : ''}</p>
         <h1 className="font-headline text-2xl">Chat zum Auftrag</h1>

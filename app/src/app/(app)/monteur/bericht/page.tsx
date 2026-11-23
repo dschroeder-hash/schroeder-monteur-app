@@ -9,6 +9,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { BackLink } from '@/components/BackLink';
 import { toast } from '@/components/Toast';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth/AuthProvider';
@@ -80,6 +81,7 @@ function ReportEditor() {
 
   return (
     <div className="flex flex-col gap-4">
+      <BackLink orderId={orderId} />
       <header>
         <p className="text-sm text-text-muted">
           {order.bcNo} · {order.customerName} · {machine?.model}

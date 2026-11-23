@@ -2,6 +2,7 @@
 
 import { ACTIVITIES, ACTIVITY_SHORT_LABELS, segmentMinutes, type Activity } from '@schroeder/shared';
 import { CircleCheck, ClipboardCheck } from 'lucide-react';
+import { useOrderChecklist } from '@/lib/offline/checklist';
 import { RefreshFromBc } from '@/components/RefreshFromBc';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'next/navigation';
@@ -36,6 +37,7 @@ function OrderDetail() {
         .filter((m) => !m.isSystem && m.authorId !== me?.id && (m.serverSeq ?? 0) > (last ?? 0))
         .count();
     }, [id, me?.id]) ?? 0;
+  const checklist = useOrderChecklist(id);
   const segments = useSegments(me?.id).filter((s) => s.kind === 'ORDER' && s.orderId === id);
 
   if (order === undefined)
@@ -168,6 +170,21 @@ function OrderDetail() {
               : 'noch leer'}
           </span>
         </Link>
+        {checklist.tpl && (
+          <Link
+            href={`/monteur/checkliste?orderId=${id}`}
+            className={`inline-flex min-h-touch flex-col items-center justify-center rounded-card border-2 px-3 py-2 text-center font-semibold ${checklist.done ? 'border-border bg-surface' : 'border-warning bg-warning-bg text-warning'}`}
+          >
+            Servicecheckliste
+            <span className="text-xs font-normal">
+              {checklist.done
+                ? 'vollständig'
+                : checklist.started
+                  ? `${checklist.openItems.length} offen`
+                  : 'noch nicht ausgefüllt'}
+            </span>
+          </Link>
+        )}
         {me?.features.chat && (
           <Link
             href={`/monteur/chat?orderId=${id}`}

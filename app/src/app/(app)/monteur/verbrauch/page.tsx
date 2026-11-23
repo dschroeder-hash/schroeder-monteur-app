@@ -4,6 +4,7 @@ import { availableQuantity, belowMinimum, meterPlausible } from '@schroeder/shar
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
+import { BackLink } from '@/components/BackLink';
 import { toast } from '@/components/Toast';
 import { Button } from '@/components/ui/Button';
 import { localDb, type LocalContainer, type LocalItem } from '@/lib/offline/db';
@@ -41,6 +42,7 @@ function ConsumablesShop() {
 
   return (
     <div className="flex flex-col gap-4">
+      <BackLink orderId={orderId} />
       <header>
         <p className="text-sm text-text-muted">
           {order ? `${order.bcNo} · ${order.customerName}` : 'Ohne Auftrag (intern)'}

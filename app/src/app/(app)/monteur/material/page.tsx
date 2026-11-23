@@ -11,6 +11,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useState } from 'react';
+import { BackLink } from '@/components/BackLink';
 import { Scanner } from '@/components/Scanner';
 import { toast } from '@/components/Toast';
 import { Button } from '@/components/ui/Button';
@@ -284,6 +285,7 @@ function PartsPage() {
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
+      <BackLink orderId={orderId} />
       <header>
         <p className="text-sm text-text-muted">
           {order ? `${order.bcNo} · ${order.customerName}` : 'Auftrag'}

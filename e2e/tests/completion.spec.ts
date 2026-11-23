@@ -45,15 +45,13 @@ test('Monteur finishes the order with checklist and customer signature – BC re
   await page.getByRole('button', { name: 'Speichern' }).click();
   await page.waitForURL('**/monteur/auftrag?id=*');
 
-  // ---- Completion page: workshop order, checklist, signature ----
-  await page.getByRole('link', { name: /Arbeit abgeschlossen/ }).click();
-  await page.waitForURL('**/monteur/abschluss?orderId=*');
-  await expect(page.getByRole('article', { name: 'Werkstattauftrag' })).toBeVisible();
-  const finish = page.getByRole('button', { name: 'Arbeit abgeschlossen', exact: true });
-  await expect(finish).toBeDisabled();
-
-  const checklist = page.getByRole('heading', { name: /Checkliste:/ });
-  if (await checklist.count()) {
+  // ---- Service checklist during the work (working time), reached from the order page ----
+  const checklistTile = page.getByRole('link', { name: /Servicecheckliste/ });
+  const hasChecklist = (await checklistTile.count()) > 0;
+  if (hasChecklist) {
+    await expect(checklistTile).toContainText('noch nicht ausgefüllt');
+    await checklistTile.click();
+    await page.waitForURL('**/monteur/checkliste?orderId=*');
     // yellow card: tick every "Eingabe" checkbox (the end-of-repair questions are mandatory), one quantity with unit
     const open = page.locator('[data-check] [role="checkbox"][aria-checked="false"]');
     while ((await open.count()) > 0) await open.first().click();
@@ -63,7 +61,25 @@ test('Monteur finishes the order with checklist and customer signature – BC re
       await page.getByRole('combobox', { name: 'Einheit Menge Motoröl' }).selectOption('Liter');
     }
     await expect(page.getByText(/Noch offen/)).toHaveCount(0);
+    await expect(page.getByText(/Checkliste vollständig/)).toBeVisible();
+    await page.getByRole('link', { name: 'Fertig – zurück zum Auftrag' }).click();
+    await page.waitForURL('**/monteur/auftrag?id=*');
+    await expect(checklistTile).toContainText('vollständig');
   }
+
+  // ---- Completion page: workshop order, checklist, signature ----
+  await page.getByRole('link', { name: /Arbeit abgeschlossen/ }).click();
+  await page.waitForURL('**/monteur/abschluss?orderId=*');
+  await expect(page.getByRole('article', { name: 'Werkstattauftrag' })).toBeVisible();
+  const finish = page.getByRole('button', { name: 'Arbeit abgeschlossen', exact: true });
+  await expect(finish).toBeDisabled();
+
+  // Checklist is filled in on its own page during the work; the completion page only checks it.
+  if (hasChecklist) await expect(page.getByText(/Checkliste vollständig ausgefüllt/)).toBeVisible();
+  await page.getByRole('link', { name: 'Zurück zum Auftrag' }).click();
+  await page.waitForURL('**/monteur/auftrag?id=*');
+  await page.getByRole('link', { name: /Arbeit abgeschlossen/ }).click();
+  await page.waitForURL('**/monteur/abschluss?orderId=*');
 
   await page.getByLabel('Name des Unterzeichners').fill('Hinrich Kunde');
   await sign(page);
