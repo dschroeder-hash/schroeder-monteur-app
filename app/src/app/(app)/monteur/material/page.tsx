@@ -16,7 +16,8 @@ import {
   extractPartNos,
   normalizePartNo,
   parseShopCart,
-  SHOP_CART_BOOKMARKLET,
+  parseShopCartText,
+  shopCartBookmarklet,
   type Bundesland,
 } from '@schroeder/shared';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -30,6 +31,7 @@ import { toast } from '@/components/Toast';
 import { Button } from '@/components/ui/Button';
 import { ApiError, apiFetch } from '@/lib/api';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { config } from '@/lib/config';
 import { canCaptureTab, captureTab, shrinkImageFile } from '@/lib/cart-capture';
 import { kvGet, localDb, type CartLine } from '@/lib/offline/db';
 import { searchLocal, STORAGE_LABEL, withStock, type ItemWithStock } from '@/lib/offline/material';
@@ -46,16 +48,27 @@ interface RemoteItem {
 const field = 'min-h-touch rounded-card border border-border bg-surface px-3';
 
 /**
- * One-time setup of the bookmark "Warenkorb kopieren" (E-77). Laptop: drag the link to the bookmarks bar. iPad:
- * bookmark any page, then replace its address with the copied code (or IT distributes the bookmark via MDM).
+ * One-time setup of the personal bookmark "→ Werkstatt-App" (E-78). Laptop: drag the link to the bookmarks bar.
+ * iPad: bookmark any page, then replace its address with the copied code (or IT distributes it via MDM).
  */
 function BookmarkSetup({ onClose }: { onClose: () => void }) {
   const link = useRef<HTMLAnchorElement>(null);
+  const [code, setCode] = useState<string | null>(null);
+  const create = async () => {
+    try {
+      const { token } = await apiFetch<{ token: string }>('/v1/me/shop-cart-link', { method: 'PUT' });
+      setCode(shopCartBookmarklet(`${window.location.origin}${config.basePath}`, token));
+    } catch {
+      toast('Lesezeichen nicht erzeugt – bitte mit Verbindung erneut versuchen');
+    }
+  };
   // React blocks javascript: URLs in JSX – set the bookmark target directly on the element.
-  useEffect(() => link.current?.setAttribute('href', SHOP_CART_BOOKMARKLET), []);
+  useEffect(() => {
+    if (code) link.current?.setAttribute('href', code);
+  }, [code]);
   const copy = () =>
     void navigator.clipboard
-      ?.writeText(SHOP_CART_BOOKMARKLET)
+      ?.writeText(code ?? '')
       .then(() => toast('Lesezeichen-Code kopiert'))
       .catch(() => toast('Kopieren nicht möglich'));
   return (
@@ -63,32 +76,40 @@ function BookmarkSetup({ onClose }: { onClose: () => void }) {
       className="flex flex-col gap-2 rounded-card border border-border bg-surface-muted p-3 text-sm"
       data-testid="bookmark-setup"
     >
-      <p className="font-semibold">Einmalig einrichten: Lesezeichen „Warenkorb kopieren“</p>
+      <p className="font-semibold">Einmalig einrichten: Lesezeichen „→ Werkstatt-App“</p>
       <p>
-        Das Lesezeichen liest im AGCO-Warenkorb alle Positionen mit Menge – auch die, die man erst nach unten
-        scrollen muss – und legt sie in die Zwischenablage. Danach hier „Warenkorb übertragen“ tippen.
+        Im AGCO-Warenkorb auf das Lesezeichen tippen – fertig. Die App holt sich den ganzen Warenkorb mit
+        Mengen von selbst, auch auf einem anderen Gerät. Das Lesezeichen gehört nur Ihnen.
       </p>
-      <p>
-        <strong>Laptop:</strong> diesen Knopf in die Lesezeichenleiste ziehen:{' '}
-        <a
-          ref={link}
-          onClick={(e) => e.preventDefault()}
-          className="inline-flex min-h-touch items-center rounded-card border-2 border-primary px-3 font-semibold text-primary"
-        >
-          Warenkorb kopieren
-        </a>
-      </p>
-      <p>
-        <strong>iPad:</strong> beliebige Seite als Lesezeichen sichern, Namen „Warenkorb kopieren“ geben,
-        Adresse durch den Code ersetzen:{' '}
-        <Button variant="secondary" onClick={copy}>
-          Code kopieren
+      {!code ? (
+        <Button className="self-start" onClick={() => void create()}>
+          Mein Lesezeichen erzeugen
         </Button>
-      </p>
-      <p className="text-text-muted">
-        Benutzung: AGCO-Warenkorb in Safari bzw. im Browser-Tab öffnen → Lesezeichen „Warenkorb kopieren“ →
-        zurück in die App → „Warenkorb übertragen“.
-      </p>
+      ) : (
+        <>
+          <p>
+            <strong>Laptop:</strong> diesen Knopf in die Lesezeichenleiste ziehen:{' '}
+            <a
+              ref={link}
+              onClick={(e) => e.preventDefault()}
+              className="inline-flex min-h-touch items-center rounded-card border-2 border-primary px-3 font-semibold text-primary"
+            >
+              → Werkstatt-App
+            </a>
+          </p>
+          <p>
+            <strong>iPad:</strong> beliebige Seite als Lesezeichen sichern, Namen „→ Werkstatt-App“ geben,
+            Adresse durch den Code ersetzen:{' '}
+            <Button variant="secondary" onClick={copy}>
+              Code kopieren
+            </Button>
+          </p>
+          <p className="text-text-muted">
+            Ein neues Lesezeichen ersetzt das alte. Benutzung: AGCO-Warenkorb in Safari bzw. im Browser-Tab
+            öffnen → Lesezeichen tippen → zurück in die App.
+          </p>
+        </>
+      )}
       <Button variant="ghost" className="self-start" onClick={onClose}>
         Schließen
       </Button>
@@ -293,6 +314,9 @@ function PartsPage() {
       setCartBusy(false);
     }
   };
+  const takeShopCartRef = useRef<(l: Array<{ partNo: string; quantity: number }>) => Promise<void>>(
+    async () => undefined,
+  );
   /** Lines copied by the bookmark "Warenkorb kopieren" (E-77): resolved against the item master, with quantity. */
   const takeShopCart = async (lines: Array<{ partNo: string; quantity: number }>) => {
     setCartBusy(true);
@@ -306,18 +330,36 @@ function PartsPage() {
     toast(`${lines.length} Positionen aus dem Warenkorb übernommen – bitte prüfen`);
     void navigator.clipboard?.writeText('').catch(() => undefined); // not taken over twice
   };
+  takeShopCartRef.current = takeShopCart;
   /**
    * "Warenkorb übertragen": first the clipboard (filled by the bookmark on the shop page – the whole cart, also
    * what is scrolled out of view); otherwise, if enabled, a picture of the cart read by the AI (E-76).
    */
+  /** Carts sent by the bookmark (E-78), picked up by the app – merged into one list. */
+  const pickUp = useCallback(async () => {
+    if (!navigator.onLine || document.visibilityState !== 'visible') return false;
+    try {
+      const { carts } = await apiFetch<{ carts: Array<Array<{ partNo: string; quantity: number }>> }>(
+        '/v1/parts/shop-cart/inbox',
+      );
+      const lines = carts.flat();
+      if (!lines.length) return false;
+      await takeShopCartRef.current(lines);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
   const transferCart = async () => {
+    if (await pickUp()) return;
     let text = '';
     try {
       text = (await navigator.clipboard?.readText()) ?? '';
     } catch {
       /* not allowed – continue with the picture */
     }
-    const lines = parseShopCart(text);
+    // Bookmark format, or the cart page copied as text (select all + copy) – both read the whole cart.
+    const lines = parseShopCart(text) ?? parseShopCartText(text);
     if (lines?.length) return takeShopCart(lines);
     if (!cartAi) {
       setBookmarkHelp(true);
@@ -333,6 +375,20 @@ function PartsPage() {
     toast('Bildschirmfoto vom Warenkorb auswählen (vorher am iPad: Ein/Aus-Taste + Lauter-Taste)');
     cartFile.current?.click();
   };
+  // The bookmark sends from the shop tab; the app picks the cart up when it is shown again, and every few seconds.
+  useEffect(() => {
+    if (!orderId) return;
+    void pickUp();
+    const onShow = () => void pickUp();
+    document.addEventListener('visibilitychange', onShow);
+    window.addEventListener('focus', onShow);
+    const t = setInterval(onShow, 5000);
+    return () => {
+      document.removeEventListener('visibilitychange', onShow);
+      window.removeEventListener('focus', onShow);
+      clearInterval(t);
+    };
+  }, [orderId, pickUp]);
   /** Puts every recognised line into the order's cart – from the main warehouse if it has enough, else any storage. */
   const addAllToCart = async () => {
     let added = 0;
@@ -584,7 +640,7 @@ function PartsPage() {
                 className="self-start text-sm font-semibold text-primary underline"
                 onClick={() => setBookmarkHelp(true)}
               >
-                Lesezeichen „Warenkorb kopieren“ einrichten
+                Lesezeichen „→ Werkstatt-App“ einrichten
               </button>
             )}
             <ol className="list-inside list-decimal text-sm text-text-muted">

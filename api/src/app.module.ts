@@ -48,6 +48,7 @@ import { NoRealtime, REALTIME, WebPubSubRealtime } from './modules/files/realtim
 import { AzureSpeech, NoRewrite, SPEECH, TEXT_REWRITE } from './modules/files/speech.js';
 import { CART_READER, cartReaderFor } from './modules/material/cart-reader.js';
 import { ContainersController, MaterialController } from './modules/material/material.controller.js';
+import { ShopCartController } from './modules/material/shop-cart.controller.js';
 import { SyncService } from './modules/sync/sync.service.js';
 import { PinController, TerminalController, TerminalService } from './modules/terminal/terminal.js';
 import { TimeService } from './modules/time/time.service.js';
@@ -73,6 +74,7 @@ export class AppModule {
         ProductivityAdminController,
         TransfersController,
         MaterialController,
+        ShopCartController,
         ContainersController,
         PhotosController,
         ChatController,

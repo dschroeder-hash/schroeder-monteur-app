@@ -103,7 +103,12 @@ describe('stock', () => {
   });
 });
 
-import { parseShopCart, SHOP_CART_BOOKMARKLET, SHOP_CART_MARKER } from './shop-cart.js';
+import {
+  parseShopCart,
+  parseShopCartText,
+  SHOP_CART_MARKER,
+  shopCartBookmarklet,
+} from './shop-cart.js';
 
 describe('shop cart bookmark (E-77)', () => {
   it('reads the lines the bookmark copied, sums duplicates', () => {
@@ -115,9 +120,51 @@ describe('shop cart bookmark (E-77)', () => {
     ]);
     expect(parseShopCart('AGCO-Teilenr. X548844266000')).toBeNull();
   });
-  it('bookmark is a single-line javascript: URL that is valid JavaScript', () => {
-    expect(SHOP_CART_BOOKMARKLET.startsWith('javascript:')).toBe(true);
-    expect(SHOP_CART_BOOKMARKLET).not.toMatch(/\s/);
-    expect(() => new Function(decodeURI(SHOP_CART_BOOKMARKLET.slice('javascript:'.length)))).not.toThrow();
+  it('bookmark is a single-line javascript: URL that sends the page text to the app (E-78)', () => {
+    const code = shopCartBookmarklet('https://werkstatt.example/app/', 'tok-123');
+    expect(code.startsWith('javascript:')).toBe(true);
+    expect(code).not.toMatch(/\s/);
+    const js = decodeURI(code.slice('javascript:'.length));
+    let opened = '';
+    const fakeDocument = { body: { innerText: 'AGCO-Teilenr. X548844266000\n1 X 2,32 € pro Stück\nÖl' } };
+    new Function('document', 'window', 'location', js)(
+      fakeDocument,
+      { open: (u: string) => ((opened = u), {}) },
+      {},
+    );
+    expect(opened.startsWith('https://werkstatt.example/app/warenkorb-senden#t=tok-123&p=')).toBe(true);
+    const text = Buffer.from(opened.split('&p=')[1]!, 'base64url').toString('utf8');
+    expect(text).toContain('Öl');
+    expect(parseShopCartText(text)).toEqual([{ partNo: 'X548844266000', quantity: 1 }]);
+  });
+});
+
+describe('shop cart page text (E-77)', () => {
+  it('takes cart lines with quantity, skips recommendations', () => {
+    const page = [
+      'Warenkorb',
+      'O-RING',
+      'AGCO-Teilenr. X548844266000',
+      '1',
+      '2,32 €',
+      '1 X 2,32 € pro Stück',
+      'Vorrätig',
+      'Entfernen',
+      'LICHTMASCHINE',
+      'AGCO-Teilenr.',
+      'F530200220390',
+      '2',
+      '1.826,00 €',
+      '2 X 913,00 € pro Stück',
+      'Empfohlene Artikel',
+      'KEILRIEMEN',
+      'AGCO-Teilenr. X999000111222',
+      '12,50 €',
+      'Zusammenfassung der Bestellanfrage',
+    ].join('\n');
+    expect(parseShopCartText(page)).toEqual([
+      { partNo: 'X548844266000', quantity: 1 },
+      { partNo: 'F530200220390', quantity: 2 },
+    ]);
   });
 });

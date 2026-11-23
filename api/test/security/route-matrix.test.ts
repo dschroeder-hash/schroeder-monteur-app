@@ -121,6 +121,10 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
   'GET /v1/items/resolve': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
   'GET /v1/parts/catalogs': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
   'POST /v1/parts/cart-from-image': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
+  'PUT /v1/me/shop-cart-link': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
+  'GET /v1/parts/shop-cart/inbox': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
+  // Bookmark → app (E-78): no sign-in, the personal link token identifies the user.
+  'POST /v1/parts/shop-cart': { public: true },
   'GET /v1/parts/requests': { allowed: ['meister-wild', 'lager-wild'] },
   'POST /v1/parts/requests/{id}/state': {
     allowed: ['meister-wild', 'lager-wild'],

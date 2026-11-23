@@ -1268,3 +1268,33 @@ export const userPin = pgTable('user_pin', {
   lockedUntil: ts('locked_until'),
   ...timestamps,
 });
+
+/**
+ * Personal link for the bookmark "→ Werkstatt-App" (E-78): the bookmark on the shop page sends the cart with this
+ * secret; only its SHA-256 hash is stored. A new link replaces the old one.
+ */
+export const shopCartLink = pgTable(
+  'shop_cart_link',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => appUser.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('shop_cart_link_token_uq').on(t.tokenHash)],
+);
+
+/** Carts sent from the shop, waiting until the app picks them up (then deleted; older than a day: dropped). */
+export const shopCartInbox = pgTable(
+  'shop_cart_inbox',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUser.id, { onDelete: 'cascade' }),
+    lines: jsonb('lines').$type<Array<{ partNo: string; quantity: number }>>().notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('shop_cart_inbox_user_idx').on(t.userId)],
+);
