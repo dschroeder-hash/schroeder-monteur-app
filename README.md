@@ -15,10 +15,19 @@ Offline-fähige Werkstatt- und Außendienst-App für die Schröder-Gruppe (Busin
 
 ## App ansehen (Demo mit Testdaten)
 
-**Im Browser, ohne Installation:** auf GitHub im Repository **Code → Codespaces → Create codespace** (Branch `main`, sobald der Pull Request übernommen ist – vorher den Branch `nacharbeiten` wählen).
-Nach dem Start im Terminal unten `scripts/demo.sh` eingeben (erster Start ca. 5 Minuten). Danach öffnet sich die App;
-falls nicht: Reiter **Ports** → „Monteur-App“ (Port 3000) → Globus-Symbol. Anmeldung über die Test-Personen
-(Monteur, Meister, Lager, Personal, Admin). Business Central wird durch den eingebauten BC-Mock ersetzt.
+**Im Browser, ohne Installation (auch für das iPad):**
+
+1. Am **PC** (Chrome/Edge) diesen Link öffnen und **Create codespace** wählen:
+   https://codespaces.new/dschroeder-hash/schroeder-monteur-app/tree/ohne-meister
+   (nach dem Zusammenführen den Branch `main` verwenden).
+2. Nichts eintippen – die Demo startet von selbst (erster Start ca. 5 Minuten). Fortschritt im Terminal:
+   `tail -f /tmp/demo.log`. Am Ende steht dort die Adresse der App (`https://…-3000.app.github.dev`).
+3. Die Adresse auf dem **iPad** in Safari öffnen; dort mit demselben GitHub-Konto angemeldet sein. Optional
+   **Teilen → Zum Home-Bildschirm**.
+
+Anmeldung über die Test-Personen (Monteur, Werkstatt-PC mit `M0001`/`1234`, Lager, Admin). Business Central und
+M-Files werden durch eingebaute Testersätze ersetzt. Ein Codespace stoppt nach ca. 30 Minuten ohne Nutzung; beim
+erneuten Öffnen startet die Demo wieder von selbst.
 
 **Auf dem eigenen Rechner:** Node 22, pnpm 9 und PostgreSQL 16 installieren, dann `scripts/demo.sh` und
 http://localhost:3000 öffnen. Bildschirmfotos: `docs/screenshots/`.
