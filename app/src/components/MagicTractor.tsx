@@ -1,25 +1,15 @@
-import { Sparkles, Tractor } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+import { TractorArt } from './TractorArt';
 
-/**
- * Icon for "Warenkorb übertragen": a tractor that conjures – sparkles twinkle around it, and while the AI reads the
- * cart the tractor hops. Motion only when the device allows it (prefers-reduced-motion).
- */
+/** Button icon for "Warenkorb übertragen": the green tractor with a twinkling magic spark. */
 export function MagicTractor({ busy = false }: { busy?: boolean }) {
   return (
-    <span aria-hidden className="relative inline-flex h-6 w-7 shrink-0 items-end">
-      <Tractor className={`h-6 w-6 ${busy ? 'motion-safe:animate-bounce' : ''}`} strokeWidth={2.2} />
+    <span aria-hidden className="relative inline-flex h-7 w-10 shrink-0 items-end">
+      <TractorArt className="h-7 w-10" spin={busy} />
       <Sparkles
-        className={`absolute -right-1 -top-2 h-4 w-4 text-amber-400 ${
-          busy ? 'motion-safe:animate-spin' : 'motion-safe:animate-pulse'
-        }`}
+        className="absolute -right-2 -top-2 h-4 w-4 text-amber-400 motion-safe:animate-pulse"
         strokeWidth={2.4}
       />
-      {busy && (
-        <Sparkles
-          className="absolute -left-2 -top-1 h-3 w-3 text-amber-300 motion-safe:animate-ping"
-          strokeWidth={2.4}
-        />
-      )}
     </span>
   );
 }

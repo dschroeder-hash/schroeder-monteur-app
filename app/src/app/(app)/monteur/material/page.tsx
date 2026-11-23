@@ -15,6 +15,8 @@ import {
   estimateDelivery,
   extractPartNos,
   normalizePartNo,
+  parseShopCart,
+  SHOP_CART_BOOKMARKLET,
   type Bundesland,
 } from '@schroeder/shared';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -22,6 +24,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { BackLink } from '@/components/BackLink';
 import { MagicTractor } from '@/components/MagicTractor';
+import { TractorMagic } from '@/components/TractorMagic';
 import { Scanner } from '@/components/Scanner';
 import { toast } from '@/components/Toast';
 import { Button } from '@/components/ui/Button';
@@ -41,6 +44,57 @@ interface RemoteItem {
 }
 
 const field = 'min-h-touch rounded-card border border-border bg-surface px-3';
+
+/**
+ * One-time setup of the bookmark "Warenkorb kopieren" (E-77). Laptop: drag the link to the bookmarks bar. iPad:
+ * bookmark any page, then replace its address with the copied code (or IT distributes the bookmark via MDM).
+ */
+function BookmarkSetup({ onClose }: { onClose: () => void }) {
+  const link = useRef<HTMLAnchorElement>(null);
+  // React blocks javascript: URLs in JSX – set the bookmark target directly on the element.
+  useEffect(() => link.current?.setAttribute('href', SHOP_CART_BOOKMARKLET), []);
+  const copy = () =>
+    void navigator.clipboard
+      ?.writeText(SHOP_CART_BOOKMARKLET)
+      .then(() => toast('Lesezeichen-Code kopiert'))
+      .catch(() => toast('Kopieren nicht möglich'));
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-card border border-border bg-surface-muted p-3 text-sm"
+      data-testid="bookmark-setup"
+    >
+      <p className="font-semibold">Einmalig einrichten: Lesezeichen „Warenkorb kopieren“</p>
+      <p>
+        Das Lesezeichen liest im AGCO-Warenkorb alle Positionen mit Menge – auch die, die man erst nach unten
+        scrollen muss – und legt sie in die Zwischenablage. Danach hier „Warenkorb übertragen“ tippen.
+      </p>
+      <p>
+        <strong>Laptop:</strong> diesen Knopf in die Lesezeichenleiste ziehen:{' '}
+        <a
+          ref={link}
+          onClick={(e) => e.preventDefault()}
+          className="inline-flex min-h-touch items-center rounded-card border-2 border-primary px-3 font-semibold text-primary"
+        >
+          Warenkorb kopieren
+        </a>
+      </p>
+      <p>
+        <strong>iPad:</strong> beliebige Seite als Lesezeichen sichern, Namen „Warenkorb kopieren“ geben,
+        Adresse durch den Code ersetzen:{' '}
+        <Button variant="secondary" onClick={copy}>
+          Code kopieren
+        </Button>
+      </p>
+      <p className="text-text-muted">
+        Benutzung: AGCO-Warenkorb in Safari bzw. im Browser-Tab öffnen → Lesezeichen „Warenkorb kopieren“ →
+        zurück in die App → „Warenkorb übertragen“.
+      </p>
+      <Button variant="ghost" className="self-start" onClick={onClose}>
+        Schließen
+      </Button>
+    </div>
+  );
+}
 
 /** Parts like in a shop (PROMPT 5.5): search, scan, cart per order, take from warehouse/van or request. */
 function PartsPage() {
@@ -239,7 +293,38 @@ function PartsPage() {
       setCartBusy(false);
     }
   };
+  /** Lines copied by the bookmark "Warenkorb kopieren" (E-77): resolved against the item master, with quantity. */
+  const takeShopCart = async (lines: Array<{ partNo: string; quantity: number }>) => {
+    setCartBusy(true);
+    setCatalogList(lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity, state: 'pending' })));
+    setEmbedPanel(true);
+    for (const l of lines) {
+      const hit = await lookup(l.partNo);
+      setCatalogList((cur) => cur.map((c) => (c.partNo === l.partNo ? { ...c, ...hit } : c)));
+    }
+    setCartBusy(false);
+    toast(`${lines.length} Positionen aus dem Warenkorb übernommen – bitte prüfen`);
+    void navigator.clipboard?.writeText('').catch(() => undefined); // not taken over twice
+  };
+  /**
+   * "Warenkorb übertragen": first the clipboard (filled by the bookmark on the shop page – the whole cart, also
+   * what is scrolled out of view); otherwise, if enabled, a picture of the cart read by the AI (E-76).
+   */
   const transferCart = async () => {
+    let text = '';
+    try {
+      text = (await navigator.clipboard?.readText()) ?? '';
+    } catch {
+      /* not allowed – continue with the picture */
+    }
+    const lines = parseShopCart(text);
+    if (lines?.length) return takeShopCart(lines);
+    if (!cartAi) {
+      setBookmarkHelp(true);
+      return toast(
+        'Erst im AGCO-Warenkorb das Lesezeichen „Warenkorb kopieren“ tippen, dann hier übertragen',
+      );
+    }
     if (!navigator.onLine) return toast('Für die Warenkorb-Übernahme wird eine Verbindung benötigt');
     if (canCaptureTab()) {
       const img = await captureTab();
@@ -283,7 +368,8 @@ function PartsPage() {
         (short.length ? ` – nicht genug Bestand: ${short.join(', ')}` : ''),
     );
   };
-  const cartButton = cartAi && (
+  const [bookmarkHelp, setBookmarkHelp] = useState(false);
+  const cartButton = (
     <Button variant="secondary" onClick={() => void transferCart()} disabled={cartBusy} aria-busy={cartBusy}>
       <MagicTractor busy={cartBusy} />
       {cartBusy ? 'Warenkorb wird gelesen …' : 'Warenkorb übertragen'}
@@ -490,6 +576,17 @@ function PartsPage() {
                 Teilenummer aus Zwischenablage
               </Button>
             </div>
+            {bookmarkHelp ? (
+              <BookmarkSetup onClose={() => setBookmarkHelp(false)} />
+            ) : (
+              <button
+                type="button"
+                className="self-start text-sm font-semibold text-primary underline"
+                onClick={() => setBookmarkHelp(true)}
+              >
+                Lesezeichen „Warenkorb kopieren“ einrichten
+              </button>
+            )}
             <ol className="list-inside list-decimal text-sm text-text-muted">
               <li>
                 <strong className="text-text">Nebeneinander auf dem iPad:</strong> „AGCO-Katalog öffnen“
@@ -670,6 +767,7 @@ function PartsPage() {
           }}
         />
       )}
+      <TractorMagic busy={cartBusy} />
       {scanning && (
         <Scanner
           onClose={() => setScanning(false)}

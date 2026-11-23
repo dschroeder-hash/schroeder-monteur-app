@@ -102,3 +102,22 @@ describe('stock', () => {
     expect(meterPlausible(80)).toBe(true);
   });
 });
+
+import { parseShopCart, SHOP_CART_BOOKMARKLET, SHOP_CART_MARKER } from './shop-cart.js';
+
+describe('shop cart bookmark (E-77)', () => {
+  it('reads the lines the bookmark copied, sums duplicates', () => {
+    expect(
+      parseShopCart(`${SHOP_CART_MARKER}\nX548844266000\t1\nF530200220390\t2\nx548844266000\t3\nPreis\tx`),
+    ).toEqual([
+      { partNo: 'X548844266000', quantity: 4 },
+      { partNo: 'F530200220390', quantity: 2 },
+    ]);
+    expect(parseShopCart('AGCO-Teilenr. X548844266000')).toBeNull();
+  });
+  it('bookmark is a single-line javascript: URL that is valid JavaScript', () => {
+    expect(SHOP_CART_BOOKMARKLET.startsWith('javascript:')).toBe(true);
+    expect(SHOP_CART_BOOKMARKLET).not.toMatch(/\s/);
+    expect(() => new Function(decodeURI(SHOP_CART_BOOKMARKLET.slice('javascript:'.length)))).not.toThrow();
+  });
+});
