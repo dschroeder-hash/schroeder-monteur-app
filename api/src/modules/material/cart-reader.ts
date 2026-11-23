@@ -29,6 +29,8 @@ export class CartReadError extends Error {}
 const CartSchema = z.object({
   lines: z.array(
     z.object({
+      /** Where the line is on the page – only 'warenkorb' lines are used. */
+      section: z.enum(['warenkorb', 'andere']),
       partNo: z.string(),
       quantity: z.number(),
       name: z.string().nullable(),
@@ -37,7 +39,14 @@ const CartSchema = z.object({
 });
 
 const PROMPT = `Das Bild zeigt den Warenkorb bzw. die Bestellanfrage eines Ersatzteil-Shops (z. B. AGCO Parts).
-Lies jede Warenkorbzeile aus:
+Auf solchen Seiten stehen neben dem Warenkorb oft weitere Artikel: Empfehlungen, „Kunden kauften auch“,
+Zubehör, zuletzt angesehene Artikel, Merkliste, Werbung. Diese gehören NICHT zum Warenkorb.
+Eine Warenkorbzeile erkennst du an ihrem Mengenfeld mit Minus-/Plus-Knöpfen und dem Link „Entfernen“
+(bzw. einem Auswahlkästchen) im Warenkorb-Bereich, links neben der „Zusammenfassung der Bestellanfrage“.
+Gib jede sichtbare Artikelzeile zurück und setze section:
+- "warenkorb" nur für echte Warenkorbzeilen;
+- "andere" für alles andere (Empfehlungen, Zubehör, zuletzt angesehen usw.).
+Je Zeile:
 - partNo: die Teilenummer genau wie angezeigt (z. B. hinter „AGCO-Teilenr.“), ohne Zusätze;
 - quantity: die eingestellte Menge (die Zahl zwischen den Minus-/Plus-Knöpfen, sonst „n X … pro Stück“);
 - name: die Bezeichnung des Teils, falls sichtbar, sonst null.
@@ -74,7 +83,7 @@ export class ClaudeCartReader implements CartReader {
       throw new CartReadError(
         'Der Warenkorb konnte nicht gelesen werden – bitte ein deutlicheres Bild nehmen.',
       );
-    return cleanLines(response.parsed_output.lines);
+    return cleanLines(response.parsed_output.lines.filter((l) => l.section === 'warenkorb'));
   }
 }
 
