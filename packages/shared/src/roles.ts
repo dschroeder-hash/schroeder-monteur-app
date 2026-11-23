@@ -17,7 +17,12 @@ export function isRole(value: string): value is Role {
 }
 
 /** Roles that are bound to a location (scope comes from user_location). */
-export const LOCATION_SCOPED_ROLES: readonly Role[] = [ROLES.Monteur, ROLES.Meister, ROLES.Lager, ROLES.Terminal];
+export const LOCATION_SCOPED_ROLES: readonly Role[] = [
+  ROLES.Monteur,
+  ROLES.Meister,
+  ROLES.Lager,
+  ROLES.Terminal,
+];
 
 /** German UI labels. */
 export const ROLE_LABELS: Record<Role, string> = {
