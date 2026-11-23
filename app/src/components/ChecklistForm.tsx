@@ -26,15 +26,27 @@ export function ChecklistForm({
   // Only a change of the answers saves – never a re-render (the save itself updates the page).
   const save = useRef(onSave);
   save.current = onSave;
+  const pending = useRef<Record<string, ChecklistAnswer> | null>(null);
   useEffect(() => {
     if (first.current) {
       first.current = false;
       return;
     }
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => save.current(results), 600);
-    return () => clearTimeout(timer.current);
+    pending.current = results;
+    timer.current = setTimeout(() => {
+      pending.current = null;
+      save.current(results);
+    }, 600);
   }, [results]);
+  // Leaving the page right after the last tap must not lose it: save what is still waiting.
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      if (pending.current) save.current(pending.current);
+    },
+    [],
+  );
   const set = (id: string, patch: Partial<ChecklistAnswer>) =>
     setResults((r) => ({ ...r, [id]: { ...EMPTY, ...r[id], ...patch } }));
 

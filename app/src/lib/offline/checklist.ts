@@ -46,7 +46,10 @@ export function useOrderChecklist(orderId: string) {
   );
   const items = tpl && order ? checklistItemsFor(tpl.items, order.orderTypeCode) : [];
   const answers: Record<string, ChecklistAnswer> = tpl
-    ? { ...tpl.initial, ...(checklist && checklist.templateId === tpl.id ? checklist.results : {}) }
+    ? {
+        ...tpl.initial,
+        ...(checklist && (checklist.templateId ?? null) === (tpl.id ?? null) ? checklist.results : {}),
+      }
     : {};
   const openItems = tpl ? checklistMissing(items, answers) : [];
   return {

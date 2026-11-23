@@ -46,14 +46,17 @@ test('Monteur finishes the order with checklist and customer signature – BC re
   await page.waitForURL('**/monteur/auftrag?id=*');
 
   // ---- Service checklist during the work (working time), reached from the order page ----
+  // The seed has a yellow-card template for this order (app template or BC lines).
   const checklistTile = page.getByRole('link', { name: /Servicecheckliste/ });
-  const hasChecklist = (await checklistTile.count()) > 0;
-  if (hasChecklist) {
+  await expect(checklistTile).toBeVisible({ timeout: 15_000 });
+  {
     await expect(checklistTile).toContainText('noch nicht ausgefüllt');
     await checklistTile.click();
     await page.waitForURL('**/monteur/checkliste?orderId=*');
     // yellow card: tick every "Eingabe" checkbox (the end-of-repair questions are mandatory), one quantity with unit
+    await expect(page.getByRole('heading', { name: /Checkliste:/ })).toBeVisible();
     const open = page.locator('[data-check] [role="checkbox"][aria-checked="false"]');
+    await expect(open.first()).toBeVisible();
     while ((await open.count()) > 0) await open.first().click();
     const qty = page.getByRole('textbox', { name: 'Menge Motoröl' });
     if (await qty.count()) {
@@ -75,7 +78,7 @@ test('Monteur finishes the order with checklist and customer signature – BC re
   await expect(finish).toBeDisabled();
 
   // Checklist is filled in on its own page during the work; the completion page only checks it.
-  if (hasChecklist) await expect(page.getByText(/Checkliste vollständig ausgefüllt/)).toBeVisible();
+  await expect(page.getByText(/Checkliste vollständig ausgefüllt/)).toBeVisible();
   await page.getByRole('link', { name: 'Zurück zum Auftrag' }).click();
   await page.waitForURL('**/monteur/auftrag?id=*');
   await page.getByRole('link', { name: /Arbeit abgeschlossen/ }).click();
