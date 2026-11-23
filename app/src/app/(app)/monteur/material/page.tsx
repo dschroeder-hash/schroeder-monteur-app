@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleCheck, ClipboardPaste, ExternalLink, PanelTop, ScanLine } from 'lucide-react';
+import { ArrowLeft, CircleCheck, ClipboardPaste, ExternalLink, Maximize2, ScanLine, X } from 'lucide-react';
 import {
   agcoDeeplinkAdapter,
   estimateDelivery,
@@ -62,7 +62,19 @@ function PartsPage() {
   /** AGCO catalog inside the page (E-74) – Admin can switch it off; the Monteur opens/closes it. */
   const [embedAllowed, setEmbedAllowed] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
-  const [embedTall, setEmbedTall] = useState(true);
+  /** Results panel under the full-screen catalog: opens when a part number comes over, closable. */
+  const [embedPanel, setEmbedPanel] = useState(false);
+  useEffect(() => {
+    if (!embedOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setEmbedOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [embedOpen]);
   useEffect(() => {
     if (navigator.onLine)
       apiFetch<Array<{ id: string; template: string | null; embed?: boolean }>>('/v1/parts/catalogs')
@@ -172,6 +184,7 @@ function PartsPage() {
     const nos = extractPartNos(raw);
     if (!nos.length) return toast('Keine Teilenummer erkannt');
     setPaste('');
+    setEmbedPanel(true);
     if (nos.length === 1) {
       setCatalogList([]);
       return showPart(nos[0]!);
@@ -190,6 +203,89 @@ function PartsPage() {
       toast('Zwischenablage nicht lesbar – Teilenummer bitte ins Feld einfügen');
     }
   };
+
+  const resultList = (
+    <ul className="flex flex-col gap-2" aria-label="Suchergebnisse">
+      {results.map((i) => {
+        const own = i.stock.filter((s) => s.storage.kind !== 'TANK');
+        const others = remote[i.id]?.otherLocations ?? [];
+        const none = own.every((s) => s.available <= 0);
+        return (
+          <li key={i.id} className="rounded-card border border-border bg-surface p-3" data-item={i.number}>
+            <p className="font-mono text-sm text-text-muted">{i.number}</p>
+            <p className="font-semibold">{i.name}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {own.map((s) => (
+                <Button
+                  key={s.storage.id}
+                  variant="secondary"
+                  disabled={s.available <= 0}
+                  onClick={() => void addToCart(i, s.storage.id)}
+                >
+                  {s.storage.kind === 'LAGER' ? STORAGE_LABEL.LAGER : s.storage.name}: {s.available} {i.unit}
+                </Button>
+              ))}
+              {none && <Button onClick={() => setRequestFor({ item: i })}>Fehlt – bestellen</Button>}
+            </div>
+            {others.length > 0 && (
+              <p className="mt-2 text-sm text-text-muted">
+                Andere Läger: {others.map((o) => `${o.name} ${o.available}`).join(' · ')}
+              </p>
+            )}
+          </li>
+        );
+      })}
+      {text.length >= 2 && results.length === 0 && (
+        <li className="flex flex-col gap-2 rounded-card border border-dashed border-border p-3">
+          <p>Nichts gefunden{navigator.onLine ? '' : ' (offline nur im Standortkatalog)'}.</p>
+          <Button variant="secondary" onClick={() => setRequestFor({ text })}>
+            Teil nicht im Stamm – Anfrage ans Lager
+          </Button>
+        </li>
+      )}
+    </ul>
+  );
+  const catalogListView = catalogList.length > 0 && (
+    <div className="flex flex-col gap-1" aria-live="polite">
+      <h3 className="font-semibold">Aus dem Katalog ({catalogList.length} Teilenummern)</h3>
+      <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
+        {catalogList.map((c) => (
+          <li key={c.partNo} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+            <span className="min-w-0">
+              <span className="font-semibold tabular-nums">{c.partNo}</span>
+              <span className="text-text-muted">
+                {' · '}
+                {c.state === 'pending'
+                  ? 'wird gesucht …'
+                  : c.state === 'found'
+                    ? c.name
+                    : c.state === 'missing'
+                      ? 'nicht im Artikelstamm'
+                      : 'offline – später prüfen'}
+              </span>
+            </span>
+            {c.state === 'found' && (
+              <Button
+                variant={c.done ? 'ghost' : 'secondary'}
+                onClick={() => {
+                  setCatalogList((cur) => cur.map((x) => (x.partNo === c.partNo ? { ...x, done: true } : x)));
+                  void showPart(c.partNo);
+                }}
+              >
+                {c.done && <CircleCheck aria-hidden className="h-5 w-5 text-success" />}
+                Auswählen
+              </Button>
+            )}
+            {c.state === 'missing' && (
+              <Button variant="secondary" onClick={() => setRequestFor({ text: c.partNo })}>
+                Beim Lager anfragen
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -218,46 +314,7 @@ function PartsPage() {
         </Button>
       </div>
 
-      <ul className="flex flex-col gap-2" aria-label="Suchergebnisse">
-        {results.map((i) => {
-          const own = i.stock.filter((s) => s.storage.kind !== 'TANK');
-          const others = remote[i.id]?.otherLocations ?? [];
-          const none = own.every((s) => s.available <= 0);
-          return (
-            <li key={i.id} className="rounded-card border border-border bg-surface p-3" data-item={i.number}>
-              <p className="font-mono text-sm text-text-muted">{i.number}</p>
-              <p className="font-semibold">{i.name}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {own.map((s) => (
-                  <Button
-                    key={s.storage.id}
-                    variant="secondary"
-                    disabled={s.available <= 0}
-                    onClick={() => void addToCart(i, s.storage.id)}
-                  >
-                    {s.storage.kind === 'LAGER' ? STORAGE_LABEL.LAGER : s.storage.name}: {s.available}{' '}
-                    {i.unit}
-                  </Button>
-                ))}
-                {none && <Button onClick={() => setRequestFor({ item: i })}>Fehlt – bestellen</Button>}
-              </div>
-              {others.length > 0 && (
-                <p className="mt-2 text-sm text-text-muted">
-                  Andere Läger: {others.map((o) => `${o.name} ${o.available}`).join(' · ')}
-                </p>
-              )}
-            </li>
-          );
-        })}
-        {text.length >= 2 && results.length === 0 && (
-          <li className="flex flex-col gap-2 rounded-card border border-dashed border-border p-3">
-            <p>Nichts gefunden{navigator.onLine ? '' : ' (offline nur im Standortkatalog)'}.</p>
-            <Button variant="secondary" onClick={() => setRequestFor({ text })}>
-              Teil nicht im Stamm – Anfrage ans Lager
-            </Button>
-          </li>
-        )}
-      </ul>
+      {!embedOpen && resultList}
 
       <section
         aria-labelledby="hersteller"
@@ -286,8 +343,8 @@ function PartsPage() {
               aria-expanded={embedOpen}
               onClick={() => setEmbedOpen((o) => !o)}
             >
-              <PanelTop aria-hidden className="h-5 w-5" />
-              {embedOpen ? 'Katalog ausblenden' : 'Katalog hier anzeigen'}
+              <Maximize2 aria-hidden className="h-5 w-5" />
+              Katalog hier anzeigen
             </Button>
           )}
           {agco.startUrl && (
@@ -329,28 +386,6 @@ function PartsPage() {
             Teilenummer aus Zwischenablage
           </Button>
         </div>
-        {embedOpen && agco.startUrl && (
-          <div className="flex flex-col gap-2" data-testid="catalog-embed">
-            <iframe
-              title="AGCO-Teilekatalog"
-              src={agco.startUrl}
-              className={`w-full rounded-card border border-border bg-white ${embedTall ? 'h-[65vh]' : 'h-[40vh]'}`}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
-              referrerPolicy="strict-origin"
-              allow="clipboard-write"
-            />
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-text-muted">
-              <span>
-                Teilenummer im Katalog markieren und in diesen Kasten ziehen – oder kopieren und „Teilenummer
-                aus Zwischenablage“ tippen. Bleibt die Fläche leer oder klappt die Anmeldung nicht, lässt AGCO
-                die Anzeige in der App nicht zu: dann „AGCO-Katalog öffnen“.
-              </span>
-              <Button variant="ghost" onClick={() => setEmbedTall((t) => !t)}>
-                {embedTall ? 'Katalog kleiner' : 'Katalog größer'}
-              </Button>
-            </div>
-          </div>
-        )}
         <ol className="list-inside list-decimal text-sm text-text-muted">
           <li>
             <strong className="text-text">Nebeneinander auf dem iPad:</strong> „AGCO-Katalog öffnen“ gedrückt
@@ -381,51 +416,94 @@ function PartsPage() {
             Übernehmen
           </Button>
         </div>
-        {catalogList.length > 0 && (
-          <div className="flex flex-col gap-1" aria-live="polite">
-            <h3 className="font-semibold">Aus dem Katalog ({catalogList.length} Teilenummern)</h3>
-            <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
-              {catalogList.map((c) => (
-                <li key={c.partNo} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                  <span className="min-w-0">
-                    <span className="font-semibold tabular-nums">{c.partNo}</span>
-                    <span className="text-text-muted">
-                      {' · '}
-                      {c.state === 'pending'
-                        ? 'wird gesucht …'
-                        : c.state === 'found'
-                          ? c.name
-                          : c.state === 'missing'
-                            ? 'nicht im Artikelstamm'
-                            : 'offline – später prüfen'}
-                    </span>
-                  </span>
-                  {c.state === 'found' && (
-                    <Button
-                      variant={c.done ? 'ghost' : 'secondary'}
-                      onClick={() => {
-                        setCatalogList((cur) =>
-                          cur.map((x) => (x.partNo === c.partNo ? { ...x, done: true } : x)),
-                        );
-                        void showPart(c.partNo);
-                      }}
-                    >
-                      {c.done && <CircleCheck aria-hidden className="h-5 w-5 text-success" />}
-                      Auswählen
-                    </Button>
-                  )}
-                  {c.state === 'missing' && (
-                    <Button variant="secondary" onClick={() => setRequestFor({ text: c.partNo })}>
-                      Beim Lager anfragen
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {!embedOpen && catalogListView}
       </section>
 
+      {embedOpen && agco.startUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="AGCO-Teilekatalog"
+          data-testid="catalog-embed"
+          className="fixed inset-0 z-[45] flex flex-col bg-surface"
+        >
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDropActive(true);
+            }}
+            onDragLeave={() => setDropActive(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDropActive(false);
+              void ingest(e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text'));
+            }}
+            data-testid="catalog-embed-drop"
+            className={`flex flex-wrap items-center gap-2 border-b-2 px-3 py-2 transition-colors ${
+              dropActive ? 'border-dashed border-primary bg-success-bg' : 'border-border bg-surface'
+            }`}
+          >
+            <Button variant="secondary" onClick={() => setEmbedOpen(false)}>
+              <ArrowLeft aria-hidden className="h-5 w-5" />
+              Zurück
+            </Button>
+            <span className="min-w-0 flex-1 basis-40 text-sm font-semibold">
+              {dropActive
+                ? 'Loslassen – Teilenummer wird übernommen'
+                : 'Teilenummer markieren und hierher ziehen'}
+            </span>
+            <label className="sr-only" htmlFor="paste-embed">
+              Teilenummer einfügen
+            </label>
+            <input
+              id="paste-embed"
+              className={`${field} w-44`}
+              placeholder="… oder einfügen"
+              value={paste}
+              onChange={(e) => setPaste(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void resolvePaste()}
+              onPaste={(e) => {
+                e.preventDefault();
+                void ingest(e.clipboardData.getData('text/plain'));
+              }}
+            />
+            <Button
+              variant="secondary"
+              onClick={() => void fromClipboard()}
+              aria-label="Teilenummer aus Zwischenablage"
+            >
+              <ClipboardPaste aria-hidden className="h-5 w-5" />
+              <span className="hidden sm:inline">Zwischenablage</span>
+            </Button>
+            {cart.length > 0 && (
+              <Button onClick={() => setEmbedOpen(false)}>Warenkorb ({cart.length})</Button>
+            )}
+          </div>
+          <iframe
+            title="AGCO-Teilekatalog"
+            src={agco.startUrl}
+            className="min-h-0 w-full flex-1 bg-white"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
+            referrerPolicy="strict-origin"
+            allow="clipboard-write"
+          />
+          {embedPanel && (results.length > 0 || catalogList.length > 0) && (
+            <div
+              aria-label="Übernommene Teile"
+              className="flex max-h-[45vh] flex-col gap-2 overflow-y-auto border-t-4 border-primary bg-surface-muted p-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-bold">Übernommen{text ? `: ${text}` : ''}</h2>
+                <Button variant="ghost" onClick={() => setEmbedPanel(false)} aria-label="Ergebnis ausblenden">
+                  <X aria-hidden className="h-5 w-5" />
+                </Button>
+              </div>
+              {catalogListView}
+              {resultList}
+            </div>
+          )}
+        </div>
+      )}
       {cart.length > 0 && (
         <section
           aria-labelledby="warenkorb"

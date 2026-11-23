@@ -15,11 +15,22 @@ test('part numbers dragged or pasted from the catalog are resolved against the i
   await page.goto(`/monteur/material?orderId=${href.split('id=')[1]}`);
   await expect(page.locator('[data-catalog="agco-start"]')).toBeVisible();
 
-  // ---- Catalog inside the page (E-74): the AGCO start page in a frame, closable ----
+  // ---- Catalog inside the page (E-74): the AGCO start page full screen, closable ----
   await page.getByRole('button', { name: 'Katalog hier anzeigen' }).click();
   await expect(page.locator('iframe[title="AGCO-Teilekatalog"]')).toHaveAttribute('src', /agcocorp\.com/);
-  await page.getByRole('button', { name: 'Katalog ausblenden' }).click();
+  // Full screen: a part number dropped on the bar above the catalog shows up below it, the catalog stays open.
+  const one = await page.evaluateHandle(() => {
+    const dt = new DataTransfer();
+    dt.setData('text/plain', 'F931.200.020.010');
+    return dt;
+  });
+  const bar = page.getByTestId('catalog-embed-drop');
+  await bar.dispatchEvent('dragover', { dataTransfer: one });
+  await bar.dispatchEvent('drop', { dataTransfer: one });
+  await expect(page.getByTestId('catalog-embed').locator('[data-item="F931.200.020.010"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Zurück' }).click();
   await expect(page.locator('iframe[title="AGCO-Teilekatalog"]')).toHaveCount(0);
+  await page.getByPlaceholder('Teilenummer, Bezeichnung oder EAN').fill('');
 
   // ---- Several lines marked in the catalog and dropped onto the catalog area ----
   const data = await page.evaluateHandle(() => {
