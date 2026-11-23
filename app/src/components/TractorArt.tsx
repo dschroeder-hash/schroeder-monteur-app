@@ -1,5 +1,5 @@
 /**
- * Green standard tractor, side view (cab with large glass, long hood, big rear wheels, silver rims) – in the style of
+ * Green standard tractor, side view (cab with large glass, long hood, big rear wheels, red rims) – in the style of
  * the tractors in the Schröder workshop. No manufacturer logo or name. `spin` turns the wheels.
  */
 export function TractorArt({ className = '', spin = false }: { className?: string; spin?: boolean }) {
@@ -31,18 +31,18 @@ export function TractorArt({ className = '', spin = false }: { className?: strin
       <g className={wheel} style={{ transformOrigin: '46px 74px' }}>
         <circle cx="46" cy="74" r="31" fill="#1f2224" />
         <circle cx="46" cy="74" r="31" fill="none" stroke="#33383b" strokeWidth="5" strokeDasharray="5 4" />
-        <circle cx="46" cy="74" r="18" fill="#cfd4d6" />
-        <circle cx="46" cy="74" r="7" fill="#8d9497" />
-        <rect x="44" y="57" width="4" height="34" fill="#a9b0b3" />
-        <rect x="29" y="72" width="34" height="4" fill="#a9b0b3" />
+        <circle cx="46" cy="74" r="18" fill="#c8102e" />
+        <circle cx="46" cy="74" r="7" fill="#e8e9ea" />
+        <rect x="44" y="57" width="4" height="34" fill="#8e0c21" />
+        <rect x="29" y="72" width="34" height="4" fill="#8e0c21" />
       </g>
       {/* front wheel */}
       <g className={wheel} style={{ transformOrigin: '136px 86px' }}>
         <circle cx="136" cy="86" r="19" fill="#1f2224" />
         <circle cx="136" cy="86" r="19" fill="none" stroke="#33383b" strokeWidth="4" strokeDasharray="4 3" />
-        <circle cx="136" cy="86" r="11" fill="#cfd4d6" />
-        <circle cx="136" cy="86" r="4" fill="#8d9497" />
-        <rect x="134.5" y="76" width="3" height="20" fill="#a9b0b3" />
+        <circle cx="136" cy="86" r="11" fill="#c8102e" />
+        <circle cx="136" cy="86" r="4" fill="#e8e9ea" />
+        <rect x="134.5" y="76" width="3" height="20" fill="#8e0c21" />
       </g>
       <path d="M120 70 q16-14 32 0 z" fill="#5b9a32" />
     </svg>
