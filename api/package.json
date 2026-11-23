@@ -17,6 +17,7 @@
     "test:load": "LOAD=1 vitest run test/load-sync.test.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.12.0",
     "@azure/identity": "^4.14.1",
     "@azure/storage-blob": "^12.34.0",
     "@azure/web-pubsub": "^1.2.0",

@@ -60,6 +60,12 @@ const schema = z
     MFILES_MACHINE_LOOKUP_PROPERTY: z.coerce.number().int().optional(),
     MFILES_ORDER_NO_PROPERTY: z.coerce.number().int().optional(),
     SPEECH_KEY: z.string().optional(),
+    /**
+     * Reading the manufacturer cart from a screenshot (E-76): 'claude' (Anthropic API, ANTHROPIC_API_KEY),
+     * 'mock' (dev/test: fixed lines, no external call) or 'off'.
+     */
+    CART_AI: z.enum(['off', 'claude', 'mock']).default('off'),
+    CART_AI_MODEL: z.string().default('claude-opus-5-5'),
     /** Set by the worker entry point: the worker does not validate user tokens. */
     COMPONENT: z.enum(['api', 'worker']).default('api'),
   })

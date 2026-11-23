@@ -46,6 +46,7 @@ import { CommService } from './modules/files/comm.service.js';
 import { BLOB_STORAGE } from './modules/files/files.tokens.js';
 import { NoRealtime, REALTIME, WebPubSubRealtime } from './modules/files/realtime.js';
 import { AzureSpeech, NoRewrite, SPEECH, TEXT_REWRITE } from './modules/files/speech.js';
+import { CART_READER, cartReaderFor } from './modules/material/cart-reader.js';
 import { ContainersController, MaterialController } from './modules/material/material.controller.js';
 import { SyncService } from './modules/sync/sync.service.js';
 import { PinController, TerminalController, TerminalService } from './modules/terminal/terminal.js';
@@ -120,6 +121,7 @@ export class AppModule {
         },
         { provide: SPEECH, useFactory: () => new AzureSpeech(config.SPEECH_REGION, config.SPEECH_KEY) },
         { provide: TEXT_REWRITE, useFactory: () => new NoRewrite() },
+        { provide: CART_READER, useFactory: () => cartReaderFor(config.CART_AI, config.CART_AI_MODEL) },
         TimeService,
         { provide: APP_GUARD, useClass: AuthGuard },
         { provide: APP_FILTER, useClass: HttpErrorFilter },

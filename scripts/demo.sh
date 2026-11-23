@@ -50,6 +50,7 @@ PORT=4100 nohup node bc-mock/dist/main.js >"$LOGS/bc-mock.log" 2>&1 &
 APP_ENV=dev PORT=4000 AUTH_MODE=dev DEV_AUTH_SECRET=demo-secret-demo-secret-demo-secret-1234 \
   DATABASE_URL="postgres://monteur_api_demo:demo@$HOSTPART/monteur_demo" CORS_ORIGINS=http://localhost:3000 \
   PUBLIC_API_URL=http://localhost:3000 LOCAL_STORAGE_DIR=/tmp/monteur-demo-uploads \
+  CART_AI="${CART_AI:-$([ -n "${ANTHROPIC_API_KEY:-}" ] && echo claude || echo mock)}" \
   nohup node api/dist/main.js >"$LOGS/api.log" 2>&1 &
 APP_ENV=dev BC_MODE=mock BC_API_BASE_URL=http://localhost:4100/api BC_TOKEN_URL=http://localhost:4100/oauth2/token \
   WORKER_HEALTH_PORT=4001 DATABASE_URL="postgres://monteur_worker_demo:demo@$HOSTPART/monteur_demo" \

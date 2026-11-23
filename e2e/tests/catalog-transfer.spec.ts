@@ -32,6 +32,21 @@ test('part numbers dragged or pasted from the catalog are resolved against the i
   await expect(page.locator('iframe[title="AGCO-Teilekatalog"]')).toHaveCount(0);
   await page.getByPlaceholder('Teilenummer, Bezeichnung oder EAN').fill('');
 
+  // ---- "Warenkorb übertragen" (E-76): screenshot of the shop cart → AI (mock in tests) → lines with quantities ----
+  await expect(page.getByRole('button', { name: 'Warenkorb übertragen' }).first()).toBeVisible();
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  await page
+    .getByTestId('cart-image')
+    .setInputFiles({ name: 'warenkorb.png', mimeType: 'image/png', buffer: png });
+  await expect(page.getByRole('heading', { name: 'Aus dem Katalog (2 Teilenummern)' })).toBeVisible();
+  await expect(page.getByRole('listitem').filter({ hasText: '2 × F931.200.020.010' })).toBeVisible();
+  await page.getByRole('button', { name: 'Alle in den Warenkorb' }).click();
+  await expect(page.getByRole('heading', { name: /Warenkorb \(1\)/ })).toBeVisible();
+  await expect(page.locator('section[aria-labelledby="warenkorb"]')).toContainText('2');
+
   // ---- Several lines marked in the catalog and dropped onto the catalog area ----
   const data = await page.evaluateHandle(() => {
     const dt = new DataTransfer();

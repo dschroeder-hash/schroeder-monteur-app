@@ -84,6 +84,7 @@ export async function createApp(
       : res.status(401).json({ statusCode: 401, message: 'Nicht angemeldet' }),
   );
   app.use('/v1/speech/transcribe', express.raw({ type: () => true, limit: '5mb' }));
+  app.use('/v1/parts/cart-from-image', express.raw({ type: () => true, limit: '6mb' }));
   app.enableCors({ origin: config.CORS_ORIGINS.split(',').map((s) => s.trim()), credentials: false });
   app.enableShutdownHooks();
   return app;

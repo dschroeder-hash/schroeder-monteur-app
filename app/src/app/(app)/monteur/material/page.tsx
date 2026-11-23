@@ -1,6 +1,15 @@
 'use client';
 
-import { ArrowLeft, CircleCheck, ClipboardPaste, ExternalLink, Maximize2, ScanLine, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  CircleCheck,
+  ClipboardPaste,
+  ExternalLink,
+  Maximize2,
+  ScanLine,
+  ShoppingCart,
+  X,
+} from 'lucide-react';
 import {
   agcoDeeplinkAdapter,
   estimateDelivery,
@@ -10,12 +19,15 @@ import {
 } from '@schroeder/shared';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { BackLink } from '@/components/BackLink';
+import { MagicTractor } from '@/components/MagicTractor';
 import { Scanner } from '@/components/Scanner';
 import { toast } from '@/components/Toast';
 import { Button } from '@/components/ui/Button';
-import { apiFetch } from '@/lib/api';
+import { ApiError, apiFetch } from '@/lib/api';
+import { useAuth } from '@/lib/auth/AuthProvider';
+import { canCaptureTab, captureTab, shrinkImageFile } from '@/lib/cart-capture';
 import { kvGet, localDb, type CartLine } from '@/lib/offline/db';
 import { searchLocal, STORAGE_LABEL, withStock, type ItemWithStock } from '@/lib/offline/material';
 import { useSync } from '@/lib/offline/SyncProvider';
@@ -55,6 +67,8 @@ function PartsPage() {
       state: 'pending' | 'found' | 'missing' | 'offline';
       name?: string;
       done?: boolean;
+      /** Quantity from the manufacturer cart (E-76). */
+      quantity?: number;
     }>
   >([]);
   const [dropActive, setDropActive] = useState(false);
@@ -192,6 +206,89 @@ function PartsPage() {
     }
   };
   const resolvePaste = () => ingest(paste);
+  /** "Warenkorb übertragen" (E-76): picture of the manufacturer cart → AI → lines with quantities. */
+  const { me } = useAuth();
+  const cartAi = !!me?.features['parts.cartAi'];
+  const cartFile = useRef<HTMLInputElement>(null);
+  const [cartBusy, setCartBusy] = useState(false);
+  const readCart = async (img: Blob) => {
+    setCartBusy(true);
+    try {
+      const r = await apiFetch<{
+        lines: Array<{
+          partNo: string;
+          quantity: number;
+          name: string | null;
+          item: { id: string; name: string } | null;
+        }>;
+      }>('/v1/parts/cart-from-image', { method: 'POST', body: img, headers: { 'content-type': img.type } });
+      if (!r.lines.length) return toast('Im Bild wurde kein Warenkorb erkannt');
+      setCatalogList(
+        r.lines.map((l) => ({
+          partNo: l.partNo,
+          quantity: l.quantity,
+          state: l.item ? 'found' : 'missing',
+          name: l.item?.name ?? l.name ?? undefined,
+        })),
+      );
+      setEmbedPanel(true);
+      toast(`${r.lines.length} Positionen aus dem Warenkorb gelesen – bitte prüfen`);
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : 'Warenkorb nicht übertragen – bitte erneut versuchen');
+    } finally {
+      setCartBusy(false);
+    }
+  };
+  const transferCart = async () => {
+    if (!navigator.onLine) return toast('Für die Warenkorb-Übernahme wird eine Verbindung benötigt');
+    if (canCaptureTab()) {
+      const img = await captureTab();
+      if (img) return readCart(img);
+    }
+    toast('Bildschirmfoto vom Warenkorb auswählen (vorher am iPad: Ein/Aus-Taste + Lauter-Taste)');
+    cartFile.current?.click();
+  };
+  /** Puts every recognised line into the order's cart – from the main warehouse if it has enough, else any storage. */
+  const addAllToCart = async () => {
+    let added = 0;
+    const short: string[] = [];
+    for (const c of catalogList) {
+      if (c.state !== 'found' || c.done) continue;
+      const qty = c.quantity ?? 1;
+      const it = (await searchLocal(c.partNo)).find(
+        (i) => normalizePartNo(i.number) === normalizePartNo(c.partNo),
+      );
+      const st = it?.stock
+        .filter((x) => x.storage.kind !== 'TANK' && x.available >= qty)
+        .sort((a, b) => Number(b.storage.kind === 'LAGER') - Number(a.storage.kind === 'LAGER'))[0];
+      if (!it || !st) {
+        short.push(c.partNo);
+        continue;
+      }
+      const existing = cart.find((x) => x.itemId === it.id && x.storageLocationId === st.storage.id);
+      if (existing) await localDb.cart.update(existing.id, { quantity: existing.quantity + qty });
+      else
+        await localDb.cart.put({
+          id: crypto.randomUUID(),
+          orderId,
+          itemId: it.id,
+          storageLocationId: st.storage.id,
+          quantity: qty,
+        });
+      setCatalogList((cur) => cur.map((x) => (x.partNo === c.partNo ? { ...x, done: true } : x)));
+      added++;
+    }
+    toast(
+      `${added} ${added === 1 ? 'Position' : 'Positionen'} im Warenkorb` +
+        (short.length ? ` – nicht genug Bestand: ${short.join(', ')}` : ''),
+    );
+  };
+  const cartButton = cartAi && (
+    <Button variant="secondary" onClick={() => void transferCart()} disabled={cartBusy} aria-busy={cartBusy}>
+      <MagicTractor busy={cartBusy} />
+      {cartBusy ? 'Warenkorb wird gelesen …' : 'Warenkorb übertragen'}
+    </Button>
+  );
   const fromClipboard = async () => {
     try {
       await ingest(await navigator.clipboard.readText());
@@ -244,10 +341,17 @@ function PartsPage() {
   const catalogListView = catalogList.length > 0 && (
     <div className="flex flex-col gap-1" aria-live="polite">
       <h3 className="font-semibold">Aus dem Katalog ({catalogList.length} Teilenummern)</h3>
+      {catalogList.some((c) => c.quantity && c.state === 'found' && !c.done) && (
+        <Button className="self-start" onClick={() => void addAllToCart()}>
+          <ShoppingCart aria-hidden className="h-5 w-5" />
+          Alle in den Warenkorb
+        </Button>
+      )}
       <ul className="flex flex-col divide-y divide-border rounded-card border border-border">
         {catalogList.map((c) => (
           <li key={c.partNo} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
             <span className="min-w-0">
+              {c.quantity && <span className="font-semibold tabular-nums">{c.quantity} × </span>}
               <span className="font-semibold tabular-nums">{c.partNo}</span>
               <span className="text-text-muted">
                 {' · '}
@@ -380,6 +484,7 @@ function PartsPage() {
                   AGCO: „{text}“ suchen
                 </a>
               )}
+              {cartButton}
               <Button variant="secondary" onClick={() => void fromClipboard()}>
                 <ClipboardPaste aria-hidden className="h-5 w-5" />
                 Teilenummer aus Zwischenablage
@@ -467,6 +572,7 @@ function PartsPage() {
                 void ingest(e.clipboardData.getData('text/plain'));
               }}
             />
+            {cartButton}
             <Button
               variant="secondary"
               onClick={() => void fromClipboard()}
@@ -549,6 +655,21 @@ function PartsPage() {
         </section>
       )}
 
+      {cartAi && (
+        <input
+          ref={cartFile}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          aria-label="Bildschirmfoto des Warenkorbs"
+          data-testid="cart-image"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (f) void shrinkImageFile(f).then(readCart, () => toast('Bild nicht lesbar'));
+          }}
+        />
+      )}
       {scanning && (
         <Scanner
           onClose={() => setScanning(false)}

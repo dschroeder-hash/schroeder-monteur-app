@@ -7,11 +7,15 @@ import {
   HttpCode,
   Inject,
   NotFoundException,
+  NotImplementedException,
   Param,
   Patch,
   Post,
   Query,
+  Req,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
@@ -38,7 +42,15 @@ import {
   storageLocation,
 } from '../../db/schema.js';
 import { notify } from '../notifications.js';
+import { FeatureService } from '../../features/feature.service.js';
 import { MaterialService } from './material.service.js';
+import {
+  CART_IMAGE_TYPES,
+  CART_READER,
+  CartReadError,
+  type CartImageType,
+  type CartReader,
+} from './cart-reader.js';
 
 const searchQuery = z.object({ q: z.string().max(80).optional(), code: z.string().max(80).optional() });
 const resolveQuery = z.object({ text: z.string().min(1).max(500) });
@@ -69,10 +81,52 @@ export class MaterialController {
     @Inject(DB) private readonly db: Db,
     @Inject(MaterialService) private readonly material: MaterialService,
     @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(CART_READER) private readonly cartReader: CartReader,
+    @Inject(FeatureService) private readonly features: FeatureService,
   ) {}
 
   private sess(s: AccessScope) {
     return { userId: s.userId, roles: s.roles };
+  }
+
+  /**
+   * "Warenkorb übertragen" (E-76): screenshot of the manufacturer cart → part numbers and quantities, each resolved
+   * against the BC item master. The image is not stored; it goes to the AI provider only for this one request.
+   */
+  @Post('parts/cart-from-image')
+  @HttpCode(200)
+  @Roles(ROLES.Monteur, ROLES.Meister, ROLES.Lager)
+  @RequireFeature('materials')
+  async cartFromImage(@Scope() s: AccessScope, @Req() req: Request) {
+    if (!(await this.features.isEnabledForAny('parts.cartAi', s.locationIds)))
+      throw new ForbiddenException('Warenkorb-Übernahme per KI ist nicht freigeschaltet');
+    if (!this.cartReader.configured)
+      throw new NotImplementedException('Warenkorb-Übernahme per KI ist nicht eingerichtet');
+    const image = req.body as Buffer;
+    const type = String(req.headers['content-type'] ?? '')
+      .split(';')[0]!
+      .trim();
+    if (!Buffer.isBuffer(image) || image.length === 0) throw new BadRequestException('Bild fehlt');
+    if (!(CART_IMAGE_TYPES as readonly string[]).includes(type))
+      throw new BadRequestException('Bitte ein Bild (PNG oder JPEG) senden');
+    let lines;
+    try {
+      lines = await this.cartReader.read(image, type as CartImageType);
+    } catch (e) {
+      if (e instanceof CartReadError) throw new BadRequestException(e.message);
+      throw new ServiceUnavailableException(
+        'Die KI ist gerade nicht erreichbar – bitte später erneut versuchen',
+      );
+    }
+    const resolved = await withSession(this.db, this.sess(s), async (tx) =>
+      Promise.all(
+        lines.map(async (l) => {
+          const items = await this.material.search(tx, s.locationIds, { code: l.partNo }, 1);
+          return { ...l, item: items[0] ?? null };
+        }),
+      ),
+    );
+    return { lines: resolved };
   }
 
   @Get('items/search')

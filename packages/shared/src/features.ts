@@ -14,6 +14,7 @@ export const FEATURES = [
   'chat',
   'dictation',
   'dictation.ai',
+  'parts.cartAi',
   'absence.sick',
   'absence.vacation',
 ] as const;
@@ -40,6 +41,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   chat: 'Auftrags-Chat',
   dictation: 'Diktat',
   'dictation.ai': 'KI-Umformulierung Diktat',
+  'parts.cartAi': 'KI: Warenkorb aus Herstellershop übernehmen',
   'absence.sick': 'Krankmeldung',
   'absence.vacation': 'Urlaubsanträge',
 };
@@ -51,6 +53,6 @@ export function isFeature(value: string): value is Feature {
 /** Default state of a flag when no row exists for a location. */
 export function defaultFeatureState(feature: Feature, environment: 'dev' | 'test' | 'prod'): boolean {
   if (environment !== 'prod') return true;
-  if (feature === 'dictation.ai') return false;
+  if (feature === 'dictation.ai' || feature === 'parts.cartAi') return false;
   return !WORKS_COUNCIL_FEATURES.includes(feature);
 }

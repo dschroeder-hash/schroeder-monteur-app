@@ -54,6 +54,7 @@ export default defineConfig({
       env: {
         APP_ENV: 'test',
         PORT: '4010',
+        CART_AI: 'mock',
         AUTH_MODE: 'dev',
         DEV_AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret-1234',
         DATABASE_URL: `postgres://monteur_api_e2e:e2e@${host}/${E2E_DB}`,
