@@ -295,7 +295,7 @@ function PartsPage() {
               className="inline-flex min-h-touch items-center gap-2 rounded-card bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover"
               href={agco.startUrl}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener"
               data-catalog="agco-start"
             >
               <ExternalLink aria-hidden className="h-5 w-5" />
@@ -308,7 +308,7 @@ function PartsPage() {
               href={agco.buildSearchUrl({ serialNo: machine.serialNo }) ?? '#'}
               onClick={() => copyForCatalog(machine.serialNo)}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener"
             >
               AGCO: Seriennr. {machine.serialNo}
             </a>
@@ -319,7 +319,7 @@ function PartsPage() {
               href={agco.buildSearchUrl({ partNo: text }) ?? '#'}
               onClick={() => copyForCatalog(text)}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener"
             >
               AGCO: „{text}“ suchen
             </a>
@@ -336,7 +336,7 @@ function PartsPage() {
               src={agco.startUrl}
               className={`w-full rounded-card border border-border bg-white ${embedTall ? 'h-[65vh]' : 'h-[40vh]'}`}
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
-              referrerPolicy="no-referrer"
+              referrerPolicy="strict-origin"
               allow="clipboard-write"
             />
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-text-muted">
