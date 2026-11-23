@@ -120,6 +120,7 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
   'GET /v1/items/search': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild', 'werkstatt-pc-wild'] },
   'GET /v1/items/resolve': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
   'GET /v1/parts/catalogs': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
+  'POST /v1/parts/cart-from-image': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
   'GET /v1/parts/requests': { allowed: ['meister-wild', 'lager-wild'] },
   'POST /v1/parts/requests/{id}/state': {
     allowed: ['meister-wild', 'lager-wild'],
