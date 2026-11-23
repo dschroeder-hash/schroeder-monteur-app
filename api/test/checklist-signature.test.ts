@@ -137,7 +137,7 @@ describe('checklist templates (Admin)', () => {
 });
 
 describe('Arbeit abgeschlossen with checklist and signature', () => {
-  it('without checklist and signature the order stays "Doku offen" and names what is missing', async () => {
+  it('without signature the order stays "Doku offen"; the open checklist does not block (E-79)', async () => {
     await push('SaveWorkReport', {
       orderId: order.id,
       body: 'Inspektion durchgeführt.',
@@ -145,7 +145,7 @@ describe('Arbeit abgeschlossen with checklist and signature', () => {
     }).expect(200);
     const res = await push('SetOrderStatus', { orderId: order.id, status: 'FERTIG' }).expect(200);
     const warning = res.body.results[0].warnings[0] as string;
-    expect(warning).toContain('Checkliste (2 offen)');
+    expect(warning).not.toContain('Checkliste');
     expect(warning).toContain('Unterschrift des Kunden');
     expect(await status()).toBe('FERTIG_DOKU_OFFEN');
   });

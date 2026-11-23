@@ -50,7 +50,7 @@ test('Monteur finishes the order with checklist and customer signature – BC re
   const checklistTile = page.getByRole('link', { name: /Servicecheckliste/ });
   await expect(checklistTile).toBeVisible({ timeout: 15_000 });
   {
-    await expect(checklistTile).toContainText('noch nicht ausgefüllt');
+    await expect(checklistTile).toContainText('freiwillig');
     await checklistTile.click();
     await page.waitForURL('**/monteur/checkliste?orderId=*');
     // yellow card: tick every "Eingabe" checkbox (the end-of-repair questions are mandatory), one quantity with unit

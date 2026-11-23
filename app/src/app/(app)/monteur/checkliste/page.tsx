@@ -33,7 +33,8 @@ function ChecklistPage() {
           ) : (
             <p className="flex items-start gap-2 text-sm text-text-muted">
               <CircleAlert aria-hidden className="h-5 w-5 shrink-0 text-warning" />
-              Noch offen: {c.openItems.join(', ')}. Wird automatisch gespeichert.
+              Noch offen: {c.openItems.join(', ')}. Das Ausfüllen ist freiwillig; alles wird automatisch
+              gespeichert.
             </p>
           )}
           <Link

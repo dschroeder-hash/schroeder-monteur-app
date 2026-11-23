@@ -56,8 +56,7 @@ export class ReportService {
   }
 
   /**
-   * Everything "Arbeit abgeschlossen" needs: report with required fields, the service checklist (if a template
-   * applies, E-67) and the customer's signature or the reason why there is none (setting
+   * Everything "Arbeit abgeschlossen" needs: report with required fields and the customer's signature or the reason why there is none (setting
    * `completion.signatureRequired`, default on – E-68).
    */
   async completeness(tx: Tx, orderId: string) {
@@ -69,16 +68,7 @@ export class ReportService {
       await this.requiredFields(tx, order.locationId, order.orderTypeCode),
     );
     const missing = [...report.missing];
-    const def = await checklistFor(tx, order);
-    if (def) {
-      const [c] = await tx.select().from(orderChecklist).where(eq(orderChecklist.orderId, orderId));
-      const own = c && c.source === def.source && c.templateId === def.templateId ? c.results : {};
-      const open = checklistMissing(checklistItemsFor(def.items, order.orderTypeCode), {
-        ...def.bcAnswers,
-        ...own,
-      });
-      if (open.length) missing.push(`Checkliste (${open.length} offen)`);
-    }
+    // The service checklist is optional (customer decision, E-79): it never blocks "Arbeit abgeschlossen".
     if (await this.signatureRequired(tx, order.locationId)) {
       const [sig] = await tx.select().from(orderSignature).where(eq(orderSignature.orderId, orderId));
       if (!sig) missing.push('Unterschrift des Kunden');

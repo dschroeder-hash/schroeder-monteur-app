@@ -65,7 +65,8 @@ function Completion() {
   const tpl = c.tpl;
   const checklistDone = c.done;
   const signed = !!signature;
-  const ready = reportDone && checklistDone && signed;
+  // The checklist is optional (E-79) – it is shown, but never blocks.
+  const ready = reportDone && signed;
 
   const sign = async () => {
     await run('SignOrder', {
@@ -107,7 +108,7 @@ function Completion() {
       </Step>
 
       {tpl && (
-        <Step n={2} title={`Checkliste: ${tpl.title}`} done={checklistDone}>
+        <Step n={2} title={`Checkliste: ${tpl.title} (freiwillig)`} done={checklistDone}>
           {checklistDone ? (
             <p className="flex items-center gap-2 font-semibold text-success">
               <CircleCheck aria-hidden className="h-5 w-5" /> Checkliste vollständig ausgefüllt.{' '}
@@ -117,16 +118,16 @@ function Completion() {
             </p>
           ) : (
             <div className="flex flex-col gap-2">
-              <p className="flex items-start gap-2 font-semibold text-warning">
-                <CircleAlert aria-hidden className="h-5 w-5 shrink-0" />
-                Die Checkliste gehört zur Arbeitszeit – bitte vor dem Abschluss ausfüllen. Noch offen:{' '}
-                {c.openItems.join(', ')}
+              <p className="text-text-muted">
+                {c.started
+                  ? `Noch ${c.openItems.length} Punkt(e) offen – das Ausfüllen ist freiwillig.`
+                  : 'Noch nicht ausgefüllt – das Ausfüllen ist freiwillig.'}
               </p>
               <Link
                 href={`/monteur/checkliste?orderId=${orderId}`}
-                className="inline-flex min-h-touch items-center justify-center gap-2 self-start rounded-card bg-primary px-5 font-bold text-on-primary hover:bg-primary-hover"
+                className="inline-flex min-h-touch items-center justify-center gap-2 self-start rounded-card border-2 border-border bg-surface px-5 font-semibold"
               >
-                <ListChecks aria-hidden className="h-5 w-5" /> Checkliste ausfüllen
+                <ListChecks aria-hidden className="h-5 w-5" /> Checkliste öffnen
               </Link>
             </div>
           )}
@@ -211,7 +212,7 @@ function Completion() {
       </Button>
       {!ready && (
         <p className="-mt-6 text-center text-sm text-text-muted">
-          Erst möglich, wenn Bericht{tpl ? ', Checkliste' : ''} und Unterschrift vorliegen.
+          Erst möglich, wenn Bericht und Unterschrift vorliegen.
         </p>
       )}
     </div>

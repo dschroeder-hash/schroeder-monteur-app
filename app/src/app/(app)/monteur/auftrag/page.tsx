@@ -173,7 +173,7 @@ function OrderDetail() {
         {checklist.tpl && (
           <Link
             href={`/monteur/checkliste?orderId=${id}`}
-            className={`inline-flex min-h-touch flex-col items-center justify-center rounded-card border-2 px-3 py-2 text-center font-semibold ${checklist.done ? 'border-border bg-surface' : 'border-warning bg-warning-bg text-warning'}`}
+            className="inline-flex min-h-touch flex-col items-center justify-center rounded-card border-2 border-border bg-surface px-3 py-2 text-center font-semibold"
           >
             Servicecheckliste
             <span className="text-xs font-normal">
@@ -181,7 +181,7 @@ function OrderDetail() {
                 ? 'vollständig'
                 : checklist.started
                   ? `${checklist.openItems.length} offen`
-                  : 'noch nicht ausgefüllt'}
+                  : 'freiwillig'}
             </span>
           </Link>
         )}
