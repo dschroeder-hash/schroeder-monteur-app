@@ -103,12 +103,7 @@ describe('stock', () => {
   });
 });
 
-import {
-  parseShopCart,
-  parseShopCartText,
-  SHOP_CART_MARKER,
-  shopCartBookmarklet,
-} from './shop-cart.js';
+import { parseShopCart, parseShopCartText, SHOP_CART_MARKER, shopCartBookmarklet } from './shop-cart.js';
 
 describe('shop cart bookmark (E-77)', () => {
   it('reads the lines the bookmark copied, sums duplicates', () => {
