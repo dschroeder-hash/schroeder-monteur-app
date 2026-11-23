@@ -6,6 +6,8 @@ cd "$(dirname "$0")/.."
 URL="https://${CODESPACE_NAME:-localhost}-3000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
 {
   echo "▶ Demo startet automatisch (erster Start ca. 5 Minuten) …"
+  # pnpm via corepack (needs root once) – also when the codespace was created with an older configuration
+  command -v pnpm >/dev/null 2>&1 || sudo corepack enable || corepack enable
   # the database container may still be starting
   for _ in $(seq 1 60); do (echo >/dev/tcp/127.0.0.1/5432) 2>/dev/null && break; sleep 2; done
   if [ -d app/.next/standalone ]; then bash scripts/demo.sh --no-build; else bash scripts/demo.sh; fi
