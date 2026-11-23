@@ -15,6 +15,12 @@ test('part numbers dragged or pasted from the catalog are resolved against the i
   await page.goto(`/monteur/material?orderId=${href.split('id=')[1]}`);
   await expect(page.locator('[data-catalog="agco-start"]')).toBeVisible();
 
+  // ---- Catalog inside the page (E-74): the AGCO start page in a frame, closable ----
+  await page.getByRole('button', { name: 'Katalog hier anzeigen' }).click();
+  await expect(page.locator('iframe[title="AGCO-Teilekatalog"]')).toHaveAttribute('src', /agcocorp\.com/);
+  await page.getByRole('button', { name: 'Katalog ausblenden' }).click();
+  await expect(page.locator('iframe[title="AGCO-Teilekatalog"]')).toHaveCount(0);
+
   // ---- Several lines marked in the catalog and dropped onto the catalog area ----
   const data = await page.evaluateHandle(() => {
     const dt = new DataTransfer();

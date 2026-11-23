@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleCheck, ClipboardPaste, ExternalLink, ScanLine } from 'lucide-react';
+import { CircleCheck, ClipboardPaste, ExternalLink, PanelTop, ScanLine } from 'lucide-react';
 import {
   agcoDeeplinkAdapter,
   estimateDelivery,
@@ -59,10 +59,18 @@ function PartsPage() {
   const [dropActive, setDropActive] = useState(false);
   const machine = order?.items[0]?.machine;
   const [catalogTemplate, setCatalogTemplate] = useState<string | undefined>(undefined);
+  /** AGCO catalog inside the page (E-74) – Admin can switch it off; the Monteur opens/closes it. */
+  const [embedAllowed, setEmbedAllowed] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const [embedTall, setEmbedTall] = useState(true);
   useEffect(() => {
     if (navigator.onLine)
-      apiFetch<Array<{ id: string; template: string | null }>>('/v1/parts/catalogs')
-        .then((c) => setCatalogTemplate(c.find((x) => x.id === 'agco')?.template ?? undefined))
+      apiFetch<Array<{ id: string; template: string | null; embed?: boolean }>>('/v1/parts/catalogs')
+        .then((c) => {
+          const a = c.find((x) => x.id === 'agco');
+          setCatalogTemplate(a?.template ?? undefined);
+          setEmbedAllowed(a?.embed ?? false);
+        })
         .catch(() => undefined);
   }, []);
   const agco = agcoDeeplinkAdapter(catalogTemplate);
@@ -272,6 +280,16 @@ function PartsPage() {
           Herstellerkatalog (AGCO: Fendt, Valtra, Massey Ferguson)
         </h2>
         <div className="flex flex-wrap gap-2">
+          {agco.startUrl && embedAllowed && (
+            <Button
+              variant={embedOpen ? 'primary' : 'secondary'}
+              aria-expanded={embedOpen}
+              onClick={() => setEmbedOpen((o) => !o)}
+            >
+              <PanelTop aria-hidden className="h-5 w-5" />
+              {embedOpen ? 'Katalog ausblenden' : 'Katalog hier anzeigen'}
+            </Button>
+          )}
           {agco.startUrl && (
             <a
               className="inline-flex min-h-touch items-center gap-2 rounded-card bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover"
@@ -311,6 +329,28 @@ function PartsPage() {
             Teilenummer aus Zwischenablage
           </Button>
         </div>
+        {embedOpen && agco.startUrl && (
+          <div className="flex flex-col gap-2" data-testid="catalog-embed">
+            <iframe
+              title="AGCO-Teilekatalog"
+              src={agco.startUrl}
+              className={`w-full rounded-card border border-border bg-white ${embedTall ? 'h-[65vh]' : 'h-[40vh]'}`}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
+              referrerPolicy="no-referrer"
+              allow="clipboard-write"
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-text-muted">
+              <span>
+                Teilenummer im Katalog markieren und in diesen Kasten ziehen – oder kopieren und „Teilenummer
+                aus Zwischenablage“ tippen. Bleibt die Fläche leer oder klappt die Anmeldung nicht, lässt AGCO
+                die Anzeige in der App nicht zu: dann „AGCO-Katalog öffnen“.
+              </span>
+              <Button variant="ghost" onClick={() => setEmbedTall((t) => !t)}>
+                {embedTall ? 'Katalog kleiner' : 'Katalog größer'}
+              </Button>
+            </div>
+          </div>
+        )}
         <ol className="list-inside list-decimal text-sm text-text-muted">
           <li>
             <strong className="text-text">Nebeneinander auf dem iPad:</strong> „AGCO-Katalog öffnen“ gedrückt

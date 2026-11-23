@@ -54,7 +54,8 @@ const csp = [
   `img-src 'self' data: blob: https://*.blob.core.windows.net ${apiOrigin}`,
   "font-src 'self'",
   `connect-src 'self' ${apiOrigin} https://login.microsoftonline.com https://*.blob.core.windows.net wss://*.webpubsub.azure.com https://*.webpubsub.azure.com`,
-  'frame-src https://login.microsoftonline.com',
+  // AGCO parts catalog inside the parts page (E-74) – only the catalog's own hosts.
+  'frame-src https://login.microsoftonline.com https://parts.agcocorp.com https://*.agcocorp.com https://*.agcoparts.com',
   "media-src 'self' blob: mediastream:",
   "worker-src 'self'",
   "manifest-src 'self'",

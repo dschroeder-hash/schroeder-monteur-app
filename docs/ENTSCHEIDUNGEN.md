@@ -436,3 +436,8 @@ Ergänzung zu E-67 (21.11.2026): Die Checkliste bildet die BC-„Servicechecklis
 
 **Entscheidung:** Der Worker überträgt jedes hochgeladene Foto über die M-Files-REST-Schnittstelle: Datei hochladen, dann ein Dokument der konfigurierten Klasse mit Verweis auf das Maschinenobjekt (gefunden über die BC-Serviceartikelnummer) und der Auftragsnummer anlegen. Bestehende Objekte werden weder ausgecheckt noch geändert. Fehler (z. B. Maschine in M-Files unbekannt) stehen am Foto und werden bis zu 10-mal wiederholt; auf dem Gerät erscheint „in M-Files“. Tresor, Klasse und Eigenschafts-IDs sind Konfiguration (OP-48); ohne Konfiguration bleiben die Fotos im App-Speicher.
 **Begründung:** Heute hängen die Fotos am Maschinenobjekt in M-Files und werden in BC in der M-Files-Ansicht angesehen – der Ablageort bleibt gleich.
+
+### E-74 AGCO-Katalog in der Teile-Seite (Versuch, abschaltbar)
+
+**Entscheidung:** Auf der Teile-Seite zeigt „Katalog hier anzeigen“ die AGCO-Katalogseite in einem Rahmen über dem Warenkorb – ohne Fensterwechsel und ohne Split View. Teilenummern werden aus dem Rahmen in den Bereich „Herstellerkatalog“ gezogen oder über „Teilenummer aus Zwischenablage“ übernommen. Die App liest nichts aus dem Katalog (fremde Seite, getrennt vom App-Inhalt). Abschaltbar mit `partsCatalogs.agcoEmbed = false`; die Content-Security-Policy erlaubt Rahmen nur für die AGCO-Hosts.
+**Begründung:** Split View ist auf iPadOS 26 umständlich (Fenster-Apps). Ob AGCO die Anzeige in fremden Seiten zulässt (X-Frame-Options/CSP) und ob die AGCO-Anmeldung im Rahmen funktioniert (Safari blockiert Drittanbieter-Cookies), lässt sich nur mit dem echten Katalog auf dem iPad prüfen. Klappt es nicht, bleibt „AGCO-Katalog öffnen“ im neuen Fenster.

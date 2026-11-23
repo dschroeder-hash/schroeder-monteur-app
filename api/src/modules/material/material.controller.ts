@@ -105,7 +105,7 @@ export class MaterialController {
   @Roles(ROLES.Monteur, ROLES.Meister, ROLES.Lager)
   async catalogs(@Scope() s: AccessScope) {
     const cfg = await withSession(this.db, this.sess(s), (tx) =>
-      this.material.setting<{ agcoTemplate?: string }>(
+      this.material.setting<{ agcoTemplate?: string; agcoEmbed?: boolean }>(
         tx,
         s.locationIds[0] ?? '00000000-0000-0000-0000-000000000000',
         'partsCatalogs',
@@ -113,7 +113,16 @@ export class MaterialController {
       ),
     );
     const agco = agcoDeeplinkAdapter(cfg.agcoTemplate);
-    return [{ id: agco.id, label: agco.label, brands: agco.brands, template: cfg.agcoTemplate ?? null }];
+    return [
+      {
+        id: agco.id,
+        label: agco.label,
+        brands: agco.brands,
+        template: cfg.agcoTemplate ?? null,
+        // Catalog shown inside the parts page (E-74); switch off with partsCatalogs.agcoEmbed = false.
+        embed: cfg.agcoEmbed !== false,
+      },
+    ];
   }
 
   @Get('parts/requests')
