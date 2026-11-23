@@ -26,7 +26,8 @@ export interface PartsCatalogAdapter {
  * `{query}` placeholder the catalog start page is opened and the app copies the part/serial number to the
  * clipboard. Once the search URL is known, set setting `partsCatalogs.agcoTemplate`, e.g. `…?q={query}`.
  */
-export const AGCO_DEFAULT_TEMPLATE = 'https://parts.agcocorp.com/de/de/';
+/** Schröder's dealer link: the catalog opens with the Schröder shop already selected (link from AGCO). */
+export const AGCO_DEFAULT_TEMPLATE = 'https://parts.agcocorp.com/de/de/dealers/redirect/schroeder';
 
 export function agcoDeeplinkAdapter(template = AGCO_DEFAULT_TEMPLATE): PartsCatalogAdapter {
   return {
