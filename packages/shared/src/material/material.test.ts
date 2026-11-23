@@ -51,7 +51,7 @@ describe('AGCO deep link (no scraping)', () => {
   it('builds a search URL from part number or serial number', () => {
     // default: German catalog start page, query goes to the clipboard (search URL format unknown, OP-24)
     expect(agco.buildSearchUrl({ partNo: 'X548.880.400' })).toBe(
-      'https://parts.agcocorp.com/de/de/dealers/redirect/schroeder3',
+      'https://parts.agcocorp.com/de/de/dealers/redirect/schroeder',
     );
     expect(agco.searchInUrl).toBe(false);
     const withSearch = agcoDeeplinkAdapter('https://parts.agcocorp.com/de/de/search?q={query}');
@@ -63,7 +63,7 @@ describe('AGCO deep link (no scraping)', () => {
   });
   it('always offers the catalog start page, also without a number', () => {
     expect(agcoDeeplinkAdapter().startUrl).toBe(
-      'https://parts.agcocorp.com/de/de/dealers/redirect/schroeder3',
+      'https://parts.agcocorp.com/de/de/dealers/redirect/schroeder',
     );
     expect(agcoDeeplinkAdapter('https://parts.agcocorp.com/de/de/search?q={query}').startUrl).toBe(
       'https://parts.agcocorp.com/',
