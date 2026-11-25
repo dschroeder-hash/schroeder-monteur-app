@@ -129,8 +129,6 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
   // Catalog hand-back (E-80): no sign-in, the session secret in the address identifies Monteur and order.
   'POST /v1/parts/catalog-return/{token}': { public: true },
   'GET /v1/parts/catalog-return/{token}': { public: true },
-  // Test dealer catalog (demo/tests only, 404 in prod).
-  'GET /v1/dev/partsbook': { public: true },
   'GET /v1/parts/requests': { allowed: ['meister-wild', 'lager-wild'] },
   'POST /v1/parts/requests/{id}/state': {
     allowed: ['meister-wild', 'lager-wild'],
