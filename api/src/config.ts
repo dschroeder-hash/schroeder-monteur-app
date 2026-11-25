@@ -65,6 +65,11 @@ const schema = z
      * 'mock' (dev/test: fixed lines, no external call) or 'off'.
      */
     CART_AI: z.enum(['off', 'claude', 'mock']).default('off'),
+    /**
+     * Manufacturer catalogs with hand-back (E-80) as JSON array of {id,label,brands,url,mode}; `{HOOK_URL}` in url
+     * enables the cart hand-back. The database setting partsCatalogs.catalogs wins. Unset: start pages only.
+     */
+    PARTS_CATALOGS: z.string().optional(),
     CART_AI_MODEL: z.string().default('claude-opus-5-5'),
     /** Set by the worker entry point: the worker does not validate user tokens. */
     COMPONENT: z.enum(['api', 'worker']).default('api'),

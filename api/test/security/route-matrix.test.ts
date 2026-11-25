@@ -121,10 +121,16 @@ const MATRIX: Record<string, { public?: boolean; allowed?: Persona[]; sample?: s
   'GET /v1/items/resolve': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
   'GET /v1/parts/catalogs': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
   'POST /v1/parts/cart-from-image': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
-  'PUT /v1/me/shop-cart-link': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
   'GET /v1/parts/shop-cart/inbox': { allowed: ['monteur-wild', 'meister-wild', 'lager-wild'] },
-  // Bookmark → app (E-78): no sign-in, the personal link token identifies the user.
-  'POST /v1/parts/shop-cart': { public: true },
+  'POST /v1/parts/catalog-sessions': {
+    allowed: ['monteur-wild', 'meister-wild', 'lager-wild'],
+    body: { catalogId: 'agco', orderId: null },
+  },
+  // Catalog hand-back (E-80): no sign-in, the session secret in the address identifies Monteur and order.
+  'POST /v1/parts/catalog-return/{token}': { public: true },
+  'GET /v1/parts/catalog-return/{token}': { public: true },
+  // Test dealer catalog (demo/tests only, 404 in prod).
+  'GET /v1/dev/partsbook': { public: true },
   'GET /v1/parts/requests': { allowed: ['meister-wild', 'lager-wild'] },
   'POST /v1/parts/requests/{id}/state': {
     allowed: ['meister-wild', 'lager-wild'],

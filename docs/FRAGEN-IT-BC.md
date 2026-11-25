@@ -50,3 +50,10 @@ Systemen läuft, fehlen diese Angaben. Details zu jeder Frage stehen in `OFFENE-
     - je Standort ein Konto für den Werkstatt-PC anlegen;
     - Conditional Access für diese PCs festlegen: feste Geräte, keine wiederholte MFA-Abfrage.
 12. **Mitarbeiter ohne Microsoft-Konto:** Wer legt sie in der App an (Name, Personalnummer, Standort)?
+
+## Dienstleister Teileshop / AGCO / LexCom
+
+13. **Herstellerkataloge (OP-51):** Wie ruft der Schröder-Teileshop das AGCO-Partsbook und den Grimme-Katalog auf
+    (vollständige Adresse mit Händler-ID, ohne Passwort im Klartext an uns schicken)? In welchem Format kommt der
+    Warenkorb zurück (OCI-Formular `NEW_ITEM-*`, cXML oder anderes)? Bitte die Rücksprung-Adresse der Werkstatt-App
+    zusätzlich freischalten: `https://<api-adresse>/v1/parts/catalog-return/…`.

@@ -85,6 +85,8 @@ export async function createApp(
   );
   app.use('/v1/speech/transcribe', express.raw({ type: () => true, limit: '5mb' }));
   app.use('/v1/parts/cart-from-image', express.raw({ type: () => true, limit: '6mb' }));
+  // OCI hand-back from the manufacturer catalogs (E-80): flat keys like NEW_ITEM-VENDORMAT[1], no nested parse.
+  app.use('/v1/parts/catalog-return', express.urlencoded({ extended: false, limit: '1mb' }));
   app.enableCors({ origin: config.CORS_ORIGINS.split(',').map((s) => s.trim()), credentials: false });
   app.enableShutdownHooks();
   return app;

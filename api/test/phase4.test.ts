@@ -409,6 +409,6 @@ describe('search, scan and catalogs', () => {
 
   it('offers the AGCO catalog as deep link only', async () => {
     const res = await api(app).get('/v1/parts/catalogs').set(as('monteur-wild'));
-    expect(res.body[0]).toMatchObject({ id: 'agco' });
+    expect(res.body.catalogs[0]).toMatchObject({ id: 'agco' });
   });
 });

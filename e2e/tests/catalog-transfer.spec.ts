@@ -13,10 +13,10 @@ test('part numbers dragged or pasted from the catalog are resolved against the i
   await expect(page.getByRole('heading', { name: /Heute fällig/ })).toBeVisible({ timeout: 20_000 });
   const href = (await page.locator('section[aria-labelledby="heute"] a').first().getAttribute('href'))!;
   await page.goto(`/monteur/material?orderId=${href.split('id=')[1]}`);
-  await expect(page.locator('[data-catalog="agco-start"]')).toBeVisible();
+  await expect(page.locator('[data-catalog="agco"]')).toBeVisible();
 
   // ---- Catalog inside the page (E-74): the AGCO start page full screen, closable ----
-  await page.getByRole('button', { name: 'Katalog hier anzeigen' }).click();
+  await page.getByRole('button', { name: 'AGCO-Katalog' }).click();
   await expect(page.locator('iframe[title="AGCO-Teilekatalog"]')).toHaveAttribute('src', /agcocorp\.com/);
   // Full screen: a part number dropped on the bar above the catalog shows up below it, the catalog stays open.
   const one = await page.evaluateHandle(() => {

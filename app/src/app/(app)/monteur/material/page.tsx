@@ -15,9 +15,6 @@ import {
   estimateDelivery,
   extractPartNos,
   normalizePartNo,
-  parseShopCart,
-  parseShopCartText,
-  shopCartBookmarklet,
   type Bundesland,
 } from '@schroeder/shared';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -47,74 +44,20 @@ interface RemoteItem {
 
 const field = 'min-h-touch rounded-card border border-border bg-surface px-3';
 
-/**
- * One-time setup of the personal bookmark "→ Werkstatt-App" (E-78). Laptop: drag the link to the bookmarks bar.
- * iPad: bookmark any page, then replace its address with the copied code (or IT distributes it via MDM).
- */
-function BookmarkSetup({ onClose }: { onClose: () => void }) {
-  const link = useRef<HTMLAnchorElement>(null);
-  const [code, setCode] = useState<string | null>(null);
-  const create = async () => {
-    try {
-      const { token } = await apiFetch<{ token: string }>('/v1/me/shop-cart-link', { method: 'PUT' });
-      setCode(shopCartBookmarklet(`${window.location.origin}${config.basePath}`, token));
-    } catch {
-      toast('Lesezeichen nicht erzeugt – bitte mit Verbindung erneut versuchen');
-    }
-  };
-  // React blocks javascript: URLs in JSX – set the bookmark target directly on the element.
-  useEffect(() => {
-    if (code) link.current?.setAttribute('href', code);
-  }, [code]);
-  const copy = () =>
-    void navigator.clipboard
-      ?.writeText(code ?? '')
-      .then(() => toast('Lesezeichen-Code kopiert'))
-      .catch(() => toast('Kopieren nicht möglich'));
-  return (
-    <div
-      className="flex flex-col gap-2 rounded-card border border-border bg-surface-muted p-3 text-sm"
-      data-testid="bookmark-setup"
-    >
-      <p className="font-semibold">Einmalig einrichten: Lesezeichen „→ Werkstatt-App“</p>
-      <p>
-        Im AGCO-Warenkorb auf das Lesezeichen tippen – fertig. Die App holt sich den ganzen Warenkorb mit
-        Mengen von selbst, auch auf einem anderen Gerät. Das Lesezeichen gehört nur Ihnen.
-      </p>
-      {!code ? (
-        <Button className="self-start" onClick={() => void create()}>
-          Mein Lesezeichen erzeugen
-        </Button>
-      ) : (
-        <>
-          <p>
-            <strong>Laptop:</strong> diesen Knopf in die Lesezeichenleiste ziehen:{' '}
-            <a
-              ref={link}
-              onClick={(e) => e.preventDefault()}
-              className="inline-flex min-h-touch items-center rounded-card border-2 border-primary px-3 font-semibold text-primary"
-            >
-              → Werkstatt-App
-            </a>
-          </p>
-          <p>
-            <strong>iPad:</strong> beliebige Seite als Lesezeichen sichern, Namen „→ Werkstatt-App“ geben,
-            Adresse durch den Code ersetzen:{' '}
-            <Button variant="secondary" onClick={copy}>
-              Code kopieren
-            </Button>
-          </p>
-          <p className="text-text-muted">
-            Ein neues Lesezeichen ersetzt das alte. Benutzung: AGCO-Warenkorb in Safari bzw. im Browser-Tab
-            öffnen → Lesezeichen tippen → zurück in die App.
-          </p>
-        </>
-      )}
-      <Button variant="ghost" className="self-start" onClick={onClose}>
-        Schließen
-      </Button>
-    </div>
-  );
+/** "AGCO (Fendt, …)" → "AGCO-Katalog"; a label that already says Katalog stays. */
+const catalogName = (label: string) => {
+  const short = label.split(' (')[0]!;
+  return /katalog/i.test(short) ? short : `${short}-Katalog`;
+};
+
+/** A manufacturer catalog tile (E-80); `handBack`: the catalog returns its cart to the app. */
+interface CatalogTile {
+  id: string;
+  label: string;
+  brands: string[];
+  mode: 'iframe' | 'popup';
+  handBack: boolean;
+  url: string | null;
 }
 
 /** Parts like in a shop (PROMPT 5.5): search, scan, cart per order, take from warehouse/van or request. */
@@ -149,9 +92,13 @@ function PartsPage() {
   const [dropActive, setDropActive] = useState(false);
   const machine = order?.items[0]?.machine;
   const [catalogTemplate, setCatalogTemplate] = useState<string | undefined>(undefined);
-  /** AGCO catalog inside the page (E-74) – Admin can switch it off; the Monteur opens/closes it. */
+  const [catalogs, setCatalogs] = useState<CatalogTile[]>([]);
+  /** Frame catalogs inside the page (E-74) – Admin can switch it off (then own window). */
   const [embedAllowed, setEmbedAllowed] = useState(false);
-  const [embedOpen, setEmbedOpen] = useState(false);
+  /** Catalog shown large inside the page: its address and name; null = closed. */
+  const [embed, setEmbed] = useState<{ src: string; label: string } | null>(null);
+  const embedOpen = !!embed;
+  const setEmbedOpen = (open: boolean) => !open && setEmbed(null);
   /** Results panel under the large catalog: opens when a part number comes over, closable. */
   const [embedPanel, setEmbedPanel] = useState(false);
   useEffect(() => {
@@ -162,15 +109,16 @@ function PartsPage() {
   }, [embedOpen]);
   useEffect(() => {
     if (navigator.onLine)
-      apiFetch<Array<{ id: string; template: string | null; embed?: boolean }>>('/v1/parts/catalogs')
-        .then((c) => {
-          const a = c.find((x) => x.id === 'agco');
-          setCatalogTemplate(a?.template ?? undefined);
-          setEmbedAllowed(a?.embed ?? false);
+      apiFetch<{ catalogs: CatalogTile[]; agcoTemplate: string | null; embed: boolean }>('/v1/parts/catalogs')
+        .then((r) => {
+          setCatalogs(r.catalogs);
+          setCatalogTemplate(r.agcoTemplate ?? undefined);
+          setEmbedAllowed(r.embed);
         })
         .catch(() => undefined);
   }, []);
   const agco = agcoDeeplinkAdapter(catalogTemplate);
+  const agcoHandBack = catalogs.some((c) => c.id === 'agco' && c.handBack);
   /** Without a search URL the catalog opens on its start page; the number is put on the clipboard (OP-24). */
   const copyForCatalog = (q: string) => {
     if (agco.searchInUrl) return;
@@ -314,11 +262,11 @@ function PartsPage() {
       setCartBusy(false);
     }
   };
-  const takeShopCartRef = useRef<(l: Array<{ partNo: string; quantity: number }>) => Promise<void>>(
+  const takeCartRef = useRef<(l: Array<{ partNo: string; quantity: number }>) => Promise<void>>(
     async () => undefined,
   );
-  /** Lines copied by the bookmark "Warenkorb kopieren" (E-77): resolved against the item master, with quantity. */
-  const takeShopCart = async (lines: Array<{ partNo: string; quantity: number }>) => {
+  /** Cart handed back by a catalog (E-80): resolved against the item master, with quantity – the tractor flies. */
+  const takeCatalogCart = async (lines: Array<{ partNo: string; quantity: number }>) => {
     setCartBusy(true);
     setCatalogList(lines.map((l) => ({ partNo: l.partNo, quantity: l.quantity, state: 'pending' })));
     setEmbedPanel(true);
@@ -327,46 +275,61 @@ function PartsPage() {
       setCatalogList((cur) => cur.map((c) => (c.partNo === l.partNo ? { ...c, ...hit } : c)));
     }
     setCartBusy(false);
-    toast(`${lines.length} Positionen aus dem Warenkorb übernommen – bitte prüfen`);
-    void navigator.clipboard?.writeText('').catch(() => undefined); // not taken over twice
+    toast(`${lines.length} Positionen aus dem Herstellerkatalog übernommen – bitte prüfen`);
   };
-  takeShopCartRef.current = takeShopCart;
-  /**
-   * "Warenkorb übertragen": first the clipboard (filled by the bookmark on the shop page – the whole cart, also
-   * what is scrolled out of view); otherwise, if enabled, a picture of the cart read by the AI (E-76).
-   */
-  /** Carts sent by the bookmark (E-78), picked up by the app – merged into one list. */
+  takeCartRef.current = takeCatalogCart;
+  /** Picks up carts the catalogs handed back for this order (E-80) and merges them into one list. */
   const pickUp = useCallback(async () => {
-    if (!navigator.onLine || document.visibilityState !== 'visible') return false;
+    if (!orderId || !navigator.onLine || document.visibilityState !== 'visible') return false;
     try {
-      const { carts } = await apiFetch<{ carts: Array<Array<{ partNo: string; quantity: number }>> }>(
-        '/v1/parts/shop-cart/inbox',
-      );
-      const lines = carts.flat();
+      const { carts } = await apiFetch<{
+        carts: Array<{ lines: Array<{ partNo: string; quantity: number }> }>;
+      }>(`/v1/parts/shop-cart/inbox?orderId=${encodeURIComponent(orderId)}`);
+      const lines = carts.flatMap((c) => c.lines);
       if (!lines.length) return false;
-      await takeShopCartRef.current(lines);
+      await takeCartRef.current(lines);
       return true;
     } catch {
       return false;
     }
-  }, []);
+  }, [orderId]);
+  /** Opens a catalog: with hand-back via a session (return address for this order), large in the page or as window. */
+  const openCatalog = async (c: CatalogTile) => {
+    if (!navigator.onLine) return toast('Der Herstellerkatalog braucht eine Verbindung');
+    const inPage = c.mode === 'iframe' && embedAllowed;
+    // Open the window right away (still inside the tap), otherwise the browser blocks it as a popup.
+    const win = inPage ? null : window.open('', `katalog-${c.id}`);
+    try {
+      const r = c.handBack
+        ? await apiFetch<{ url: string }>('/v1/parts/catalog-sessions', {
+            method: 'POST',
+            body: JSON.stringify({ catalogId: c.id, orderId: orderId || null }),
+          })
+        : { url: c.url ?? '' };
+      // A path (test catalog in demo/tests) lives on the API's address.
+      const url = new URL(r.url, config.apiUrl || window.location.origin).toString();
+      if (inPage) setEmbed({ src: url, label: c.label });
+      else if (win) win.location.href = url;
+      else window.location.href = url;
+    } catch {
+      win?.close();
+      toast('Katalog konnte nicht geöffnet werden – bitte erneut versuchen');
+    }
+  };
+  // "Warenkorb übergeben" in the catalog: its answer page tells the app at once; otherwise the app looks when it
+  // is shown again and every few seconds.
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if ((e.data as { type?: string } | null)?.type !== 'werkstatt-catalog-cart') return;
+      setEmbed(null);
+      void pickUp();
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [pickUp]);
+  /** "Warenkorb übertragen" (only with AI enabled, E-76): a picture of a cart without hand-back. */
   const transferCart = async () => {
     if (await pickUp()) return;
-    let text = '';
-    try {
-      text = (await navigator.clipboard?.readText()) ?? '';
-    } catch {
-      /* not allowed – continue with the picture */
-    }
-    // Bookmark format, or the cart page copied as text (select all + copy) – both read the whole cart.
-    const lines = parseShopCart(text) ?? parseShopCartText(text);
-    if (lines?.length) return takeShopCart(lines);
-    if (!cartAi) {
-      setBookmarkHelp(true);
-      return toast(
-        'Erst im AGCO-Warenkorb das Lesezeichen „Warenkorb kopieren“ tippen, dann hier übertragen',
-      );
-    }
     if (!navigator.onLine) return toast('Für die Warenkorb-Übernahme wird eine Verbindung benötigt');
     if (canCaptureTab()) {
       const img = await captureTab();
@@ -375,7 +338,6 @@ function PartsPage() {
     toast('Bildschirmfoto vom Warenkorb auswählen (vorher am iPad: Ein/Aus-Taste + Lauter-Taste)');
     cartFile.current?.click();
   };
-  // The bookmark sends from the shop tab; the app picks the cart up when it is shown again, and every few seconds.
   useEffect(() => {
     if (!orderId) return;
     void pickUp();
@@ -424,8 +386,8 @@ function PartsPage() {
         (short.length ? ` – nicht genug Bestand: ${short.join(', ')}` : ''),
     );
   };
-  const [bookmarkHelp, setBookmarkHelp] = useState(false);
-  const cartButton = (
+  // Picture + AI only as stop-gap for catalogs without hand-back (E-76); with hand-back it is not needed.
+  const cartButton = cartAi && !catalogs.some((c) => c.handBack) && (
     <Button variant="secondary" onClick={() => void transferCart()} disabled={cartBusy} aria-busy={cartBusy}>
       <MagicTractor busy={cartBusy} />
       {cartBusy ? 'Warenkorb wird gelesen …' : 'Warenkorb übertragen'}
@@ -579,32 +541,25 @@ function PartsPage() {
             }`}
           >
             <h2 id="hersteller" className="font-bold">
-              Herstellerkatalog (AGCO: Fendt, Valtra, Massey Ferguson)
+              Herstellerkataloge
             </h2>
             <div className="flex flex-wrap gap-2">
-              {agco.startUrl && embedAllowed && (
+              {catalogs.map((c) => (
                 <Button
-                  variant={embedOpen ? 'primary' : 'secondary'}
-                  aria-expanded={embedOpen}
-                  onClick={() => setEmbedOpen((o) => !o)}
+                  key={c.id}
+                  variant={c.brands.includes(machine?.brand.toUpperCase() ?? '') ? 'primary' : 'secondary'}
+                  onClick={() => void openCatalog(c)}
+                  data-catalog={c.id}
                 >
-                  <Maximize2 aria-hidden className="h-5 w-5" />
-                  Katalog hier anzeigen
+                  {c.mode === 'iframe' && embedAllowed ? (
+                    <Maximize2 aria-hidden className="h-5 w-5" />
+                  ) : (
+                    <ExternalLink aria-hidden className="h-5 w-5" />
+                  )}
+                  {catalogName(c.label)}
                 </Button>
-              )}
-              {agco.startUrl && (
-                <a
-                  className="inline-flex min-h-touch items-center gap-2 rounded-card bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover"
-                  href={agco.startUrl}
-                  target="_blank"
-                  rel="noopener"
-                  data-catalog="agco-start"
-                >
-                  <ExternalLink aria-hidden className="h-5 w-5" />
-                  AGCO-Katalog öffnen
-                </a>
-              )}
-              {machine?.serialNo && agco.brands.includes(machine.brand.toUpperCase()) && (
+              ))}
+              {!agcoHandBack && machine?.serialNo && agco.brands.includes(machine.brand.toUpperCase()) && (
                 <a
                   className="inline-flex min-h-touch items-center rounded-card border-2 border-border px-4 font-semibold"
                   href={agco.buildSearchUrl({ serialNo: machine.serialNo }) ?? '#'}
@@ -615,7 +570,7 @@ function PartsPage() {
                   AGCO: Seriennr. {machine.serialNo}
                 </a>
               )}
-              {text && (
+              {!agcoHandBack && text && (
                 <a
                   className="inline-flex min-h-touch items-center rounded-card border-2 border-border px-4 font-semibold"
                   href={agco.buildSearchUrl({ partNo: text }) ?? '#'}
@@ -632,28 +587,16 @@ function PartsPage() {
                 Teilenummer aus Zwischenablage
               </Button>
             </div>
-            {bookmarkHelp ? (
-              <BookmarkSetup onClose={() => setBookmarkHelp(false)} />
-            ) : (
-              <button
-                type="button"
-                className="self-start text-sm font-semibold text-primary underline"
-                onClick={() => setBookmarkHelp(true)}
-              >
-                Lesezeichen „→ Werkstatt-App“ einrichten
-              </button>
+            {catalogs.some((c) => c.handBack) && (
+              <p className="text-sm text-text-muted">
+                <strong className="text-text">So geht’s:</strong> Katalog öffnen, Teile in den Warenkorb legen
+                und im Katalog den Warenkorb übergeben – die Teile erscheinen hier mit Menge.
+              </p>
             )}
-            <ol className="list-inside list-decimal text-sm text-text-muted">
-              <li>
-                <strong className="text-text">Nebeneinander auf dem iPad:</strong> „AGCO-Katalog öffnen“
-                gedrückt halten und an den rechten Bildschirmrand ziehen.
-              </li>
-              <li>
-                Im Katalog Teilenummer (oder mehrere Zeilen) markieren und{' '}
-                <strong className="text-text">hierher ziehen</strong> – oder kopieren und „Teilenummer aus
-                Zwischenablage“ tippen.
-              </li>
-            </ol>
+            <p className="text-sm text-text-muted">
+              Teilenummer im Katalog markieren und <strong className="text-text">hierher ziehen</strong> –
+              oder kopieren und „Teilenummer aus Zwischenablage“ tippen.
+            </p>
             <div className="flex gap-2">
               <label className="sr-only" htmlFor="paste">
                 Teilenummer aus dem Katalog
@@ -678,7 +621,7 @@ function PartsPage() {
         </>
       )}
 
-      {embedOpen && agco.startUrl && (
+      {embed && (
         <div
           role="region"
           aria-label="AGCO-Teilekatalog"
@@ -739,8 +682,8 @@ function PartsPage() {
             )}
           </div>
           <iframe
-            title="AGCO-Teilekatalog"
-            src={agco.startUrl}
+            title={`${embed.label.split(' (')[0]}-Teilekatalog`}
+            src={embed.src}
             className="min-h-0 w-full flex-1 bg-white"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
             referrerPolicy="strict-origin"

@@ -19,13 +19,7 @@ import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import {
-  agcoDeeplinkAdapter,
-  availableQuantity,
-  belowMinimum,
-  extractPartNo,
-  ROLES,
-} from '@schroeder/shared';
+import { catalogHasHandBack, availableQuantity, belowMinimum, extractPartNo, ROLES } from '@schroeder/shared';
 import type { AccessScope } from '../../auth/auth.types.js';
 import { RequireFeature, Roles, Scope } from '../../auth/decorators.js';
 import { AuditService } from '../../common/audit.service.js';
@@ -44,6 +38,8 @@ import {
 import { notify } from '../notifications.js';
 import { FeatureService } from '../../features/feature.service.js';
 import { MaterialService } from './material.service.js';
+import { catalogsFor, settingsFor } from './catalogs.js';
+import { APP_CONFIG, type AppConfig } from '../../config.js';
 import {
   CART_IMAGE_TYPES,
   CART_READER,
@@ -83,6 +79,7 @@ export class MaterialController {
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(CART_READER) private readonly cartReader: CartReader,
     @Inject(FeatureService) private readonly features: FeatureService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   private sess(s: AccessScope) {
@@ -154,29 +151,28 @@ export class MaterialController {
     return { partNo, items };
   }
 
-  /** Configured manufacturer catalogs – deep links only (no data is fetched from the catalog). */
+  /**
+   * Configured manufacturer catalogs (E-80): tiles on the parts page. `handBack`: the catalog returns the cart to
+   * the app (open it via POST parts/catalog-sessions). `agcoTemplate`: search link format of the public AGCO shop.
+   */
   @Get('parts/catalogs')
   @Roles(ROLES.Monteur, ROLES.Meister, ROLES.Lager)
   async catalogs(@Scope() s: AccessScope) {
-    const cfg = await withSession(this.db, this.sess(s), (tx) =>
-      this.material.setting<{ agcoTemplate?: string; agcoEmbed?: boolean }>(
-        tx,
-        s.locationIds[0] ?? '00000000-0000-0000-0000-000000000000',
-        'partsCatalogs',
-        {},
-      ),
-    );
-    const agco = agcoDeeplinkAdapter(cfg.agcoTemplate);
-    return [
-      {
-        id: agco.id,
-        label: agco.label,
-        brands: agco.brands,
-        template: cfg.agcoTemplate ?? null,
-        // Catalog shown inside the parts page (E-74); switch off with partsCatalogs.agcoEmbed = false.
-        embed: cfg.agcoEmbed !== false,
-      },
-    ];
+    const cfg = await settingsFor(this.db, this.material, s);
+    const list = await catalogsFor(this.db, this.material, this.config, s);
+    return {
+      catalogs: list.map((c) => ({
+        id: c.id,
+        label: c.label,
+        brands: c.brands,
+        mode: c.mode,
+        handBack: catalogHasHandBack(c),
+        url: catalogHasHandBack(c) ? null : c.url,
+      })),
+      agcoTemplate: cfg.agcoTemplate ?? null,
+      // Frame catalogs inside the parts page (E-74); off with partsCatalogs.agcoEmbed = false → own window.
+      embed: cfg.agcoEmbed !== false,
+    };
   }
 
   @Get('parts/requests')

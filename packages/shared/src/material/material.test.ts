@@ -103,63 +103,49 @@ describe('stock', () => {
   });
 });
 
-import { parseShopCart, parseShopCartText, SHOP_CART_MARKER, shopCartBookmarklet } from './shop-cart.js';
+import { catalogHasHandBack, catalogUrl, DEFAULT_CATALOGS, parseOciCart } from './punchout.js';
 
-describe('shop cart bookmark (E-77)', () => {
-  it('reads the lines the bookmark copied, sums duplicates', () => {
+describe('catalog hand-back (OCI, E-80)', () => {
+  it('reads the OCI cart lines with quantities and names', () => {
     expect(
-      parseShopCart(`${SHOP_CART_MARKER}\nX548844266000\t1\nF530200220390\t2\nx548844266000\t3\nPreis\tx`),
+      parseOciCart({
+        'NEW_ITEM-VENDORMAT[1]': 'X548844266000',
+        'NEW_ITEM-QUANTITY[1]': '1.000',
+        'NEW_ITEM-DESCRIPTION[1]': 'O-RING',
+        'NEW_ITEM-MATNR[2]': 'F530200220390',
+        'NEW_ITEM-QUANTITY[2]': '2,000',
+        'NEW_ITEM-DESCRIPTION[2]': 'LICHTMASCHINE',
+        'NEW_ITEM-VENDORMAT[3]': 'x548844266000',
+        'NEW_ITEM-QUANTITY[3]': '3',
+        'NEW_ITEM-DESCRIPTION[4]': 'ohne Teilenummer',
+        '~OkCode': 'ADDI',
+      }),
     ).toEqual([
-      { partNo: 'X548844266000', quantity: 4 },
-      { partNo: 'F530200220390', quantity: 2 },
+      { partNo: 'X548844266000', quantity: 4, name: 'O-RING' },
+      { partNo: 'F530200220390', quantity: 2, name: 'LICHTMASCHINE' },
     ]);
-    expect(parseShopCart('AGCO-Teilenr. X548844266000')).toBeNull();
   });
-  it('bookmark is a single-line javascript: URL that sends the page text to the app (E-78)', () => {
-    const code = shopCartBookmarklet('https://werkstatt.example/app/', 'tok-123');
-    expect(code.startsWith('javascript:')).toBe(true);
-    expect(code).not.toMatch(/\s/);
-    const js = decodeURI(code.slice('javascript:'.length));
-    let opened = '';
-    const fakeDocument = { body: { innerText: 'AGCO-Teilenr. X548844266000\n1 X 2,32 € pro Stück\nÖl' } };
-    new Function('document', 'window', 'location', js)(
-      fakeDocument,
-      { open: (u: string) => ((opened = u), {}) },
-      {},
+  it('quantities: German and English decimals, fractions for fluids, nonsense = 1', () => {
+    const q = (v: string) =>
+      parseOciCart({ 'NEW_ITEM-VENDORMAT[1]': 'A123', 'NEW_ITEM-QUANTITY[1]': v })[0]!.quantity;
+    expect(q('1.234,5')).toBe(1234.5);
+    expect(q('1,234.5')).toBe(1234.5);
+    expect(q('2,5')).toBe(2.5);
+    expect(q('abc')).toBe(1);
+    expect(q('-3')).toBe(1);
+  });
+  it('catalog address with return address; defaults have no hand-back until configured', () => {
+    const c = {
+      id: 'agco',
+      label: 'AGCO',
+      brands: [],
+      url: 'https://x.test/?HOOK_URL={HOOK_URL}&D=1',
+      mode: 'iframe' as const,
+    };
+    expect(catalogHasHandBack(c)).toBe(true);
+    expect(catalogUrl(c, 'https://api.test/v1/parts/catalog-return/abc')).toBe(
+      'https://x.test/?HOOK_URL=https%3A%2F%2Fapi.test%2Fv1%2Fparts%2Fcatalog-return%2Fabc&D=1',
     );
-    expect(opened.startsWith('https://werkstatt.example/app/warenkorb-senden#t=tok-123&p=')).toBe(true);
-    const text = Buffer.from(opened.split('&p=')[1]!, 'base64url').toString('utf8');
-    expect(text).toContain('Öl');
-    expect(parseShopCartText(text)).toEqual([{ partNo: 'X548844266000', quantity: 1 }]);
-  });
-});
-
-describe('shop cart page text (E-77)', () => {
-  it('takes cart lines with quantity, skips recommendations', () => {
-    const page = [
-      'Warenkorb',
-      'O-RING',
-      'AGCO-Teilenr. X548844266000',
-      '1',
-      '2,32 €',
-      '1 X 2,32 € pro Stück',
-      'Vorrätig',
-      'Entfernen',
-      'LICHTMASCHINE',
-      'AGCO-Teilenr.',
-      'F530200220390',
-      '2',
-      '1.826,00 €',
-      '2 X 913,00 € pro Stück',
-      'Empfohlene Artikel',
-      'KEILRIEMEN',
-      'AGCO-Teilenr. X999000111222',
-      '12,50 €',
-      'Zusammenfassung der Bestellanfrage',
-    ].join('\n');
-    expect(parseShopCartText(page)).toEqual([
-      { partNo: 'X548844266000', quantity: 1 },
-      { partNo: 'F530200220390', quantity: 2 },
-    ]);
+    expect(DEFAULT_CATALOGS.some(catalogHasHandBack)).toBe(false);
   });
 });

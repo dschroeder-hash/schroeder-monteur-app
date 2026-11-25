@@ -18,7 +18,6 @@ const OFFLINE_PAGES = [
   '/monteur/chat',
   '/monteur/abschluss',
   '/monteur/checkliste',
-  '/warenkorb-senden',
   '/monteur/artikel',
   '/monteur/produktivitaet',
   '/chat',
@@ -56,8 +55,9 @@ const csp = [
   `img-src 'self' data: blob: https://*.blob.core.windows.net ${apiOrigin}`,
   "font-src 'self'",
   `connect-src 'self' ${apiOrigin} https://login.microsoftonline.com https://*.blob.core.windows.net wss://*.webpubsub.azure.com https://*.webpubsub.azure.com`,
-  // AGCO parts catalog inside the parts page (E-74) – only the catalog's own hosts.
-  'frame-src https://login.microsoftonline.com https://parts.agcocorp.com https://*.agcocorp.com https://*.agcoparts.com',
+  // Manufacturer catalogs inside the parts page (E-74/E-80) – only the catalogs' own hosts; 'self'/API for the
+  // answer page of the cart hand-back, which loads inside the catalog frame.
+  `frame-src 'self' ${apiOrigin} https://login.microsoftonline.com https://parts.agcocorp.com https://*.agcocorp.com https://*.agcoparts.com https://www.agroparts.com`,
   "media-src 'self' blob: mediastream:",
   "worker-src 'self'",
   "manifest-src 'self'",

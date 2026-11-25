@@ -51,6 +51,7 @@ APP_ENV=dev PORT=4000 AUTH_MODE=dev DEV_AUTH_SECRET=demo-secret-demo-secret-demo
   DATABASE_URL="postgres://monteur_api_demo:demo@$HOSTPART/monteur_demo" CORS_ORIGINS=http://localhost:3000 \
   PUBLIC_API_URL=http://localhost:3000 LOCAL_STORAGE_DIR=/tmp/monteur-demo-uploads \
   CART_AI="${CART_AI:-$([ -n "${ANTHROPIC_API_KEY:-}" ] && echo claude || echo mock)}" \
+  PARTS_CATALOGS='[{"id":"agco","label":"AGCO (Fendt, Valtra, Massey Ferguson)","brands":["FENDT","VALTRA","MF","AGCO"],"url":"https://parts.agcocorp.com/de/de/dealers/redirect/schroeder11","mode":"iframe"},{"id":"testkatalog","label":"Testkatalog","brands":[],"url":"/v1/dev/partsbook?HOOK_URL={HOOK_URL}","mode":"iframe"}]' \
   nohup node api/dist/main.js >"$LOGS/api.log" 2>&1 &
 APP_ENV=dev BC_MODE=mock BC_API_BASE_URL=http://localhost:4100/api BC_TOKEN_URL=http://localhost:4100/oauth2/token \
   WORKER_HEALTH_PORT=4001 DATABASE_URL="postgres://monteur_worker_demo:demo@$HOSTPART/monteur_demo" \

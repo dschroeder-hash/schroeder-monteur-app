@@ -1270,22 +1270,26 @@ export const userPin = pgTable('user_pin', {
 });
 
 /**
- * Personal link for the bookmark "→ Werkstatt-App" (E-78): the bookmark on the shop page sends the cart with this
- * secret; only its SHA-256 hash is stored. A new link replaces the old one.
+ * Open catalog session (E-80): the app opened a manufacturer catalog for an order; the catalog returns the cart to
+ * the return address with this secret (only its SHA-256 hash is stored). Valid for 8 hours.
  */
-export const shopCartLink = pgTable(
-  'shop_cart_link',
+export const catalogSession = pgTable(
+  'catalog_session',
   {
+    id: uuid('id').primaryKey().defaultRandom(),
     userId: uuid('user_id')
-      .primaryKey()
+      .notNull()
       .references(() => appUser.id, { onDelete: 'cascade' }),
+    orderId: uuid('order_id').references(() => serviceOrder.id, { onDelete: 'cascade' }),
+    catalogId: text('catalog_id').notNull(),
     tokenHash: text('token_hash').notNull(),
-    ...timestamps,
+    expiresAt: ts('expires_at').notNull(),
+    createdAt: ts('created_at').notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('shop_cart_link_token_uq').on(t.tokenHash)],
+  (t) => [uniqueIndex('catalog_session_token_uq').on(t.tokenHash)],
 );
 
-/** Carts sent from the shop, waiting until the app picks them up (then deleted; older than a day: dropped). */
+/** Carts handed back by a catalog, waiting until the app picks them up (then deleted; older than a day: dropped). */
 export const shopCartInbox = pgTable(
   'shop_cart_inbox',
   {
@@ -1293,7 +1297,9 @@ export const shopCartInbox = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => appUser.id, { onDelete: 'cascade' }),
-    lines: jsonb('lines').$type<Array<{ partNo: string; quantity: number }>>().notNull(),
+    orderId: uuid('order_id').references(() => serviceOrder.id, { onDelete: 'cascade' }),
+    catalogId: text('catalog_id').notNull(),
+    lines: jsonb('lines').$type<Array<{ partNo: string; quantity: number; name: string | null }>>().notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
   (t) => [index('shop_cart_inbox_user_idx').on(t.userId)],

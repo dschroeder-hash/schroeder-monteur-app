@@ -55,6 +55,23 @@ export default defineConfig({
         APP_ENV: 'test',
         PORT: '4010',
         CART_AI: 'mock',
+        // E-80: public AGCO shop in the frame (no hand-back) + test dealer catalog with OCI hand-back.
+        PARTS_CATALOGS: JSON.stringify([
+          {
+            id: 'agco',
+            label: 'AGCO (Fendt, Valtra, Massey Ferguson)',
+            brands: ['FENDT', 'VALTRA', 'MF', 'AGCO'],
+            url: 'https://parts.agcocorp.com/de/de/dealers/redirect/schroeder11',
+            mode: 'iframe',
+          },
+          {
+            id: 'testkatalog',
+            label: 'Testkatalog',
+            brands: [],
+            url: '/v1/dev/partsbook?HOOK_URL={HOOK_URL}',
+            mode: 'iframe',
+          },
+        ]),
         AUTH_MODE: 'dev',
         DEV_AUTH_SECRET: 'e2e-secret-e2e-secret-e2e-secret-1234',
         DATABASE_URL: `postgres://monteur_api_e2e:e2e@${host}/${E2E_DB}`,
